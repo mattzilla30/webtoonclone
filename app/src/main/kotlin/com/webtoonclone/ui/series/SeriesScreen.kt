@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -199,7 +200,7 @@ fun SeriesScreen(
                     }
                 }
                 items(page.chapters, key = { it.id }) { chapter ->
-                    EpisodeRow(chapter, summary.coverUrl) { open(chapter) }
+                    EpisodeRow(chapter, summary.coverUrl, read = isChapterRead(chapter.number, lastRead?.chapterNumber)) { open(chapter) }
                 }
                 if (loadingMore) {
                     item {
@@ -246,9 +247,9 @@ private fun Description(text: String) {
 }
 
 @Composable
-private fun EpisodeRow(chapter: Chapter, coverUrl: String?, onClick: () -> Unit) {
+private fun EpisodeRow(chapter: Chapter, coverUrl: String?, read: Boolean, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().alpha(if (read) 0.5f else 1f).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f))

@@ -143,7 +143,7 @@ fun PickTile(
     ) {
         Column {
             Box {
-                Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Crop)
+                Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Fit)
                 if (subscribed) {
                     Icon(
                         Icons.Default.Notifications,

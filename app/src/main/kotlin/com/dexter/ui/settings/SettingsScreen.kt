@@ -312,11 +312,13 @@ private fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, selecte
 /** An hour of the day (0 to 23) with minus and plus buttons that wrap around midnight. */
 @Composable
 private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        FilledTonalIconButton(onClick = { onChange((hour + 23) % 24) }) { Text("\u2212", style = MaterialTheme.typography.titleMediumEmphasized) }
-        Text("%02d:00".format(hour), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(horizontal = 12.dp))
-        FilledTonalIconButton(onClick = { onChange((hour + 1) % 24) }) { Text("+", style = MaterialTheme.typography.titleMediumEmphasized) }
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            FilledTonalIconButton(onClick = { onChange((hour + 23) % 24) }) { Text("\u2212", style = MaterialTheme.typography.titleMediumEmphasized) }
+            Text("%02d:00".format(hour), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(horizontal = 12.dp))
+            FilledTonalIconButton(onClick = { onChange((hour + 1) % 24) }) { Text("+", style = MaterialTheme.typography.titleMediumEmphasized) }
+        }
     }
 }
 

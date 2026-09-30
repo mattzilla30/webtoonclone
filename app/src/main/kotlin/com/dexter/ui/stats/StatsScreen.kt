@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dexter.R
 import com.dexter.data.ReadingStats
+import com.dexter.ui.AppTopBar
 import com.dexter.ui.iconTap
 import java.time.format.TextStyle
 
@@ -34,10 +35,7 @@ import java.time.format.TextStyle
 fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
     val stats by viewModel.stats.collectAsState()
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
-            Text(stringResource(R.string.reading_stats), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
-        }
+        AppTopBar(stringResource(R.string.reading_stats), onBack)
         val current = stats
         if (current != null) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {

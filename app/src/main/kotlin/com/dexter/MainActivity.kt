@@ -36,7 +36,13 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailItem
+import androidx.compose.material3.WideNavigationRailValue
+import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -194,6 +200,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
         // One inset pad for the whole app keeps every screen between the status and navigation bars.
         Box(Modifier.fillMaxSize().background(rootBackground).systemBarsPadding()) {
             val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
+            val motion = MaterialTheme.motionScheme
             Row(Modifier.fillMaxSize()) {
                 if (wide && onTab) SideRail(nav, route?.substringBefore('?'))
                 Scaffold(
@@ -206,10 +213,10 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                         nav,
                         startDestination = "home",
                         modifier = Modifier.padding(padding),
-                        enterTransition = { fadeIn(tween(200)) + slideInHorizontally(tween(250)) { it / 12 } },
-                        exitTransition = { fadeOut(tween(150)) },
-                        popEnterTransition = { fadeIn(tween(200)) },
-                        popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(250)) { it / 12 } },
+                        enterTransition = { fadeIn(motion.defaultEffectsSpec()) + slideInHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
+                        exitTransition = { fadeOut(motion.fastEffectsSpec()) },
+                        popEnterTransition = { fadeIn(motion.defaultEffectsSpec()) },
+                        popExitTransition = { fadeOut(motion.fastEffectsSpec()) + slideOutHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
                     ) {
                         composable("home") {
                             val vm = koinViewModel<HomeViewModel>()
@@ -310,20 +317,15 @@ private fun NavHostController.navigateTab(route: String) {
 
 @Composable
 private fun SideRail(nav: NavHostController, current: String?) {
-    NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+    val state = rememberWideNavigationRailState()
+    WideNavigationRail(state = state) {
         tabs.forEach { tab ->
-            NavigationRailItem(
+            WideNavigationRailItem(
                 selected = current == tab.route,
                 onClick = { nav.navigateTab(tab.route) },
                 icon = { Icon(tab.icon, contentDescription = null) },
                 label = { Text(tab.label) },
-                colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = Color.Transparent,
-                    unselectedIconColor = Color(0xFF8A8A8A),
-                    unselectedTextColor = Color(0xFF8A8A8A),
-                ),
+                railExpanded = state.targetValue == WideNavigationRailValue.Expanded,
             )
         }
     }
@@ -331,20 +333,13 @@ private fun SideRail(nav: NavHostController, current: String?) {
 
 @Composable
 private fun BottomBar(nav: NavHostController, current: String?) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+    ShortNavigationBar {
         tabs.forEach { tab ->
-            NavigationBarItem(
+            ShortNavigationBarItem(
                 selected = current == tab.route,
                 onClick = { nav.navigateTab(tab.route) },
-                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                icon = { Icon(tab.icon, contentDescription = null) },
                 label = { Text(tab.label) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = Color.Transparent,
-                    unselectedIconColor = Color(0xFF8A8A8A),
-                    unselectedTextColor = Color(0xFF8A8A8A),
-                ),
             )
         }
     }

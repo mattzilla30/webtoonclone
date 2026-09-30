@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dexter.R
 import com.dexter.data.formatBytes
+import com.dexter.ui.AppTopBar
 import com.dexter.ui.iconTap
 
 @Composable
@@ -37,16 +38,16 @@ fun DownloadsScreen(
     val groups by viewModel.groups.collectAsState()
     val total = groups.orEmpty().sumOf { it.bytes }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
-            Column(Modifier.weight(1f).padding(start = 16.dp)) {
-                Text(stringResource(R.string.downloads), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(formatBytes(total), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (total > 0) {
-                Text(stringResource(R.string.remove_all), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.deleteAll() })
-            }
-        }
+        AppTopBar(
+            stringResource(R.string.downloads),
+            onBack,
+            subtitle = formatBytes(total),
+            actions = {
+                if (total > 0) {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.deleteAll() }) { Text(stringResource(R.string.remove_all)) }
+                }
+            },
+        )
         val list = groups
         if (list.isNullOrEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

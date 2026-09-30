@@ -49,6 +49,7 @@ import com.dexter.data.ReaderBackground
 import com.dexter.data.ThemeMode
 import com.dexter.data.Themes
 import com.dexter.data.formatBytes
+import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.iconTap
 
@@ -100,9 +101,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
+        AppTopBar(stringResource(R.string.settings))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             SectionTitle("Appearance")
             ChoiceRow(

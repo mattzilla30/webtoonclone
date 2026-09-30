@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dexter.R
+import com.dexter.ui.AppTopBar
 import com.dexter.ui.LoadView
 import com.dexter.ui.PickTile
 import com.dexter.ui.adaptiveColumns
@@ -48,21 +49,17 @@ fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, o
     val loadingMore by viewModel.loadingMore.collectAsState()
     val following by viewModel.following.collectAsState()
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
-            Text(name.ifBlank { "Author" }, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
-            Text(
-                if (following) "Following" else "+ Follow",
-                color = if (following) Color.Black else MaterialTheme.colorScheme.primary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
-                    .then(if (following) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier.border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)))
-                    .clickable { viewModel.toggleFollow(name) }
-                    .padding(horizontal = 12.dp, vertical = 5.dp),
-            )
-        }
+        AppTopBar(
+            name.ifBlank { "Author" },
+            onBack,
+            actions = {
+                androidx.compose.material3.ToggleButton(
+                    checked = following,
+                    onCheckedChange = { viewModel.toggleFollow(name) },
+                    modifier = Modifier.padding(end = 8.dp),
+                ) { Text(if (following) "Following" else "Follow") }
+            },
+        )
         LoadView(state, onRetry = viewModel::load) { series ->
             if (series.isEmpty()) {
                 Text(stringResource(R.string.no_series_found), modifier = Modifier.padding(16.dp))

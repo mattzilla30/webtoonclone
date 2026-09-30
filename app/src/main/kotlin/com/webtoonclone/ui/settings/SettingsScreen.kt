@@ -46,7 +46,7 @@ import com.webtoonclone.ui.iconTap
 import com.webtoonclone.ui.theme.Green
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val settings by viewModel.settings.collectAsState()
     val library by viewModel.library.collectAsState()
     val cacheBytes by viewModel.cacheBytes.collectAsState()
@@ -174,21 +174,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
                 Text(stringResource(R.string.restore_backup), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
             }
 
-            SectionTitle("Privacy")
-            SwitchRow(
-                "Save crash reports",
-                "Keep the last crash on this device and offer to share it next launch. Nothing is sent unless you choose to share it.",
-                settings.crashReports,
-            ) { on -> viewModel.update { it.copy(crashReports = on) } }
-
-            SectionTitle("About")
-            Row(
-                Modifier.fillMaxWidth().clickable(onClick = onOpenAbout).padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.credits_and_licenses), fontSize = 14.sp, modifier = Modifier.weight(1f))
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-            }
             Text("", modifier = Modifier.padding(bottom = 24.dp))
         }
     }

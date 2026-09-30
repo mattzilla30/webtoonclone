@@ -1,7 +1,6 @@
 package com.webtoonclone.di
 
 import com.webtoonclone.WebtoonApp
-import com.webtoonclone.data.CrashLog
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.OfflineStore
@@ -35,10 +34,9 @@ val appModule = module {
     single { ProgressStore(androidContext()) }
     single { LibraryStore(androidContext()) }
     single { SeriesCacheStore(androidContext()) }
-    single { CrashLog(androidContext()) }
     single { OfflineStore(androidContext()) }
 
-    viewModel { HomeViewModel(get(), get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { UpdatesViewModel(get(), get()) }
     viewModel { LibraryViewModel(get()) }

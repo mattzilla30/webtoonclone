@@ -111,8 +111,6 @@ data class LibraryData(
     val sortAlphabetical: Boolean = false,
     /** The last search sort chosen, as an [Order] name. */
     val searchOrder: String = "Popular",
-    /** True once the first-launch tip on the home screen has been dismissed. */
-    val hintDismissed: Boolean = false,
     /** Series you put in reading lists, each with its status. */
     val lists: List<SavedSeries> = emptyList(),
     /** True once the lists moved from the old single file into the database. */

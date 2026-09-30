@@ -15,7 +15,6 @@ class SettingsTest {
         assertEquals(ThemeMode.Dark, s.theme)
         assertFalse(s.dataSaver)
         assertFalse(s.originalTitles)
-        assertFalse(s.crashReports)
         assertTrue(s.reportImageLoads)
     }
 
@@ -25,12 +24,5 @@ class SettingsTest {
         assertEquals(ThemeMode.Light, loaded.theme)
         assertTrue(loaded.dataSaver)
         assertEquals(22, loaded.quietStartHour)
-    }
-
-    @Test
-    fun theWelcomeShowsOnlyForNewPeople() {
-        assertTrue(shouldShowWelcome(welcomeDone = false, hintDismissed = false))
-        assertFalse(shouldShowWelcome(welcomeDone = true, hintDismissed = false))
-        assertFalse(shouldShowWelcome(welcomeDone = false, hintDismissed = true))
     }
 }

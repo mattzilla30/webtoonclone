@@ -165,8 +165,6 @@ class LibraryStore(private val context: Context) {
         dao.clearSearches()
     }
 
-    suspend fun dismissHint() = updateScalars { it.copy(hintDismissed = true) }
-
     suspend fun setSearchOrder(order: String) = updateScalars { it.copy(searchOrder = order) }
 
     suspend fun setSortAlphabetical(alphabetical: Boolean) = updateScalars { it.copy(sortAlphabetical = alphabetical) }

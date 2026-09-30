@@ -62,12 +62,4 @@ class LibraryDataTest {
         val back = json.decodeFromString<HomeContent>(json.encodeToString(HomeContent.serializer(), home))
         assertEquals(home, back)
     }
-
-    @Test
-    fun hintShowsUntilDismissedAndStaysDismissed() {
-        assertFalse(json.decodeFromString<LibraryData>("{}").hintDismissed)
-        val dismissed = LibraryData(hintDismissed = true)
-        val back = json.decodeFromString<LibraryData>(json.encodeToString(LibraryData.serializer(), dismissed))
-        assertTrue(back.hintDismissed)
-    }
 }

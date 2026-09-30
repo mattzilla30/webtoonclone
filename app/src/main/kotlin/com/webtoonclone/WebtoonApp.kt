@@ -6,7 +6,6 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import com.webtoonclone.data.CrashLog
 import com.webtoonclone.data.ImageReportInterceptor
 import com.webtoonclone.data.ImageReporter
 import com.webtoonclone.data.LibraryStore
@@ -47,7 +46,6 @@ class WebtoonApp : Application(), SingletonImageLoader.Factory {
     val progressStore: ProgressStore by inject()
     val libraryStore: LibraryStore by inject()
     val seriesCache: SeriesCacheStore by inject()
-    val crashLog: CrashLog by inject()
     val offlineStore: OfflineStore by inject()
 
     override fun onCreate() {
@@ -57,7 +55,6 @@ class WebtoonApp : Application(), SingletonImageLoader.Factory {
             modules(appModule)
         }
         NewChaptersWorker.schedule(this)
-        crashLog.install()
         // Keep the parts that read settings off the main thread in step with what you choose.
         appScope.launch {
             libraryStore.data
@@ -69,7 +66,6 @@ class WebtoonApp : Application(), SingletonImageLoader.Factory {
             settingsStore.settings.collect { settings ->
                 repository.applySettings(settings)
                 reportImageLoads = settings.reportImageLoads
-                crashLog.enabled = settings.crashReports
             }
         }
     }

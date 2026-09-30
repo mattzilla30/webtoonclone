@@ -15,31 +15,17 @@ android {
         applicationId = "com.webtoonclone"
         minSdk = 37
         targetSdk = 37
-        // CI passes the run number as VERSION_CODE. Local builds stay at 1.
-        versionCode = providers.environmentVariable("VERSION_CODE").orNull?.toIntOrNull() ?: 1
-        versionName = providers.gradleProperty("VERSION_NAME").orNull ?: "0.1.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = 1
+        versionName = "0.1.0"
 
         // 64-bit ARM only. Emulators on x86_64 hosts need an arm64 system image.
         ndk { abiFilters += "arm64-v8a" }
     }
 
-    // Signing reads ~/.gradle/gradle.properties or -P flags. Nothing secret lives in the repo.
-    val keystorePath = providers.gradleProperty("RELEASE_STORE_FILE").orNull
-    signingConfigs {
-        if (keystorePath != null) {
-            create("release") {
-                storeFile = file(keystorePath)
-                storePassword = providers.gradleProperty("RELEASE_STORE_PASSWORD").get()
-                keyAlias = providers.gradleProperty("RELEASE_KEY_ALIAS").get()
-                keyPassword = providers.gradleProperty("RELEASE_KEY_PASSWORD").get()
-            }
-        }
-    }
-
     buildTypes {
         release {
-            if (keystorePath != null) signingConfig = signingConfigs.getByName("release")
+            // Personal build: the debug key signs it, so it installs without any keystore setup.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -73,11 +59,6 @@ dependencies {
     implementation(libs.koin.compose)
     implementation(libs.androidx.profileinstaller)
     testImplementation(libs.koin.test)
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.compose.ui.test.junit4)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    debugImplementation(libs.compose.ui.test.manifest)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

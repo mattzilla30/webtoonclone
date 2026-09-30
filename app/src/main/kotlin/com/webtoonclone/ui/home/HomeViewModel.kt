@@ -2,14 +2,12 @@ package com.webtoonclone.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.webtoonclone.data.CrashLog
 import com.webtoonclone.data.HomeContent
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.data.SettingsStore
-import com.webtoonclone.data.shouldShowWelcome
 import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,31 +23,7 @@ class HomeViewModel(
     private val repository: MangaDexRepository,
     private val libraryStore: LibraryStore,
     private val settingsStore: SettingsStore,
-    private val crashLog: CrashLog,
 ) : ViewModel() {
-    /** True until the first-launch walkthrough is finished. Starts false so it never flashes before storage loads. */
-    val showWelcome: StateFlow<Boolean> = combine(settingsStore.settings, libraryStore.data) { settings, library ->
-        shouldShowWelcome(settings.welcomeDone, library.hintDismissed)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
-    fun finishWelcome() {
-        viewModelScope.launch {
-            settingsStore.update { it.copy(welcomeDone = true) }
-            // The walkthrough covers the older one-time tip, so both are done.
-            libraryStore.dismissHint()
-        }
-    }
-
-    private val _crashReport = MutableStateFlow(crashLog.pending())
-
-    /** The report saved by the last crash, if crash reports are on and one happened. */
-    val crashReport: StateFlow<String?> = _crashReport
-
-    fun dismissCrashReport() {
-        crashLog.clear()
-        _crashReport.value = null
-    }
-
     /** Series you read recently, newest first, for the Continue Reading row. */
     val recent: StateFlow<List<SavedSeries>> = libraryStore.data
         .map { lib -> lib.recent.filter { it.chapterId != null }.take(10) }
@@ -57,11 +31,6 @@ class HomeViewModel(
 
     private val _state = MutableStateFlow<Load<HomeContent>>(Load.Loading)
     val state: StateFlow<Load<HomeContent>> = _state
-
-    /** True until the first-launch tip is dismissed. Starts false so it never flashes before storage loads. */
-    val showHint: StateFlow<Boolean> = libraryStore.data
-        .map { !it.hintDismissed }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Ids of series you subscribe to, so tiles can show a marker. */
     val subscribedIds: StateFlow<Set<String>> = libraryStore.data
@@ -94,10 +63,6 @@ class HomeViewModel(
             )
             _toast.value = subscriptionMessage(series.title, nowSubscribed = !already)
         }
-    }
-
-    fun dismissHint() {
-        viewModelScope.launch { libraryStore.dismissHint() }
     }
 
     /** When the shown content is a saved copy because the network failed, the time it was saved. */

@@ -15,18 +15,9 @@ echo "sdk.dir=/path/to/android-sdk" > local.properties
 The APK lands in `app/build/outputs/apk/debug/`. An emulator on an x86_64 host needs an
 arm64 system image, because the APK ships no x86 libraries.
 
-## Signed release
+## Install
 
-Add these to `~/.gradle/gradle.properties`, then run `./gradlew :app:assembleRelease`:
-
-```
-RELEASE_STORE_FILE=/path/to/release.jks
-RELEASE_STORE_PASSWORD=...
-RELEASE_KEY_ALIAS=...
-RELEASE_KEY_PASSWORD=...
-```
-
-Without them the release APK is unsigned.
+This is a personal app. The release build is signed with the debug key, so `./gradlew :app:assembleRelease` gives an APK you can install directly.
 
 ## Features added in this round
 
@@ -37,7 +28,7 @@ Without them the release APK is unsigned.
 - Author pages, similar series, scanlation group credits with a preferred group per series, volume headings, and a content language setting.
 - Paged reading modes, zoom, and tap zones in the reader.
 - Side navigation rail and wider cover grids on tablets. Screen transitions.
-- Koin for dependency injection, a hand-written baseline profile, Compose UI tests in `androidTest` (compile-checked in CI, run them on a device with `./gradlew :app:connectedDebugAndroidTest`), CI and release workflows. See `RELEASING.md`.
+- Koin for dependency injection, a hand-written baseline profile, and a CI workflow (style, lint, unit tests, release build).
 
 ## Settings
 
@@ -48,8 +39,6 @@ My Series has a gear icon that opens Settings:
 - English or original (romanized) titles.
 - Notifications on or off, and quiet hours.
 - Cache size with a Clear cache button.
-- Saving crash reports on the device, which is off until you turn it on.
-- Credits and licenses.
 
 ## Code style
 

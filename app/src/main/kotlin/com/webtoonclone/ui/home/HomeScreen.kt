@@ -74,11 +74,8 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val recent by viewModel.recent.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
-    val showHint by viewModel.showHint.collectAsState()
     val subscribedIds by viewModel.subscribedIds.collectAsState()
     val toast by viewModel.toast.collectAsState()
-    val showWelcome by viewModel.showWelcome.collectAsState()
-    val crashReport by viewModel.crashReport.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val haptic = LocalHapticFeedback.current
 
@@ -121,33 +118,6 @@ fun HomeScreen(
                     }
                 }
                 home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
-
-                if (showHint) {
-                    item {
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                                .padding(16.dp),
-                        ) {
-                            Text(stringResource(R.string.never_miss_a_chapter), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(
-                                "Tap Subscribe on a series page. The app checks every 30 minutes and notifies you when a new chapter comes out.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 6.dp),
-                            )
-                            Text(
-                                "Got it",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = Green,
-                                modifier = Modifier.clickable { viewModel.dismissHint() },
-                            )
-                        }
-                    }
-                }
 
                 if (recent.isNotEmpty()) {
                     item { SectionHeader("Continue Reading") }
@@ -193,9 +163,6 @@ fun HomeScreen(
                 item { Box(Modifier.height(24.dp)) }
             }
         }
-
-        if (showWelcome) WelcomeDialog(onFinish = viewModel::finishWelcome)
-        crashReport?.let { report -> CrashReportDialog(report, onDone = viewModel::dismissCrashReport) }
 
         toast?.let { message ->
             LaunchedEffect(message) {

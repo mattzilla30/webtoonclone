@@ -77,7 +77,6 @@ import com.webtoonclone.ui.search.SearchScreen
 import com.webtoonclone.ui.search.SearchViewModel
 import com.webtoonclone.ui.series.SeriesScreen
 import com.webtoonclone.ui.series.SeriesViewModel
-import com.webtoonclone.ui.settings.AboutScreen
 import com.webtoonclone.ui.settings.SettingsScreen
 import com.webtoonclone.ui.settings.SettingsViewModel
 import com.webtoonclone.ui.theme.DarkTheme
@@ -243,9 +242,8 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
                         }
                         composable("settings") {
                             val vm = koinViewModel<SettingsViewModel>()
-                            SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenAbout = { nav.navigate("about") })
+                            SettingsScreen(vm, onBack = { nav.popBackStack() })
                         }
-                        composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
                         composable("series/{seriesId}") { entry ->
                             val seriesId = entry.arguments!!.getString("seriesId")!!
                             val vm = koinViewModel<SeriesViewModel> { parametersOf(seriesId) }

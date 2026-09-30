@@ -42,9 +42,6 @@ data class Settings(
     val autoScrollLevel: Int = 0,
     /** Volume keys scroll the reader by a page. */
     val volumeKeys: Boolean = false,
-    /** Save a crash report on the device so it can be shared next launch. Off unless you turn it on. */
-    val crashReports: Boolean = false,
-    val welcomeDone: Boolean = false,
     /** MangaDex language code for chapters, titles, and descriptions. */
     val language: String = "en",
     /** The scanlation group to prefer for each series, by series id. */
@@ -52,9 +49,6 @@ data class Settings(
     /** A reading mode chosen for one series. A series with no entry uses Auto. */
     val seriesReadingModes: Map<String, ReadingMode> = emptyMap(),
 )
-
-/** Whether to show the first-launch walkthrough. People who already dismissed the old tip skip it. */
-fun shouldShowWelcome(welcomeDone: Boolean, hintDismissed: Boolean): Boolean = !welcomeDone && !hintDismissed
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 private val SETTINGS = stringPreferencesKey("settings")

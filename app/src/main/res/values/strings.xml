@@ -45,10 +45,6 @@
     <string name="dimming">Dimming</string>
     <string name="background">Background</string>
     <string name="auto_scroll">Auto-scroll</string>
-    <string name="credits_and_licenses">Credits and licenses</string>
-    <string name="series_and_chapters">Series and chapters</string>
-    <string name="open_source_libraries">Open-source libraries</string>
-    <string name="apache_license_2_0">Apache License 2.0</string>
     <string name="restore_this_backup">Restore this backup?</string>
     <string name="restore">Restore</string>
     <string name="ok">OK</string>
@@ -56,9 +52,4 @@
     <string name="clear_cache">Clear cache</string>
     <string name="save_backup">Save backup</string>
     <string name="restore_backup">Restore backup</string>
-    <string name="skip">Skip</string>
-    <string name="the_app_closed_unexpectedly">The app closed unexpectedly</string>
-    <string name="share_the_crash_report_it_holds_the_erro">Share the crash report? It holds the error, the app version, and your device model, and nothing else.</string>
-    <string name="no_thanks">No thanks</string>
-    <string name="never_miss_a_chapter">Never miss a chapter</string>
 </resources>

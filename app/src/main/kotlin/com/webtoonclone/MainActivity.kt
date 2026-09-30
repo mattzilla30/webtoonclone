@@ -47,8 +47,11 @@ import androidx.navigation.compose.rememberNavController
 import com.webtoonclone.data.ReaderBackground
 import com.webtoonclone.data.Settings
 import com.webtoonclone.notify.EXTRA_CHAPTER_ID
+import com.webtoonclone.notify.EXTRA_ROUTE
 import com.webtoonclone.notify.EXTRA_SERIES_ID
+import com.webtoonclone.notify.MangaDexLink
 import com.webtoonclone.notify.openRoutes
+import com.webtoonclone.notify.parseMangaDexLink
 import com.webtoonclone.ui.home.HomeScreen
 import com.webtoonclone.ui.home.HomeViewModel
 import com.webtoonclone.ui.library.LibraryScreen
@@ -73,7 +76,7 @@ import com.webtoonclone.ui.updates.UpdatesViewModel
 import android.graphics.Color as AndroidColor
 
 /** A notification tap: the series to open, and the chapter to open on top of it when there is one. */
-private data class PendingOpen(val seriesId: String, val chapterId: String?)
+private data class PendingOpen(val seriesId: String?, val chapterId: String?, val route: String? = null)
 
 class MainActivity : ComponentActivity() {
     /** Counts app opens. The home screen reshuffles its picks when this changes. */
@@ -82,8 +85,16 @@ class MainActivity : ComponentActivity() {
     /** Set when a notification opens the app. Consumed once by the navigation host. */
     private var pending by mutableStateOf<PendingOpen?>(null)
 
-    private fun readPending(intent: android.content.Intent): PendingOpen? =
-        intent.getStringExtra(EXTRA_SERIES_ID)?.let { PendingOpen(it, intent.getStringExtra(EXTRA_CHAPTER_ID)) }
+    private fun readPending(intent: android.content.Intent): PendingOpen? {
+        val link = intent.data?.let { parseMangaDexLink(it.host, it.pathSegments.orEmpty()) }
+        return when {
+            link is MangaDexLink.Title -> PendingOpen(link.id, null)
+            link is MangaDexLink.Chapter -> PendingOpen(null, link.id)
+            intent.hasExtra(EXTRA_SERIES_ID) -> PendingOpen(intent.getStringExtra(EXTRA_SERIES_ID), intent.getStringExtra(EXTRA_CHAPTER_ID))
+            intent.hasExtra(EXTRA_ROUTE) -> PendingOpen(null, null, intent.getStringExtra(EXTRA_ROUTE))
+            else -> null
+        }
+    }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
@@ -135,7 +146,13 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
     val route = backStackEntry?.destination?.route
     LaunchedEffect(open) {
         if (open != null) {
-            openRoutes(open.seriesId, open.chapterId).forEach { nav.navigate(it) }
+            if (open.route in tabs.map { it.route }) {
+                nav.navigateTab(open.route!!)
+            } else {
+                // A chapter link names only the chapter, so ask MangaDex which series it belongs to.
+                val seriesId = open.seriesId ?: open.chapterId?.let { runCatching { app.repository.seriesIdForChapter(it) }.getOrNull() }
+                if (seriesId != null) openRoutes(seriesId, open.chapterId).forEach { nav.navigate(it) }
+            }
             onOpened()
         }
     }

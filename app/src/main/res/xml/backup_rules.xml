@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
     <include domain="database" path="library.db" />
+    <include domain="database" path="library.db-wal" />
+    <include domain="database" path="library.db-shm" />
     <include domain="file" path="datastore" />
 </full-backup-content>

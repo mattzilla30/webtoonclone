@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_search">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.webtoonclone.MainActivity"
+            android:targetPackage="com.webtoonclone">
+            <extra android:name="route" android:value="search" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="library"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_library">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.webtoonclone.MainActivity"
+            android:targetPackage="com.webtoonclone">
+            <extra android:name="route" android:value="library" />
+        </intent>
+    </shortcut>
+</shortcuts>

@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit
 private const val CHANNEL_ID = "new_chapters"
 private const val WORK_NAME = "new-chapters"
 const val EXTRA_SERIES_ID = "seriesId"
+const val EXTRA_ROUTE = "route"
 const val EXTRA_CHAPTER_ID = "chapterId"
 
 /** Checks subscribed series for chapters newer than the last one seen and posts a notification. */

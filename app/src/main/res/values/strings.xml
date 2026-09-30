@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Webtoon Clone</string>
+    <string name="shortcut_search">Search</string>
+    <string name="shortcut_library">My Series</string>
+    <string name="widget_heading">CONTINUE READING</string>
+    <string name="widget_empty">Open a series to start reading</string>
+    <string name="widget_description">Jump back to the chapter you read last</string>
 </resources>

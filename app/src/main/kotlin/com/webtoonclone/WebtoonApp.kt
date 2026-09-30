@@ -17,10 +17,13 @@ import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.SettingsStore
 import com.webtoonclone.data.cachingClient
 import com.webtoonclone.notify.NewChaptersWorker
+import com.webtoonclone.notify.updateContinueReading
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
@@ -49,6 +52,12 @@ class WebtoonApp : Application(), SingletonImageLoader.Factory {
         NewChaptersWorker.schedule(this)
         crashLog.install()
         // Keep the parts that read settings off the main thread in step with what you choose.
+        appScope.launch {
+            libraryStore.data
+                .map { library -> library.recent.firstOrNull { it.chapterId != null } }
+                .distinctUntilChanged()
+                .collect { last -> updateContinueReading(this@WebtoonApp, last) }
+        }
         appScope.launch {
             settingsStore.settings.collect { settings ->
                 repository.applySettings(settings)

@@ -243,7 +243,6 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                     vm,
                                     onOpenSeries = { nav.navigate("series/$it") },
                                     onOpenSearch = { nav.navigateTab("search") },
-                                    onOpenSettings = { nav.navigateTab("settings") },
                                 )
                             }
                         }

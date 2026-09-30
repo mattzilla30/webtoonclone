@@ -61,7 +61,6 @@ fun LibraryScreen(
     viewModel: LibraryViewModel,
     onOpenSeries: (String) -> Unit,
     onOpenSearch: () -> Unit,
-    onOpenSettings: () -> Unit,
 ) {
     val library by viewModel.library.collectAsState()
     var tabKey by rememberSaveable { mutableStateOf(LibraryList.Recent.key) }
@@ -103,7 +102,6 @@ fun LibraryScreen(
                         modifier = Modifier.clickable { viewModel.setNotifications(!library.notificationsEnabled) },
                     )
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search), modifier = Modifier.iconTap(onOpenSearch))
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings), modifier = Modifier.iconTap(onOpenSettings))
                 }
             }
             Row(Modifier.fillMaxWidth()) {

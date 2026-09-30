@@ -6,6 +6,7 @@ import com.webtoonclone.data.HomeContent
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SavedSeries
+import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,39 @@ class HomeViewModel(
     val showHint: StateFlow<Boolean> = libraryStore.data
         .map { !it.hintDismissed }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Ids of series you subscribe to, so tiles can show a marker. */
+    val subscribedIds: StateFlow<Set<String>> = libraryStore.data
+        .map { lib -> lib.subscribed.map { it.id }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    private val _toast = MutableStateFlow<String?>(null)
+
+    /** A short confirmation after a long press. Cleared by the screen once shown. */
+    val toast: StateFlow<String?> = _toast
+
+    fun clearToast() {
+        _toast.value = null
+    }
+
+    /** Subscribes to a series, or unsubscribes if you already do. Starts from its newest chapter. */
+    fun toggleSubscribe(series: SeriesSummary) {
+        viewModelScope.launch {
+            val already = series.id in subscribedIds.value
+            // Same lookup as the background check, so only later chapters notify.
+            val newest = if (already) null else runCatching { repository.latestChapter(series.id) }.getOrNull()
+            libraryStore.toggleSubscribed(
+                SavedSeries(
+                    series.id,
+                    series.title,
+                    series.coverUrl,
+                    knownChapterId = newest?.id,
+                    knownChapterNumber = newest?.number,
+                ),
+            )
+            _toast.value = subscriptionMessage(series.title, nowSubscribed = !already)
+        }
+    }
 
     fun dismissHint() {
         viewModelScope.launch { libraryStore.dismissHint() }

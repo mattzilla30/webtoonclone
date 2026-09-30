@@ -1,5 +1,11 @@
 package com.webtoonclone.ui
 
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -105,10 +111,32 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
 }
 
 /** Square cover with genre, title, and follower count underneath. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PickTile(series: SeriesSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.clickable(onClick = onClick)) {
-        Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+fun PickTile(
+    series: SeriesSummary,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subscribed: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+) {
+    Column(modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
+        Box {
+            Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+            if (subscribed) {
+                Icon(
+                    Icons.Default.Notifications,
+                    contentDescription = "Subscribed",
+                    tint = Green,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(22.dp)
+                        .background(Color(0xCC181818), CircleShape)
+                        .padding(4.dp),
+                )
+            }
+        }
         Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
             GenreLabel(series.genre)
             Text(

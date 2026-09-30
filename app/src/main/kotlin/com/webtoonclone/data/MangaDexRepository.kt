@@ -15,6 +15,7 @@ private const val PAGE_SIZE = 24
 private const val LANG = "en"
 private const val CHAPTER_PAGE = 500
 private const val MAX_ATTEMPTS = 3
+private const val PAGE_URL_TTL_MS = 10L * 60 * 1000
 private const val UPDATES_PAGE = 50
 
 enum class Order(val param: String) {
@@ -27,6 +28,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     private val json = Json { ignoreUnknownKeys = true }
     private var tagIndex: TagIndex? = null
+    private val pageUrls = TtlCache<String, List<String>>(PAGE_URL_TTL_MS)
 
     suspend fun browse(
         page: Int = 0,
@@ -196,10 +198,18 @@ class MangaDexRepository(private val client: OkHttpClient) {
         return all.asReversed()
     }
 
-    suspend fun pages(chapterId: String): List<String> {
+    /**
+     * Page image URLs for a chapter. They come from a server that expires after fifteen minutes, so
+     * they are reused for ten. That lets the reader preload the next chapter's pages and then open
+     * that chapter with the same addresses. [forceRefresh] asks for new ones, for a retry.
+     */
+    suspend fun pages(chapterId: String, forceRefresh: Boolean = false): List<String> {
+        if (!forceRefresh) pageUrls.get(chapterId)?.let { return it }
         val body = fetch("$API/at-home/server/$chapterId".toHttpUrl())
         val home = json.decodeFromString<AtHomeDto>(body)
-        return home.chapter.data.map { "${home.baseUrl}/data/${home.chapter.hash}/$it" }
+        val urls = home.chapter.data.map { "${home.baseUrl}/data/${home.chapter.hash}/$it" }
+        pageUrls.put(chapterId, urls)
+        return urls
     }
 
     class TagIndex(

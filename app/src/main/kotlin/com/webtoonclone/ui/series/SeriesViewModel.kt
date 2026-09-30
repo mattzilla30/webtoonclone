@@ -2,7 +2,10 @@ package com.webtoonclone.ui.series
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.webtoonclone.data.CachedSeries
 import com.webtoonclone.data.Chapter
+import com.webtoonclone.data.MAX_CACHED_CHAPTERS
+import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SavedSeries
@@ -29,6 +32,7 @@ class SeriesViewModel(
     private val seriesId: String,
     private val repository: MangaDexRepository,
     private val libraryStore: LibraryStore,
+    private val seriesCache: SeriesCacheStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<Load<SeriesPage>>(Load.Loading)
@@ -67,20 +71,36 @@ class SeriesViewModel(
         }
     }
 
+    /** When the page shows a saved copy because the network failed, the time it was saved. */
+    private val _offlineSavedAt = MutableStateFlow<Long?>(null)
+    val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt
+
     fun load() {
         _state.value = Load.Loading
         seen.clear()
         viewModelScope.launch {
-            _state.value = try {
-                coroutineScope {
+            try {
+                val ready = coroutineScope {
                     val detail = async { repository.series(seriesId) }
                     val first = async { repository.chapterPage(seriesId, 0, seen) }
                     val page = first.await()
                     nextOffset = page.nextOffset
-                    Load.Ready(SeriesPage(detail.await(), page.chapters, page.nextOffset != null))
+                    SeriesPage(detail.await(), page.chapters, page.nextOffset != null)
                 }
+                _offlineSavedAt.value = null
+                _state.value = Load.Ready(ready)
+                val saved = CachedSeries(ready.detail, ready.chapters.take(MAX_CACHED_CHAPTERS), System.currentTimeMillis())
+                runCatching { seriesCache.save(saved) }
             } catch (e: Exception) {
-                Load.Error(friendlyError(e, "Could not load series"))
+                // Fall back to the last copy of this series, if you opened it before.
+                val saved = runCatching { seriesCache.load(seriesId) }.getOrNull()
+                if (saved != null) {
+                    nextOffset = null
+                    _offlineSavedAt.value = saved.savedAt
+                    _state.value = Load.Ready(SeriesPage(saved.detail, saved.chapters, hasMore = false))
+                } else {
+                    _state.value = Load.Error(friendlyError(e, "Could not load series"))
+                }
             }
         }
     }

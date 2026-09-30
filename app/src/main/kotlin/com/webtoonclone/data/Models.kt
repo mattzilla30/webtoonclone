@@ -13,6 +13,7 @@ data class SeriesSummary(
     val follows: Int? = null,
 )
 
+@Serializable
 data class SeriesDetail(
     val summary: SeriesSummary,
     val status: String,
@@ -25,6 +26,7 @@ data class UpdateEntry(val series: SeriesSummary, val chapterNumber: String, val
 
 data class ChapterPage(val chapters: List<Chapter>, val nextOffset: Int?)
 
+@Serializable
 data class Chapter(
     val id: String,
     val number: String,

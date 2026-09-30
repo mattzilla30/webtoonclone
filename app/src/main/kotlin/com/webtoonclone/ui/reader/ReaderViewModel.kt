@@ -38,15 +38,32 @@ class ReaderViewModel(
     private val _state = MutableStateFlow<Load<ReaderPage>>(Load.Loading)
     val state: StateFlow<Load<ReaderPage>> = _state
 
+    /** The next chapter's first pages are preloaded once per reader session. */
+    private var previewed = false
+
     init { load() }
 
-    fun load() {
+    /** Reloads after an error and asks for fresh page addresses, which may have expired. */
+    fun retry() = load(forceRefresh = true)
+
+    /**
+     * The first [count] page URLs of the next chapter, for the screen to preload near the end of
+     * this one. Returns nothing after the first call or when there is no next chapter.
+     */
+    suspend fun nextChapterPreview(count: Int): List<String> {
+        if (previewed) return emptyList()
+        val next = (_state.value as? Load.Ready)?.value?.nextId ?: return emptyList()
+        previewed = true
+        return runCatching { repository.pages(next) }.getOrDefault(emptyList()).take(count)
+    }
+
+    fun load(forceRefresh: Boolean = false) {
         _state.value = Load.Loading
         viewModelScope.launch {
             _state.value = try {
                 coroutineScope {
                     val chapters = async { repository.allChapters(seriesId) }
-                    val pages = async { repository.pages(chapterId) }
+                    val pages = async { repository.pages(chapterId, forceRefresh) }
                     val saved = progressStore.observe(seriesId).first()
                     val list = chapters.await().filter { it.externalUrl == null }
                     val index = list.indexOfFirst { it.id == chapterId }

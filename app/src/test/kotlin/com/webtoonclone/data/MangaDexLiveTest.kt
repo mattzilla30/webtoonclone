@@ -103,6 +103,11 @@ class MangaDexLiveTest {
         get(atHome)
         assertTrue("at-home responses must not be cached", !get(atHome))
 
+        // Page URLs are reused for ten minutes, so the next chapter can be preloaded and then opened.
+        val firstLoad = repository.pages(chapters.first().id)
+        assertTrue("page URLs should be reused", firstLoad === repository.pages(chapters.first().id))
+        assertTrue("a forced refresh should still return pages", repository.pages(chapters.first().id, forceRefresh = true).isNotEmpty())
+
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)
         val second = repository.browse(title = "love", page = 1)

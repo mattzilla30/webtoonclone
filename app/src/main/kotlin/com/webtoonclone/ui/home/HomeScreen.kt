@@ -1,5 +1,13 @@
 package com.webtoonclone.ui.home
 
+import kotlin.time.Duration.Companion.seconds
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.Manifest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +73,18 @@ fun HomeScreen(
     val recent by viewModel.recent.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val showHint by viewModel.showHint.collectAsState()
+    val subscribedIds by viewModel.subscribedIds.collectAsState()
+    val toast by viewModel.toast.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val haptic = LocalHapticFeedback.current
+
+    // Notifications need permission on Android 13 and later. Ask the first time you subscribe.
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val toggleSubscribe: (SeriesSummary) -> Unit = { series ->
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (series.id !in subscribedIds) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        viewModel.toggleSubscribe(series)
+    }
 
     // A new app open reloads with fresh random picks. Returning from a series page does not.
     LaunchedEffect(openCount) { viewModel.refreshIfNewOpen(openCount) }
@@ -80,6 +99,7 @@ fun HomeScreen(
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     LoadView(state, onRetry = viewModel::retry) { home ->
         LazyColumn(Modifier.fillMaxSize()) {
             offlineSavedAt?.let { savedAt ->
@@ -147,14 +167,21 @@ fun HomeScreen(
 
             item { SectionHeader("New Series") }
             items(home.newSeries.size) { i ->
-                NewSeriesRow(home.newSeries[i]) { onOpenSeries(home.newSeries[i].id) }
+                val series = home.newSeries[i]
+                NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
             }
 
             item { SectionHeader("Today's Picks") }
             items(home.picks.chunked(2).size) { row ->
                 Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     home.picks.chunked(2)[row].forEach { series ->
-                        PickTile(series, { onOpenSeries(series.id) }, Modifier.weight(1f))
+                        PickTile(
+                            series,
+                            { onOpenSeries(series.id) },
+                            Modifier.weight(1f),
+                            subscribed = series.id in subscribedIds,
+                            onLongClick = { toggleSubscribe(series) },
+                        )
                     }
                 }
             }
@@ -162,6 +189,23 @@ fun HomeScreen(
 
             item { Box(Modifier.height(24.dp)) }
         }
+    }
+
+    toast?.let { message ->
+        LaunchedEffect(message) {
+            delay(3.seconds)
+            viewModel.clearToast()
+        }
+        Text(
+            message,
+            fontSize = 13.sp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+    }
     }
 }
 
@@ -194,10 +238,11 @@ private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Uni
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit) {
+private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 6.dp).height(84.dp),
+        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 16.dp, vertical = 6.dp).height(84.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {

@@ -51,9 +51,12 @@ import coil3.request.ImageRequest
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.theme.Green
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 
 private val Bar = Color(0xE6181818)
 private const val PRELOAD_AHEAD = 4
+private const val NEXT_CHAPTER_PRELOAD_AT = 3
+private const val NEXT_CHAPTER_PAGES = 3
 
 @Composable
 fun ReaderScreen(
@@ -74,7 +77,7 @@ fun ReaderScreen(
     }
 
     Box(Modifier.fillMaxSize().background(Color(0xFF181818))) {
-        LoadView(state, onRetry = viewModel::load) { page ->
+        LoadView(state, onRetry = viewModel::retry) { page ->
             val listState = rememberLazyListState(
                 initialFirstVisibleItemIndex = page.startPage.coerceIn(0, (page.pages.size - 1).coerceAtLeast(0)),
             )
@@ -97,6 +100,15 @@ fun ReaderScreen(
                             }
                         }
                     }
+            }
+
+            // Near the end of the chapter, preload the first pages of the next one.
+            LaunchedEffect(listState, page.pages) {
+                snapshotFlow { listState.firstVisibleItemIndex >= page.pages.size - NEXT_CHAPTER_PRELOAD_AT }.first { it }
+                val loader = SingletonImageLoader.get(context)
+                viewModel.nextChapterPreview(NEXT_CHAPTER_PAGES).forEach { url ->
+                    loader.enqueue(ImageRequest.Builder(context).data(url).build())
+                }
             }
 
             LazyColumn(

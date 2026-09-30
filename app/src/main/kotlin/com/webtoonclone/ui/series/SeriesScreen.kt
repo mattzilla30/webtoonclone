@@ -61,6 +61,7 @@ import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.GenreLabel
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.compact
+import com.webtoonclone.ui.timeAgo
 import com.webtoonclone.ui.theme.Green
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -75,6 +76,7 @@ fun SeriesScreen(
     val state by viewModel.state.collectAsState()
     val lastRead by viewModel.lastRead.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val subscribed by viewModel.subscribed.collectAsState()
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -105,6 +107,20 @@ fun SeriesScreen(
             if (showInfo) InfoDialog(page.detail.status, summary.description, summary.author) { showInfo = false }
 
             LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                offlineSavedAt?.let { savedAt ->
+                    item {
+                        Text(
+                            "Offline. Showing a copy saved ${timeAgo(java.time.Instant.ofEpochMilli(savedAt))}. Tap to retry.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { viewModel.load() }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
                 item {
                     Box(Modifier.fillMaxWidth().height(340.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
                         Cover(summary.coverUrl, summary.title, Modifier.fillMaxSize())

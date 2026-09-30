@@ -42,6 +42,13 @@ android {
     testOptions { unitTests.isReturnDefaultValues = true }
 }
 
+kotlin {
+    compilerOptions {
+        // Material 3 Expressive is marked experimental while it settles. The whole app uses it.
+        optIn.add("androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
+    }
+}
+
 dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

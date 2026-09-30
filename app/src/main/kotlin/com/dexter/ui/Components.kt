@@ -21,8 +21,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,6 +35,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -105,6 +110,7 @@ fun HeartCount(count: Int?) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     Row(
@@ -114,13 +120,13 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text(title, style = MaterialTheme.typography.titleLargeEmphasized)
         if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
     }
 }
 
-/** Square cover with genre, title, and follower count underneath. */
-@OptIn(ExperimentalFoundationApi::class)
+/** A cover card with genre, title, and follower count underneath. */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PickTile(
     series: SeriesSummary,
@@ -129,31 +135,33 @@ fun PickTile(
     subscribed: Boolean = false,
     onLongClick: (() -> Unit)? = null,
 ) {
-    Column(modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
-        Box {
-            Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-            if (subscribed) {
-                Icon(
-                    Icons.Default.Notifications,
-                    contentDescription = stringResource(R.string.subscribed),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(22.dp)
-                        .background(Color(0xCC181818), CircleShape)
-                        .padding(4.dp),
-                )
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
+        Column {
+            Box {
+                Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Crop)
+                if (subscribed) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = stringResource(R.string.subscribed),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .size(28.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                            .padding(5.dp),
+                    )
+                }
             }
-        }
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-            GenreLabel(series.genre)
-            Text(
-                series.title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-            )
-            HeartCount(series.follows)
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                GenreLabel(series.genre)
+                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 3)
+                HeartCount(series.follows)
+            }
         }
     }
 }
@@ -176,33 +184,30 @@ fun timeAgo(time: java.time.Instant, now: java.time.Instant = java.time.Instant.
     }
 }
 
-/** A rounded choice chip. The selected one is green. */
+/** A choice chip. The selected one is filled. */
 @Composable
 fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        label,
-        fontSize = 12.sp,
-        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-        color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        modifier = Modifier.semantics { role = Role.RadioButton },
     )
 }
 
-/** A thin bar shown when a screen displays a saved copy because the network failed. Tap to retry. */
+/** A bar shown when a screen displays a saved copy because the network failed. Tap to retry. */
 @Composable
 fun OfflineBanner(savedAt: Long, what: String, onRetry: () -> Unit) {
-    Text(
-        "Offline. Showing $what saved ${timeAgo(java.time.Instant.ofEpochMilli(savedAt))}. Tap to retry.",
-        fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onRetry)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        onClick = onRetry,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            "Offline. Showing $what saved ${timeAgo(java.time.Instant.ofEpochMilli(savedAt))}. Tap to retry.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+        )
+    }
 }

@@ -24,7 +24,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -32,10 +35,19 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -334,82 +346,81 @@ private fun ReaderContent(
 
         if (!barsVisible) {
             // A small counter stays visible when the bars are hidden.
-            Text(
-                "${position + 1} / $count",
-                color = Color.White,
-                fontSize = 11.sp,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp)
-                    .background(Bar, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-            )
+            Surface(
+                shape = CircleShape,
+                color = Bar,
+                contentColor = Color.White,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+            ) {
+                Text("${position + 1} / $count", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+            }
         }
 
+        val barIcons = IconButtonDefaults.iconButtonColors(contentColor = Color.White, disabledContentColor = Color.DarkGray)
         if (barsVisible) {
-            Row(
-                Modifier.fillMaxWidth().background(Bar).padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter),
-                verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                color = Bar,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = Color.White, modifier = Modifier.iconTap(onBack))
-                Text("Ep. ${page.chapter.number}", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(start = 16.dp))
-                Icon(
-                    Icons.Default.Settings,
-                    contentDescription = stringResource(R.string.reader_options),
-                    tint = Color.White,
-                    modifier = Modifier.padding(end = 16.dp).clickable(onClick = onOpenOptions),
-                )
-                Icon(
-                    Icons.Default.Share,
-                    contentDescription = stringResource(R.string.share),
-                    tint = Color.White,
-                    modifier = Modifier.clickable {
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, "https://mangadex.org/chapter/${page.chapter.id}")
-                        }
-                        context.startActivity(Intent.createChooser(send, null))
-                    },
-                )
-            }
-            Column(Modifier.fillMaxWidth().background(Bar).align(Alignment.BottomCenter)) {
-                if (count > 1) {
-                    // Right-to-left reading puts the first page on the right, so the slider runs that way too.
-                    CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LocalLayoutDirection.current) {
-                        SyncedSlider(
-                            value = position.toFloat(),
-                            onValueChange = { scope.launch { goToPage(it.roundToInt()) } },
-                            valueRange = 0f..lastIndex.toFloat(),
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
+                Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack, colors = barIcons) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                    Text("Ep. ${page.chapter.number}", style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    IconButton(onClick = onOpenOptions, colors = barIcons) {
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.reader_options))
+                    }
+                    IconButton(
+                        onClick = {
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "https://mangadex.org/chapter/${page.chapter.id}")
+                            }
+                            context.startActivity(Intent.createChooser(send, null))
+                        },
+                        colors = barIcons,
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
                     }
                 }
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("${position + 1} / $count", color = Color.White, fontSize = 12.sp)
-                    Icon(
-                        Icons.AutoMirrored.Filled.List,
-                        contentDescription = stringResource(R.string.chapters),
-                        tint = Color.White,
-                        modifier = Modifier.clickable { showChapters = true },
-                    )
-                    Text("#${page.index + 1}", color = Color.White, fontSize = 12.sp)
-                    Row {
-                        Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = stringResource(R.string.previous_episode),
-                            tint = if (page.prevId != null) Color.White else Color.DarkGray,
-                            modifier = Modifier.clickable(enabled = page.prevId != null) { onOpenChapter(page.prevId!!) },
-                        )
-                        Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = stringResource(R.string.next_episode),
-                            tint = if (page.nextId != null) Color.White else Color.DarkGray,
-                            modifier = Modifier.padding(start = 16.dp).clickable(enabled = page.nextId != null) { onOpenChapter(page.nextId!!) },
-                        )
+            }
+            Surface(
+                color = Bar,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+            ) {
+                Column {
+                    if (count > 1) {
+                        // Right-to-left reading puts the first page on the right, so the slider runs that way too.
+                        CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LocalLayoutDirection.current) {
+                            SyncedSlider(
+                                value = position.toFloat(),
+                                onValueChange = { scope.launch { goToPage(it.roundToInt()) } },
+                                valueRange = 0f..lastIndex.toFloat(),
+                                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
+                            )
+                        }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("${position + 1} / $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { showChapters = true }, colors = barIcons) {
+                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.chapters))
+                            }
+                            IconButton(onClick = { onOpenChapter(page.prevId!!) }, enabled = page.prevId != null, colors = barIcons) {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_episode))
+                            }
+                            IconButton(onClick = { onOpenChapter(page.nextId!!) }, enabled = page.nextId != null, colors = barIcons) {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.next_episode))
+                            }
+                        }
                     }
                 }
             }
@@ -484,39 +495,43 @@ private fun PageImage(url: String, index: Int, fill: Boolean) {
 @Composable
 private fun EndOfChapter(page: ReaderPage, textColor: Color, onOpenChapter: (String) -> Unit, modifier: Modifier) {
     Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("End of Ep. ${page.chapter.number}", color = textColor, fontWeight = FontWeight.Bold)
+        Text("End of Ep. ${page.chapter.number}", color = textColor, style = MaterialTheme.typography.titleMediumEmphasized)
         if (page.nextId != null) {
-            Text(
-                "Next episode",
-                color = Color.Black,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 16.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primary)
-                    .clickable { onOpenChapter(page.nextId) }.padding(horizontal = 28.dp, vertical = 12.dp),
-            )
+            Button(
+                onClick = { onOpenChapter(page.nextId) },
+                modifier = Modifier.padding(top = 16.dp).heightIn(min = ButtonDefaults.MediumContainerHeight),
+            ) { Text("Next episode") }
         }
     }
 }
 
 /** Every readable chapter, oldest first, opened at the current one. Tapping one jumps to it. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChapterPicker(chapters: List<Chapter>, currentId: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = chapters.indexOfFirst { it.id == currentId }.coerceAtLeast(0))
-    Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(vertical = 12.dp)) {
-            Text(stringResource(R.string.chapters), fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-            LazyColumn(Modifier.heightIn(max = 420.dp), state = listState) {
-                itemsIndexed(chapters, key = { _, c -> c.id }) { _, chapter ->
-                    val current = chapter.id == currentId
-                    Text(
-                        buildString {
-                            append("Ep. ${chapter.number}")
-                            if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
-                        },
-                        fontSize = 14.sp,
-                        fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
-                        color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.fillMaxWidth().clickable { onSelect(chapter.id) }.padding(horizontal = 20.dp, vertical = 10.dp),
-                    )
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(stringResource(R.string.chapters), style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        LazyColumn(Modifier.heightIn(max = 480.dp), state = listState) {
+            itemsIndexed(chapters, key = { _, c -> c.id }) { _, chapter ->
+                val current = chapter.id == currentId
+                Surface(
+                    onClick = { onSelect(chapter.id) },
+                    color = if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                    contentColor = if (current) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                ) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                        Text(
+                            buildString {
+                                append("Ep. ${chapter.number}")
+                                if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        chapter.group?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    }
                 }
             }
         }
@@ -531,7 +546,7 @@ private val modeLabels = listOf(
 )
 
 /** Reading mode, dimming, background, auto-scroll speed, and volume-key paging, saved as you change them. */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ReaderOptions(
     settings: Settings,
@@ -541,23 +556,23 @@ private fun ReaderOptions(
     onMode: (ReadingMode) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(20.dp)) {
-            Text(stringResource(R.string.reader_options), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+            Text(stringResource(R.string.reader_options), style = MaterialTheme.typography.titleLargeEmphasized)
 
-            Text(stringResource(R.string.reading_mode_for_this_series), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            Text(stringResource(R.string.reading_mode_for_this_series), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 modeLabels.forEach { (value, label) -> ChoiceChip(label, chosenMode == value) { onMode(value) } }
             }
 
-            Text(stringResource(R.string.dimming), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            Text(stringResource(R.string.dimming), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
             SyncedSlider(
                 value = settings.readerDim.toFloat(),
                 onValueChange = { value -> onChange { it.copy(readerDim = value.roundToInt()) } },
                 valueRange = 0f..70f,
             )
 
-            Text(stringResource(R.string.background), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            Text(stringResource(R.string.background), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReaderBackground.entries.forEach { choice ->
                     ChoiceChip(choice.name, settings.readerBackground == choice) { onChange { it.copy(readerBackground = choice) } }
@@ -565,7 +580,7 @@ private fun ReaderOptions(
             }
 
             if (mode == ReadingMode.Vertical) {
-                Text(stringResource(R.string.auto_scroll), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+                Text(stringResource(R.string.auto_scroll), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     (0..5).forEach { speed ->
                         ChoiceChip(if (speed == 0) "Off" else speed.toString(), settings.autoScrollLevel == speed) {
@@ -576,7 +591,7 @@ private fun ReaderOptions(
             }
 
             if (mode == ReadingMode.Vertical) {
-                Text(stringResource(R.string.space_between_pages), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+                Text(stringResource(R.string.space_between_pages), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(0 to "None", 8 to "Small", 24 to "Large").forEach { (gap, label) ->
                         ChoiceChip(label, settings.pageGap == gap) { onChange { it.copy(pageGap = gap) } }
@@ -584,7 +599,7 @@ private fun ReaderOptions(
                 }
             }
 
-            Text(stringResource(R.string.load_next_chapter_ahead), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            Text(stringResource(R.string.load_next_chapter_ahead), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(0 to "Off", 3 to "First pages", 100 to "Whole chapter").forEach { (count, label) ->
                     ChoiceChip(label, settings.prefetchPages == count) { onChange { it.copy(prefetchPages = count) } }
@@ -592,21 +607,14 @@ private fun ReaderOptions(
             }
 
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.keep_screen_on), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.keep_screen_on), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = settings.keepScreenOn, onCheckedChange = { on -> onChange { it.copy(keepScreenOn = on) } })
             }
 
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (mode == ReadingMode.Vertical) "Volume keys scroll" else "Volume keys turn pages", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(if (mode == ReadingMode.Vertical) "Volume keys scroll" else "Volume keys turn pages", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = settings.volumeKeys, onCheckedChange = { on -> onChange { it.copy(volumeKeys = on) } })
             }
-
-            Text(
-                "Done",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.End).clickable(onClick = onDismiss).padding(top = 16.dp, start = 16.dp),
-            )
         }
     }
 }

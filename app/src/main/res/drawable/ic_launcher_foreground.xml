@@ -3,14 +3,9 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- An open book: two pages meeting at a spine. -->
+    <!-- A bold D for Dexter, inside the adaptive icon's safe zone. -->
     <path
         android:fillColor="#00DC64"
-        android:pathData="M54,40 C47,35 38,34 30,36 L30,72 C38,70 47,71 54,76 Z" />
-    <path
-        android:fillColor="#00B852"
-        android:pathData="M54,40 C61,35 70,34 78,36 L78,72 C70,70 61,71 54,76 Z" />
-    <path
-        android:fillColor="#181818"
-        android:pathData="M53,42 L55,42 L55,75 L53,75 Z" />
+        android:fillType="evenOdd"
+        android:pathData="M37,32 L54,32 C69,32 79,42 79,54 C79,66 69,76 54,76 L37,76 Z M49,43 L49,65 L54,65 C61,65 67,61 67,54 C67,47 61,43 54,43 Z" />
 </vector>

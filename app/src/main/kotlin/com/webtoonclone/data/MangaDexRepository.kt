@@ -29,6 +29,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         order: Order = Order.Popular,
         title: String? = null,
         genre: String? = null,
+        ids: List<String>? = null,
         limit: Int = PAGE_SIZE,
         withStats: Boolean = false,
     ): List<SeriesSummary> {
@@ -42,8 +43,9 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("availableTranslatedLanguage[]", LANG)
             .addQueryParameter("contentRating[]", "safe")
             .addQueryParameter("contentRating[]", "suggestive")
-            .addQueryParameter("order[${order.param}]", "desc")
             .apply {
+                if (ids == null) addQueryParameter("order[${order.param}]", "desc")
+                ids?.forEach { addQueryParameter("ids[]", it) }
                 if (title != null) addQueryParameter("title", title)
                 if (tagId != null) addQueryParameter("includedTags[]", tagId)
             }
@@ -58,14 +60,36 @@ class MangaDexRepository(private val client: OkHttpClient) {
         // MangaDex allows about five requests per second, so these run one after another.
         val popular = browse(order = Order.Popular, limit = 6, withStats = true)
         val newSeries = browse(order = Order.Newest, limit = 3)
-        val picks = browse(order = Order.Updated, limit = 6, withStats = true)
+        val picks = readablePicks(6)
         val bands = listOf(
             "Romance" to "Love, crushes, and second chances",
             "Fantasy" to "Magic, dragons, and other worlds",
         ).map { (genre, tagline) ->
             GenreBand(genre, tagline, browse(genre = genre, limit = 5))
         }
-        return HomeContent(popular.firstOrNull(), newSeries, picks, popular.take(5), bands)
+        return HomeContent(picks.firstOrNull() ?: popular.firstOrNull(), newSeries, picks, popular.take(5), bands)
+    }
+
+    /**
+     * Series with recent chapters that open in the reader. Many top series only link to the
+     * publisher, so this reads the newest in-app chapters and looks up the series behind them.
+     */
+    suspend fun readablePicks(limit: Int): List<SeriesSummary> {
+        val url = "$API/chapter".toHttpUrl().newBuilder()
+            .addQueryParameter("limit", "100")
+            .addQueryParameter("includeExternalUrl", "0")
+            .addQueryParameter("translatedLanguage[]", LANG)
+            .addQueryParameter("order[readableAt]", "desc")
+            .addQueryParameter("contentRating[]", "safe")
+            .addQueryParameter("contentRating[]", "suggestive")
+            .build()
+        val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
+        val ids = feed.flatMap { c -> c.relationships.filter { it.type == "manga" }.map { it.id } }
+            .distinct()
+            .take(limit)
+        if (ids.isEmpty()) return emptyList()
+        val byId = browse(ids = ids, limit = ids.size, withStats = true).associateBy { it.id }
+        return ids.mapNotNull { byId[it] }
     }
 
     suspend fun series(id: String): SeriesDetail {

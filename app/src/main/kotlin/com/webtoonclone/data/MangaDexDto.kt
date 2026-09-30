@@ -46,6 +46,7 @@ internal data class RatingDto(val average: Double? = null)
 
 @Serializable
 internal data class RelationshipDto(
+    val id: String = "",
     val type: String,
     val attributes: RelationshipAttributesDto? = null,
 )
@@ -57,7 +58,11 @@ internal data class RelationshipAttributesDto(val fileName: String? = null, val 
 internal data class ChapterListDto(val data: List<ChapterDto>)
 
 @Serializable
-internal data class ChapterDto(val id: String, val attributes: ChapterAttributesDto)
+internal data class ChapterDto(
+    val id: String,
+    val attributes: ChapterAttributesDto,
+    val relationships: List<RelationshipDto> = emptyList(),
+)
 
 @Serializable
 internal data class ChapterAttributesDto(

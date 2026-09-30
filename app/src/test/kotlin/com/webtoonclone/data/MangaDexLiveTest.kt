@@ -28,6 +28,10 @@ class MangaDexLiveTest {
             list.firstOrNull { it.externalUrl == null }?.let { series to list.filter { c -> c.externalUrl == null } }
         }
         val (series, chapters) = readable
+
+        // Every pick must open in the reader, so its first chapter cannot be an external link.
+        val pick = home.picks.first()
+        assertTrue("pick ${pick.title} has no readable chapter", repository.chapters(pick.id).any { it.externalUrl == null })
         val detail = repository.series(series.id)
         assertTrue(detail.summary.title.isNotBlank())
         println("series=${series.title} rating=${detail.rating} status=${detail.status}")

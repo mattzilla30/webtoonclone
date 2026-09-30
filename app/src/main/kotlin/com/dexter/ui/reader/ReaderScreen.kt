@@ -104,7 +104,6 @@ fun readerBackgroundColor(background: ReaderBackground): Color = when (backgroun
 
 private const val PRELOAD_AHEAD = 4
 private const val NEXT_CHAPTER_PRELOAD_AT = 3
-private const val NEXT_CHAPTER_PAGES = 3
 
 /** On a tablet a vertical strip this wide reads better than one stretched across the screen. */
 private val MAX_STRIP_WIDTH = 720.dp
@@ -128,8 +127,8 @@ fun ReaderScreen(
 
     // Keep the screen on while reading, and release it when the reader closes.
     val view = LocalView.current
-    DisposableEffect(view) {
-        view.keepScreenOn = true
+    DisposableEffect(view, settings.keepScreenOn) {
+        view.keepScreenOn = settings.keepScreenOn
         onDispose { view.keepScreenOn = false }
     }
 
@@ -222,10 +221,11 @@ private fun ReaderContent(
     }
 
     // Near the end of the chapter, preload the first pages of the next one.
-    LaunchedEffect(page.pages) {
+    LaunchedEffect(page.pages, settings.prefetchPages) {
+        if (settings.prefetchPages <= 0) return@LaunchedEffect
         snapshotFlow { position >= count - NEXT_CHAPTER_PRELOAD_AT }.first { it }
         val loader = SingletonImageLoader.get(context)
-        viewModel.nextChapterPreview(NEXT_CHAPTER_PAGES).forEach { url ->
+        viewModel.nextChapterPreview(settings.prefetchPages).forEach { url ->
             loader.enqueue(ImageRequest.Builder(context).data(url).build())
         }
     }
@@ -317,6 +317,7 @@ private fun ReaderContent(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.align(Alignment.TopCenter).widthIn(max = MAX_STRIP_WIDTH).fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(settings.pageGap.dp),
                 ) {
                     itemsIndexed(page.pages, key = { _, url -> url }) { index, url -> PageImage(url, index, fill = false) }
                     item { EndOfChapter(page, onPage, onOpenChapter, Modifier.fillMaxWidth()) }
@@ -553,6 +554,27 @@ private fun ReaderOptions(
                         }
                     }
                 }
+            }
+
+            if (mode == ReadingMode.Vertical) {
+                Text("Space between pages", fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0 to "None", 8 to "Small", 24 to "Large").forEach { (gap, label) ->
+                        ChoiceChip(label, settings.pageGap == gap) { onChange { it.copy(pageGap = gap) } }
+                    }
+                }
+            }
+
+            Text("Load next chapter ahead", fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0 to "Off", 3 to "First pages", 100 to "Whole chapter").forEach { (count, label) ->
+                    ChoiceChip(label, settings.prefetchPages == count) { onChange { it.copy(prefetchPages = count) } }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Keep screen on", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Switch(checked = settings.keepScreenOn, onCheckedChange = { on -> onChange { it.copy(keepScreenOn = on) } })
             }
 
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -81,6 +81,7 @@ import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
+import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.PickTile
 import com.dexter.ui.compact
@@ -100,6 +101,8 @@ fun SeriesScreen(
     onOpenAuthor: (id: String, name: String) -> Unit,
 ) {
     val similar by viewModel.similar.collectAsState()
+    val related by viewModel.related.collectAsState()
+    val covers by viewModel.covers.collectAsState()
     val preferredGroup by viewModel.preferredGroup.collectAsState()
     val state by viewModel.state.collectAsState()
     val notifyEnabled by viewModel.notifyEnabled.collectAsState()
@@ -140,6 +143,25 @@ fun SeriesScreen(
                 else context.startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
             }
 
+            covers?.let { state ->
+                Dialog(onDismissRequest = viewModel::closeCovers) {
+                    Column(Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp)) {
+                        Text("Covers", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                        when (state) {
+                            is Load.Ready -> LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(state.value, key = { it.url }) { cover ->
+                                    Column(Modifier.width(150.dp)) {
+                                        Cover(cover.url, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+                                        Text(cover.volume?.let { "Volume $it" } ?: "No volume", fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                                    }
+                                }
+                            }
+                            is Load.Error -> Text(state.message)
+                            Load.Loading -> Text("Loading...")
+                        }
+                    }
+                }
+            }
             newCollection?.let { name ->
                 AlertDialog(
                     onDismissRequest = { newCollection = null },
@@ -163,6 +185,7 @@ fun SeriesScreen(
                 InfoDialog(
                     page.detail,
                     onOpenLink = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) },
+                    onOpenCovers = { showInfo = false; viewModel.openCovers() },
                     onDismiss = { showInfo = false },
                 )
             }
@@ -325,6 +348,19 @@ fun SeriesScreen(
                 if (page.detail.tags.isNotEmpty()) {
                     item { TagChips(page.detail.tags, onOpenTag) }
                 }
+                if (related.isNotEmpty()) {
+                    item {
+                        Text("Related", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
+                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(related, key = { it.second.id }) { (kind, other) ->
+                                Column(Modifier.width(110.dp)) {
+                                    Text(kind, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green, modifier = Modifier.padding(bottom = 4.dp))
+                                    PickTile(other, { onOpenSeries(other.id) }, Modifier.fillMaxWidth())
+                                }
+                            }
+                        }
+                    }
+                }
                 if (similar.isNotEmpty()) {
                     item {
                         Text(stringResource(R.string.similar_series), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
@@ -403,6 +439,7 @@ fun SeriesScreen(
                                 // Marking unread needs an earlier chapter to fall back to, or the full list.
                                 onMarkUnread = if (readable && (previous != null || !page.hasMore)) ({ viewModel.markUnreadFrom(previous, page.detail) }) else null,
                                 onPreferGroup = viewModel::setPreferredGroup,
+                                onBlockGroup = viewModel::blockGroup,
                                 onOpenUpload = { upload -> open(upload) },
                             )
                         }
@@ -467,6 +504,7 @@ private fun EpisodeRow(
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
     onPreferGroup: (String?) -> Unit,
+    onBlockGroup: (String) -> Unit,
     onOpenUpload: (Chapter) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -517,6 +555,7 @@ private fun EpisodeRow(
                 } else {
                     DropdownMenuItem(text = { Text("Prefer $group") }, onClick = { menu = false; onPreferGroup(group) })
                 }
+                DropdownMenuItem(text = { Text("Block $group") }, onClick = { menu = false; onBlockGroup(group) })
             }
             chapter.alternates.forEach { upload ->
                 DropdownMenuItem(
@@ -542,7 +581,7 @@ private fun TagChips(tags: List<String>, onOpenTag: (String) -> Unit) {
 }
 
 @Composable
-private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onDismiss: () -> Unit) {
+private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpenCovers: () -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
@@ -569,6 +608,24 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onDis
                 Text(stringResource(R.string.also_known_as), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
                 detail.altTitles.forEach { Text(it, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
             }
+            if (detail.ratingDistribution.isNotEmpty()) {
+                Text("Ratings", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                val most = detail.ratingDistribution.values.max().coerceAtLeast(1)
+                detail.ratingDistribution.forEach { (score, count) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                        Text("$score", fontSize = 11.sp, modifier = Modifier.width(20.dp))
+                        Box(Modifier.height(8.dp).fillMaxWidth(count.toFloat() / most * 0.6f).background(Green))
+                        Text(" $count", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Text("Covers", fontSize = 13.sp, color = Green, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
+            Text(
+                "Open on MangaDex",
+                fontSize = 13.sp,
+                color = Green,
+                modifier = Modifier.clickable { onOpenLink("https://mangadex.org/title/${detail.summary.id}") }.padding(vertical = 4.dp),
+            )
             if (detail.links.isNotEmpty()) {
                 Text(stringResource(R.string.links), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
                 detail.links.forEach { link ->

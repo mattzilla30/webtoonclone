@@ -52,9 +52,20 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     private fun HttpUrl.Builder.ratings(): HttpUrl.Builder = apply { contentRatings.forEach { addQueryParameter("contentRating[]", it) } }
 
+    /** Your blocks, read on the network threads. */
+    @Volatile var blockedTags: Set<String> = emptySet()
+
+    @Volatile var blockedGroups: Set<String> = emptySet()
+
+    @Volatile var hiddenSeries: Set<String> = emptySet()
+
     fun applySettings(settings: Settings) {
         val ratings = ratingsFor(settings.contentRatings)
-        val contentChanged = settings.language != language || settings.originalTitles != originalTitles || ratings != contentRatings
+        val contentChanged = settings.language != language || settings.originalTitles != originalTitles || ratings != contentRatings ||
+            settings.blockedTags != blockedTags || settings.blockedGroups != blockedGroups || settings.hiddenSeries != hiddenSeries
+        blockedTags = settings.blockedTags
+        blockedGroups = settings.blockedGroups
+        hiddenSeries = settings.hiddenSeries
         contentRatings = ratings
         dataSaver = settings.dataSaver
         originalTitles = settings.originalTitles
@@ -77,9 +88,11 @@ class MangaDexRepository(private val client: OkHttpClient) {
     ): List<SeriesSummary> {
         val included = filters.included + listOfNotNull(tag)
         // The tag list is only fetched when a tag is involved.
-        val index = if (included.isNotEmpty() || filters.excluded.isNotEmpty()) tagIndex() else null
+        // Blocked tags and hidden series shape lists. Looking up specific series by id skips them.
+        val excluded = if (ids == null) effectiveExcluded(filters.excluded, blockedTags, included) else filters.excluded
+        val index = if (included.isNotEmpty() || excluded.isNotEmpty()) tagIndex() else null
         val includedIds = included.mapNotNull { index?.ids?.get(it.lowercase()) }
-        val excludedIds = filters.excluded.mapNotNull { index?.ids?.get(it.lowercase()) }
+        val excludedIds = excluded.mapNotNull { index?.ids?.get(it.lowercase()) }
         val url = "$API/manga".toHttpUrl().newBuilder()
             .addQueryParameter("limit", limit.toString())
             .addQueryParameter("offset", (page * limit).toString())
@@ -102,7 +115,8 @@ class MangaDexRepository(private val client: OkHttpClient) {
                 if (authorId != null) addQueryParameter("authorOrArtist", authorId)
             }
             .build()
-        val list = json.decodeFromString<MangaListDto>(fetch(url)).data.map { it.toSummary() }
+        val hidden = hiddenSeries
+        val list = json.decodeFromString<MangaListDto>(fetch(url)).data.map { it.toSummary() }.filter { ids != null || it.id !in hidden }
         if (!withStats || list.isEmpty()) return list
         val stats = stats(list.map { it.id })
         return list.map { it.copy(follows = stats[it.id]?.follows) }
@@ -204,7 +218,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("includes[]", "author")
             .build()
         val manga = json.decodeFromString<MangaOneDto>(fetch(url)).data
-        val stat = stats(listOf(id))[id]
+        val stat = statsOne(id)
         val summary = manga.toSummary().copy(follows = stat?.follows)
         return SeriesDetail(
             summary = summary,
@@ -216,6 +230,8 @@ class MangaDexRepository(private val client: OkHttpClient) {
             demographic = demographicLabel(manga.attributes.publicationDemographic),
             originalLanguage = manga.attributes.originalLanguage,
             links = buildLinks(manga.attributes.links),
+            relations = manga.relationships.filter { it.type == "manga" && it.related != null }.map { SeriesRelation(it.id, it.related!!) },
+            ratingDistribution = ratingCounts(stat?.rating?.distribution.orEmpty()),
         )
     }
 
@@ -242,7 +258,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val byNumber = LinkedHashMap<String, MutableList<Chapter>>()
         for (dto in body.data) {
             val chapter = dto.toChapter()
-            if (chapter.number in seen) continue
+            if (chapter.number in seen || chapter.group in blockedGroups) continue
             byNumber.getOrPut(chapter.number) { mutableListOf() } += chapter
         }
         seen += byNumber.keys
@@ -262,6 +278,25 @@ class MangaDexRepository(private val client: OkHttpClient) {
             offset = page.nextOffset
         }
         return all.asReversed()
+    }
+
+    /** Summaries of related series, in the order MangaDex lists them. Series with nothing to read in your language are left out. */
+    suspend fun relatedSeries(relations: List<SeriesRelation>): List<SeriesSummary> {
+        if (relations.isEmpty()) return emptyList()
+        val byId = browse(ids = relations.map { it.id }, limit = relations.size.coerceAtMost(PAGE_SIZE)).associateBy { it.id }
+        return relations.mapNotNull { byId[it.id] }
+    }
+
+    /** Every cover of a series, volume order, at a size that suits the gallery. */
+    suspend fun covers(seriesId: String): List<SeriesCover> {
+        val url = "$API/cover".toHttpUrl().newBuilder()
+            .addQueryParameter("manga[]", seriesId)
+            .addQueryParameter("limit", "100")
+            .addQueryParameter("order[volume]", "asc")
+            .build()
+        return json.decodeFromString<CoverListDto>(fetch(url)).data.map {
+            SeriesCover("https://uploads.mangadex.org/covers/$seriesId/${it.attributes.fileName}.512.jpg", it.attributes.volume)
+        }
     }
 
     /** The series a chapter belongs to, for opening a MangaDex chapter link. */
@@ -319,6 +354,13 @@ class MangaDexRepository(private val client: OkHttpClient) {
             ids = tags.associate { it.attributes.name.pick().lowercase() to it.id },
             namesByGroup = tags.groupBy({ it.attributes.group }, { it.attributes.name.pick() }),
         ).also { tagIndex = it }
+    }
+
+    /** Statistics for one series. Only this form carries the score distribution. */
+    private suspend fun statsOne(id: String): StatDto? = try {
+        json.decodeFromString<StatsDto>(fetch("$API/statistics/manga/$id".toHttpUrl())).statistics[id]
+    } catch (e: IOException) {
+        null
     }
 
     private suspend fun stats(ids: List<String>): Map<String, StatDto> = try {

@@ -12,10 +12,12 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesCacheStore
+import com.dexter.data.SeriesCover
 import com.dexter.data.SeriesDetail
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
 import com.dexter.data.chaptersToDownload
+import com.dexter.data.relationLabel
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
@@ -113,6 +115,14 @@ class SeriesViewModel(
         viewModelScope.launch {
             libraryStore.toggleCollection(name, SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl))
         }
+    }
+
+    fun hideSeries() {
+        viewModelScope.launch { settingsStore.update { it.copy(hiddenSeries = it.hiddenSeries + seriesId) } }
+    }
+
+    fun blockGroup(group: String) {
+        viewModelScope.launch { settingsStore.update { it.copy(blockedGroups = it.blockedGroups + group) } }
     }
 
     fun setStatus(detail: SeriesDetail, status: ReadingStatus?) {
@@ -223,8 +233,39 @@ class SeriesViewModel(
         }
     }
 
+    private val relatedState = MutableStateFlow<List<Pair<String, SeriesSummary>>>(emptyList())
+
+    /** Related series with how each relates, such as "Sequel". */
+    val related: StateFlow<List<Pair<String, SeriesSummary>>> = relatedState
+
+    private val coversState = MutableStateFlow<Load<List<SeriesCover>>?>(null)
+
+    /** The cover gallery: null until opened, then loading, then the covers. */
+    val covers: StateFlow<Load<List<SeriesCover>>?> = coversState
+
+    fun openCovers() {
+        coversState.value = Load.Loading
+        viewModelScope.launch {
+            coversState.value = try {
+                Load.Ready(repository.covers(seriesId))
+            } catch (e: Exception) {
+                Load.Error(friendlyError(e, "Could not load covers"))
+            }
+        }
+    }
+
+    fun closeCovers() {
+        coversState.value = null
+    }
+
     private fun loadSimilar(detail: SeriesDetail) {
         _similar.value = emptyList()
+        relatedState.value = emptyList()
+        viewModelScope.launch {
+            val list = runCatching { repository.relatedSeries(detail.relations) }.getOrDefault(emptyList())
+            val kinds = detail.relations.associate { it.id to relationLabel(it.kind) }
+            relatedState.value = list.map { (kinds[it.id] ?: "Related") to it }
+        }
         viewModelScope.launch {
             _similar.value = runCatching { repository.similar(seriesId, detail.tags) }.getOrDefault(emptyList())
         }

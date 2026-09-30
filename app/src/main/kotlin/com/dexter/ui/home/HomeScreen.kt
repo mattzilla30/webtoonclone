@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +56,7 @@ import com.dexter.ui.GenreLabel
 import com.dexter.ui.LoadView
 import com.dexter.ui.PickTile
 import com.dexter.ui.SectionHeader
+import com.dexter.ui.adaptiveColumns
 import com.dexter.ui.genreColor
 import com.dexter.ui.theme.Green
 import com.dexter.ui.timeAgo
@@ -73,6 +75,9 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val recent by viewModel.recent.collectAsState()
+    val because by viewModel.becauseYouRead.collectAsState()
+    val columns = adaptiveColumns(LocalConfiguration.current.screenWidthDp.toFloat())
+    LaunchedEffect(Unit) { viewModel.refreshBecause() }
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val subscribedIds by viewModel.subscribedIds.collectAsState()
     val toast by viewModel.toast.collectAsState()
@@ -139,6 +144,17 @@ fun HomeScreen(
                     }
                 }
 
+                because?.let { (title, like) ->
+                    item { SectionHeader("Because you read $title") }
+                    item {
+                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(like, key = { it.id }) { series ->
+                                PickTile(series, { onOpenSeries(series.id) }, Modifier.width(110.dp), onLongClick = { toggleSubscribe(series) })
+                            }
+                        }
+                    }
+                }
+
                 item { SectionHeader("New Series") }
                 items(home.newSeries.size) { i ->
                     val series = home.newSeries[i]
@@ -146,9 +162,10 @@ fun HomeScreen(
                 }
 
                 item { SectionHeader("Today's Picks") }
-                items(home.picks.chunked(2).size) { row ->
+                val pickRows = home.picks.chunked(columns)
+                items(pickRows.size) { row ->
                     Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        home.picks.chunked(2)[row].forEach { series ->
+                        pickRows[row].forEach { series ->
                             PickTile(
                                 series,
                                 { onOpenSeries(series.id) },
@@ -157,6 +174,7 @@ fun HomeScreen(
                                 onLongClick = { toggleSubscribe(series) },
                             )
                         }
+                        repeat(columns - pickRows[row].size) { Box(Modifier.weight(1f)) }
                     }
                 }
 

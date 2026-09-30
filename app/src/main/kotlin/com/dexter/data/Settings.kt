@@ -50,6 +50,18 @@ data class Settings(
     val volumeKeys: Boolean = false,
     /** Content ratings to show, using MangaDex names. All four by default. */
     val contentRatings: Set<String> = ContentRatings.toSet(),
+    /** Tags that never appear in lists or search, unless you search the tag itself. */
+    val blockedTags: Set<String> = emptySet(),
+    /** Scanlation groups whose chapters are left out of chapter lists. */
+    val blockedGroups: Set<String> = emptySet(),
+    /** Series hidden from browse and search results. They still open from your library. */
+    val hiddenSeries: Set<String> = emptySet(),
+    /** Keep the screen on while a chapter is open. */
+    val keepScreenOn: Boolean = true,
+    /** Space between pages in the vertical strip, in dp. */
+    val pageGap: Int = 0,
+    /** Pages of the next chapter to load ahead: 0 is off, 3 is a preview, 100 loads the whole chapter. */
+    val prefetchPages: Int = 3,
     /** One summary notification per check instead of one per series. */
     val notificationDigest: Boolean = false,
     /** A folder (tree address) that gets a daily backup file, or null for no automatic backup. */

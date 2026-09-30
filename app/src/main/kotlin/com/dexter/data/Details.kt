@@ -37,3 +37,27 @@ fun languageName(code: String): String = when {
 
 /** "shounen" becomes "Shounen". */
 fun demographicLabel(code: String?): String? = code?.takeIf { it.isNotBlank() }?.replaceFirstChar { it.uppercase() }
+
+/** A reader-friendly name for a MangaDex relation kind, such as "spin_off" to "Spin-off". */
+fun relationLabel(kind: String): String = when (kind) {
+    "sequel" -> "Sequel"
+    "prequel" -> "Prequel"
+    "spin_off" -> "Spin-off"
+    "side_story" -> "Side story"
+    "main_story" -> "Main story"
+    "adapted_from" -> "Adapted from"
+    "based_on" -> "Based on"
+    "colored" -> "Colored"
+    "monochrome" -> "Black and white"
+    "preserialization" -> "Preserialization"
+    "serialization" -> "Serialization"
+    "same_franchise" -> "Same franchise"
+    "shared_universe" -> "Shared universe"
+    "alternate_story" -> "Alternate story"
+    "doujinshi" -> "Doujinshi"
+    else -> kind.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+/** Turns MangaDex's score counts ("1" to "10") into counts keyed by score, ignoring anything else. */
+fun ratingCounts(distribution: Map<String, Int>): Map<Int, Int> =
+    distribution.mapNotNull { (score, count) -> score.toIntOrNull()?.takeIf { it in 1..10 }?.let { it to count } }.toMap().toSortedMap(reverseOrder())

@@ -24,9 +24,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -55,6 +57,7 @@ import com.dexter.data.ContentTags
 import com.dexter.data.Formats
 import com.dexter.data.Genres
 import com.dexter.data.Order
+import com.dexter.data.SavedSearch
 import com.dexter.data.SeriesSummary
 import com.dexter.data.Themes
 import com.dexter.ui.ChoiceChip
@@ -80,8 +83,21 @@ fun SearchScreen(
     val message by viewModel.message.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val filters by viewModel.filters.collectAsState()
+    val savedSearches by viewModel.savedSearches.collectAsState()
+    var saveName by rememberSaveable { mutableStateOf<String?>(null) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var text by rememberSaveable { mutableStateOf(viewModel.query) }
+    saveName?.let { name ->
+        AlertDialog(
+            onDismissRequest = { saveName = null },
+            title = { Text("Save this search") },
+            text = { OutlinedTextField(value = name, onValueChange = { saveName = it }, singleLine = true, placeholder = { Text("Name") }) },
+            confirmButton = {
+                TextButton(enabled = name.isNotBlank(), onClick = { viewModel.saveCurrent(name); saveName = null }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { saveName = null }) { Text("Cancel") } },
+        )
+    }
     if (showFilters) {
         FiltersDialog(filters, onApply = { viewModel.setFilters(it) }, onDismiss = { showFilters = false })
     }
@@ -139,6 +155,7 @@ fun SearchScreen(
         if (current == null) {
             Idle(
                 recent = recent,
+                saved = savedSearches,
                 suggestions = if (shouldSuggest(text)) suggestions else emptyList(),
                 message = message,
                 viewModel = viewModel,
@@ -158,6 +175,15 @@ fun SearchScreen(
         } else {
             offlineSavedAt?.let { OfflineBanner(it, "results", onRetry = viewModel::retry) }
             SortRow(sort, viewModel::setSort)
+            if (viewModel.canSave) {
+                Text(
+                    "Save this search",
+                    fontSize = 12.sp,
+                    color = Green,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).clickable { saveName = text.ifBlank { "" } },
+                )
+            }
             LoadView(current, onRetry = { viewModel.search(text) }) { series ->
                 if (series.isEmpty()) {
                     Text(stringResource(R.string.no_series_found), modifier = Modifier.padding(16.dp))
@@ -198,6 +224,7 @@ fun SearchScreen(
 @Composable
 private fun Idle(
     recent: List<String>,
+    saved: List<SavedSearch>,
     suggestions: List<SeriesSummary>,
     message: String?,
     viewModel: SearchViewModel,
@@ -219,6 +246,22 @@ private fun Idle(
                 Column(Modifier.padding(start = 12.dp)) {
                     GenreLabel(series.genre)
                     Text(series.title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+        if (saved.isNotEmpty()) {
+            item {
+                Text("Saved searches", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    saved.forEach { search ->
+                        Row(
+                            Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { viewModel.openSaved(search) }.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(search.name, fontSize = 12.sp)
+                            Icon(Icons.Default.Clear, contentDescription = "Remove", modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.deleteSaved(search.name) })
+                        }
+                    }
                 }
             }
         }

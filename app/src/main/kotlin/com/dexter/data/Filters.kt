@@ -46,3 +46,9 @@ fun similarTags(tags: List<String>): List<String> {
     val themes = tags.filter { it in Themes }.take(2 - genres.size)
     return genres + themes
 }
+
+/** The tags to exclude from a request: its own exclusions plus your blocked tags, minus any tag the request includes on purpose. */
+fun effectiveExcluded(excluded: List<String>, blocked: Set<String>, included: List<String>): List<String> {
+    val wanted = included.map { it.lowercase() }.toSet()
+    return (excluded + blocked).distinctBy { it.lowercase() }.filter { it.lowercase() !in wanted || it in excluded }
+}

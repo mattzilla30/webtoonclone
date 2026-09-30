@@ -203,4 +203,21 @@ class MangaDexLiveTest {
         assertTrue("no pornographic series listed", adultIds.isNotEmpty())
         assertTrue("safe list shows pornographic series", adultIds.intersect(mildIds).isEmpty())
     }
+
+    @Test
+    fun relationsCoversAndRatingsLoad() = runBlocking {
+        assumeTrue(System.getProperty("live") == "true" || System.getenv("LIVE") == "true")
+
+        val popular = repository.browse(order = Order.Popular, limit = 10)
+        val details = popular.map { repository.series(it.id) }
+        val withRelations = details.firstOrNull { it.relations.isNotEmpty() }
+        assertTrue("no popular series has relations", withRelations != null)
+        println("relations: ${withRelations!!.relations.take(3)}")
+        assertTrue("related series did not load", repository.relatedSeries(withRelations.relations).isNotEmpty())
+        assertTrue("no rating distribution", details.any { it.ratingDistribution.isNotEmpty() })
+        val covers = repository.covers(popular.first().id)
+        assertTrue("no covers", covers.isNotEmpty())
+        val response = OkHttpClient().newCall(Request.Builder().url(covers.first().url).header("User-Agent", "dexter-test").build()).execute()
+        response.use { assertTrue("cover image failed: ${it.code}", it.isSuccessful) }
+    }
 }

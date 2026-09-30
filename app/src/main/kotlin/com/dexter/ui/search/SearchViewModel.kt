@@ -6,6 +6,7 @@ import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
 import com.dexter.data.Order
+import com.dexter.data.SavedSearch
 import com.dexter.data.SearchFilters
 import com.dexter.data.SeriesSummary
 import com.dexter.data.searchKey
@@ -93,6 +94,30 @@ class SearchViewModel(
                 }
             }
         }
+    }
+
+    val savedSearches: StateFlow<List<SavedSearch>> = library.data.map { it.savedSearches }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Whether the results on screen can be saved: there is a search, tag, or filter behind them. */
+    val canSave: Boolean get() = request != null
+
+    fun saveCurrent(name: String) {
+        val current = request ?: return
+        viewModelScope.launch {
+            library.saveSearch(SavedSearch(name.trim(), current.title, current.tag, _filters.value, _sort.value.name))
+        }
+    }
+
+    fun openSaved(saved: SavedSearch) {
+        query = saved.title ?: saved.tag ?: saved.name
+        _sort.value = runCatching { Order.valueOf(saved.order) }.getOrDefault(Order.Popular)
+        _filters.value = saved.filters
+        viewModelScope.launch { start(Request(saved.title, saved.tag)) }
+    }
+
+    fun deleteSaved(name: String) {
+        viewModelScope.launch { library.deleteSavedSearch(name) }
     }
 
     private class Request(val title: String?, val tag: String?)

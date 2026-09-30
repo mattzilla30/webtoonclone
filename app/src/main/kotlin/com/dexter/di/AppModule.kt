@@ -57,7 +57,7 @@ val appModule = module {
     single { OfflineStore(androidContext()) }
     single { BackupService(androidContext(), get(), get(), get()) }
 
-    viewModel { HomeViewModel(get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { UpdatesViewModel(get(), get()) }
     viewModel { LibraryViewModel(get()) }

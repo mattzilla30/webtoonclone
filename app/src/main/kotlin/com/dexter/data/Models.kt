@@ -27,7 +27,19 @@ data class SeriesDetail(
     /** MangaDex language code of the original work, such as "ja". */
     val originalLanguage: String = "",
     val links: List<SeriesLink> = emptyList(),
+    /** Related series: sequels, prequels, spin-offs, and so on. */
+    val relations: List<SeriesRelation> = emptyList(),
+    /** How many people gave each score from 1 to 10. Empty when there are no ratings. */
+    val ratingDistribution: Map<Int, Int> = emptyMap(),
 )
+
+/** A related series and how it relates, with [kind] as MangaDex names it, such as "spin_off". */
+@Serializable
+data class SeriesRelation(val id: String, val kind: String)
+
+/** One of a series' covers. [volume] is null for covers that belong to no volume. */
+@Serializable
+data class SeriesCover(val url: String, val volume: String?)
 
 /** A series with its newest chapter, for the Updates tab. */
 @Serializable
@@ -63,6 +75,16 @@ data class HomeContent(
     val hero: SeriesSummary?,
     val newSeries: List<SeriesSummary>,
     val picks: List<SeriesSummary>,
+)
+
+/** A search you kept under a name: the words or tag, the filters, and the sort. */
+@Serializable
+data class SavedSearch(
+    val name: String,
+    val title: String? = null,
+    val tag: String? = null,
+    val filters: SearchFilters = SearchFilters(),
+    val order: String = "Popular",
 )
 
 /** An author or artist you follow. [knownIds] are the series already seen, so only later ones notify. */
@@ -117,6 +139,8 @@ data class LibraryData(
     val searchOrder: String = "Popular",
     /** Series you put in reading lists, each with its status. */
     val lists: List<SavedSeries> = emptyList(),
+    /** Searches you saved by name. */
+    val savedSearches: List<SavedSearch> = emptyList(),
     /** Authors and artists whose new series notify. */
     val followedAuthors: List<FollowedAuthor> = emptyList(),
     /** Your own named collections, each a list of series. */

@@ -27,6 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -38,9 +41,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dexter.R
 import com.dexter.data.ContentRatings
+import com.dexter.data.ContentTags
+import com.dexter.data.Formats
+import com.dexter.data.Genres
 import com.dexter.data.Languages
 import com.dexter.data.ReaderBackground
 import com.dexter.data.ThemeMode
+import com.dexter.data.Themes
 import com.dexter.data.formatBytes
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.iconTap
@@ -62,6 +69,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
     }
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) viewModel.setAutoBackupFolder(uri)
+    }
+    var pickTag by remember { mutableStateOf(false) }
+    if (pickTag) {
+        TagPickerDialog(
+            blocked = settings.blockedTags,
+            onToggle = { tag -> viewModel.update { it.copy(blockedTags = if (tag in it.blockedTags) it.blockedTags - tag else it.blockedTags + tag) } },
+            onDismiss = { pickTag = false },
+        )
     }
     pending?.let { backup ->
         AlertDialog(
@@ -160,6 +175,29 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+            }
+
+            SectionTitle("Blocking")
+            Text("Blocked tags stay out of lists and search. Searching a blocked tag still shows it.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                settings.blockedTags.sorted().forEach { tag ->
+                    ChoiceChip("$tag  ×", true) { viewModel.update { it.copy(blockedTags = it.blockedTags - tag) } }
+                }
+                ChoiceChip("+ Block a tag", false) { pickTag = true }
+            }
+            if (settings.blockedGroups.isNotEmpty()) {
+                Text("Blocked scanlation groups. Tap to unblock.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    settings.blockedGroups.sorted().forEach { group ->
+                        ChoiceChip("$group  ×", true) { viewModel.update { it.copy(blockedGroups = it.blockedGroups - group) } }
+                    }
+                }
+            }
+            if (settings.hiddenSeries.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${settings.hiddenSeries.size} hidden series", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Text("Show all again", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.update { it.copy(hiddenSeries = emptySet()) } })
+                }
             }
 
             SectionTitle("Notifications")
@@ -274,4 +312,23 @@ private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
         Text("%02d:00".format(hour), fontSize = 14.sp)
         Text("+", fontSize = 20.sp, color = Green, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 1) % 24) }.padding(horizontal = 16.dp))
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagPickerDialog(blocked: Set<String>, onToggle: (String) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Block tags") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (Genres.map { it.name } + Themes + Formats + ContentTags).distinct().sortedBy { it.lowercase() }.forEach { tag ->
+                        ChoiceChip(tag, tag in blocked) { onToggle(tag) }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
 }

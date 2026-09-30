@@ -51,12 +51,14 @@ internal data class StatsDto(val statistics: Map<String, StatDto> = emptyMap())
 internal data class StatDto(val follows: Int? = null, val rating: RatingDto? = null)
 
 @Serializable
-internal data class RatingDto(val average: Double? = null)
+internal data class RatingDto(val average: Double? = null, val distribution: Map<String, Int> = emptyMap())
 
 @Serializable
 internal data class RelationshipDto(
     val id: String = "",
     val type: String,
+    /** For a related series, how it relates: sequel, prequel, spin_off, and so on. */
+    val related: String? = null,
     val attributes: RelationshipAttributesDto? = null,
 )
 
@@ -94,3 +96,12 @@ internal data class AtHomeChapterDto(
     val data: List<String>,
     val dataSaver: List<String> = emptyList(),
 )
+
+@Serializable
+internal data class CoverListDto(val data: List<CoverDto> = emptyList())
+
+@Serializable
+internal data class CoverDto(val attributes: CoverAttributesDto)
+
+@Serializable
+internal data class CoverAttributesDto(val fileName: String = "", val volume: String? = null)

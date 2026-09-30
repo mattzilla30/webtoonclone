@@ -165,6 +165,15 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
         data.copy(followedAuthors = data.followedAuthors.map { if (it.id == id) it.copy(knownIds = (it.knownIds + seriesIds).distinct()) else it })
     }
 
+    /** Keeps [search] under its name, replacing one with the same name. */
+    suspend fun saveSearch(search: SavedSearch) = updateScalars { data ->
+        data.copy(savedSearches = listOf(search) + data.savedSearches.filterNot { it.name == search.name })
+    }
+
+    suspend fun deleteSavedSearch(name: String) = updateScalars { data ->
+        data.copy(savedSearches = data.savedSearches.filterNot { it.name == name })
+    }
+
     suspend fun createCollection(name: String) = updateScalars { data ->
         if (name in data.collections) data else data.copy(collections = data.collections + (name to emptyList()))
     }

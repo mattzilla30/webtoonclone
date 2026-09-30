@@ -6,6 +6,7 @@ import com.dexter.data.HomeContent
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.SavedSeries
+import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
 import com.dexter.ui.Load
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,7 +25,29 @@ class HomeViewModel(
     private val repository: MangaDexRepository,
     private val libraryStore: LibraryStore,
     private val settingsStore: SettingsStore,
+    private val seriesCache: SeriesCacheStore,
 ) : ViewModel() {
+    private val becauseState = MutableStateFlow<Pair<String, List<SeriesSummary>>?>(null)
+
+    /** The series you read last and a few like it, for the "Because you read" row. Null until found. */
+    val becauseYouRead: StateFlow<Pair<String, List<SeriesSummary>>?> = becauseState
+
+    private var becauseFor: String? = null
+
+    /** Finds series like the one you read last. Skips series you already have, and does nothing when nothing changed. */
+    fun refreshBecause() {
+        viewModelScope.launch {
+            val library = libraryStore.data.first()
+            val last = library.recent.firstOrNull { it.chapterId != null } ?: return@launch
+            if (becauseFor == last.id && becauseState.value != null) return@launch
+            val detail = seriesCache.load(last.id, repository.language)?.detail ?: return@launch
+            val known = (library.recent + library.subscribed + library.lists).map { it.id }.toSet()
+            val like = runCatching { repository.similar(last.id, detail.tags, limit = 14) }.getOrNull().orEmpty().filter { it.id !in known }
+            becauseFor = last.id
+            becauseState.value = if (like.isEmpty()) null else last.title to like.take(10)
+        }
+    }
+
     /** Series you read recently, newest first, for the Continue Reading row. */
     val recent: StateFlow<List<SavedSeries>> = libraryStore.data
         .map { lib -> lib.recent.filter { it.chapterId != null }.take(10) }

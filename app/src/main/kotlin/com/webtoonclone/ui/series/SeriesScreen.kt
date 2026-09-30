@@ -2,6 +2,7 @@ package com.webtoonclone.ui.series
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +37,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -140,16 +142,8 @@ fun SeriesScreen(
                         }
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
                             GenreLabel(summary.genre)
-                            Text(summary.title, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2)
+                            Text(summary.title, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                             Text(summary.author.orEmpty(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                summary.description,
-                                fontSize = 12.sp,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                color = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
                             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 summary.follows?.let {
                                     Icon(Icons.Default.Favorite, contentDescription = null, tint = Green, modifier = Modifier.size(12.dp))
@@ -162,6 +156,9 @@ fun SeriesScreen(
                             }
                         }
                     }
+                }
+                if (summary.description.isNotBlank()) {
+                    item { Description(summary.description) }
                 }
                 item {
                     if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
@@ -204,6 +201,37 @@ fun SeriesScreen(
                 }
                 item { Spacer(Modifier.height(32.dp)) }
             }
+        }
+    }
+}
+
+/** Shows three lines. Tapping toggles the full text, with a hint only when text is cut off. */
+@Composable
+private fun Description(text: String) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    var cutOff by remember { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth()
+            .clickable(enabled = cutOff || expanded) { expanded = !expanded }
+            .animateContentSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text,
+            fontSize = 13.sp,
+            maxLines = if (expanded) Int.MAX_VALUE else 3,
+            overflow = TextOverflow.Ellipsis,
+            color = Color.White.copy(alpha = 0.85f),
+            onTextLayout = { if (!expanded) cutOff = it.hasVisualOverflow },
+        )
+        if (cutOff || expanded) {
+            Text(
+                if (expanded) "Show less" else "Read more",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Green,
+                modifier = Modifier.padding(top = 6.dp),
+            )
         }
     }
 }

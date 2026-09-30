@@ -95,7 +95,7 @@ private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Uni
             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(26.dp).clickable(onClick = onSearch),
         )
         Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
-            Text(series.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
+            Text(series.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
             Text(
                 series.description,
                 color = Color.White,

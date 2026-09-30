@@ -66,7 +66,7 @@ class MangaDexLiveTest {
         // The notification worker compares this against the last chapter it saw.
         val latest = repository.latestChapter(series.id)
         assertTrue("no latest chapter", latest != null && latest.externalUrl == null)
-        assertTrue("latest chapter is missing from the full list", chapters.any { it.id == latest!!.id })
+        assertTrue("latest chapter number is missing from the full list", chapters.any { it.number == latest!!.number })
 
         // Every tag list in the app must match MangaDex's group exactly, or a filter would
         // silently do nothing (missing) or the app would lack a tag MangaDex has (extra).

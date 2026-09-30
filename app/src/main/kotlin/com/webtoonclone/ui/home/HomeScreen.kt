@@ -39,7 +39,6 @@ import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.GenreLabel
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
-import com.webtoonclone.ui.RankRow
 import com.webtoonclone.ui.SectionHeader
 import com.webtoonclone.ui.genreColor
 
@@ -75,10 +74,6 @@ fun HomeScreen(
                 GenreBandRow(home.genreBands[i], onOpenGenre, onOpenSeries)
             }
 
-            item { SectionHeader("Popular") }
-            items(home.popular.size) { i ->
-                RankRow(i + 1, home.popular[i], { onOpenSeries(home.popular[i].id) }, Modifier.padding(horizontal = 16.dp))
-            }
             item { Box(Modifier.height(24.dp)) }
         }
     }

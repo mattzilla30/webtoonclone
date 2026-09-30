@@ -58,7 +58,6 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     suspend fun home(): HomeContent {
         // MangaDex allows about five requests per second, so these run one after another.
-        val popular = browse(order = Order.Popular, limit = 6, withStats = true)
         val newSeries = browse(order = Order.Newest, limit = 3)
         val picks = readablePicks(6)
         val bands = listOf(
@@ -67,7 +66,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         ).map { (genre, tagline) ->
             GenreBand(genre, tagline, browse(genre = genre, limit = 5))
         }
-        return HomeContent(picks.firstOrNull() ?: popular.firstOrNull(), newSeries, picks, popular.take(5), bands)
+        return HomeContent(picks.firstOrNull(), newSeries, picks, bands)
     }
 
     /**

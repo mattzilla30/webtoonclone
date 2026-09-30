@@ -37,7 +37,6 @@ data class HomeContent(
     val hero: SeriesSummary?,
     val newSeries: List<SeriesSummary>,
     val picks: List<SeriesSummary>,
-    val popular: List<SeriesSummary>,
     val genreBands: List<GenreBand>,
 )
 

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
-import com.webtoonclone.data.Order
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.Load
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,21 +29,11 @@ class SearchViewModel(
     private val _results = MutableStateFlow<Load<List<SeriesSummary>>?>(null)
     val results: StateFlow<Load<List<SeriesSummary>>?> = _results
 
-    private val _trending = MutableStateFlow<List<SeriesSummary>>(emptyList())
-    val trending: StateFlow<List<SeriesSummary>> = _trending
-
     val recentSearches: StateFlow<List<String>> = library.data.map { it.searches }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     var query = ""
         private set
-
-    init {
-        viewModelScope.launch {
-            _trending.value = runCatching { repository.browse(order = Order.Popular, limit = 6) }
-                .getOrDefault(emptyList())
-        }
-    }
 
     fun search(text: String) {
         query = text.trim()

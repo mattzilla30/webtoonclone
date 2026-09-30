@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
-import com.webtoonclone.ui.RankRow
 
 @Composable
 fun SearchScreen(
@@ -51,7 +50,6 @@ fun SearchScreen(
 ) {
     val results by viewModel.results.collectAsState()
     val recent by viewModel.recentSearches.collectAsState()
-    val trending by viewModel.trending.collectAsState()
     var text by rememberSaveable { mutableStateOf(viewModel.query) }
 
     androidx.compose.runtime.LaunchedEffect(initialGenre) {
@@ -95,7 +93,7 @@ fun SearchScreen(
 
         val current = results
         if (current == null) {
-            Idle(recent, trending, viewModel, onOpenSeries) { genre ->
+            Idle(recent, viewModel) { genre ->
                 text = genre
                 viewModel.openGenre(genre)
             }
@@ -123,9 +121,7 @@ fun SearchScreen(
 @Composable
 private fun Idle(
     recent: List<String>,
-    trending: List<com.webtoonclone.data.SeriesSummary>,
     viewModel: SearchViewModel,
-    onOpenSeries: (String) -> Unit,
     onGenre: (String) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
@@ -145,15 +141,6 @@ private fun Idle(
                             Icon(Icons.Default.Clear, contentDescription = "Remove", modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.removeSearch(term) })
                         }
                     }
-                }
-            }
-        }
-        if (trending.isNotEmpty()) {
-            item { Text("Trending Series", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-            items(3) { i ->
-                Row {
-                    RankRow(i + 1, trending[i], { onOpenSeries(trending[i].id) }, Modifier.weight(1f))
-                    trending.getOrNull(i + 3)?.let { RankRow(i + 4, it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
                 }
             }
         }

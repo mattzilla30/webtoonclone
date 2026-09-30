@@ -106,25 +106,3 @@ fun PickTile(series: SeriesSummary, onClick: () -> Unit, modifier: Modifier = Mo
         }
     }
 }
-
-/** Ranked list row: rank, small thumbnail, genre, and title. */
-@Composable
-fun RankRow(rank: Int, series: SeriesSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier.clickable(onClick = onClick).padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            rank.toString(),
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            color = if (rank == 1) Green else MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.width(24.dp),
-        )
-        Cover(series.coverUrl, series.title, Modifier.size(40.dp))
-        Column(Modifier.padding(start = 10.dp)) {
-            GenreLabel(series.genre)
-            Text(series.title, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}

@@ -54,7 +54,7 @@ import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
     val settings by viewModel.settings.collectAsState()
     val library by viewModel.library.collectAsState()
     val cacheBytes by viewModel.cacheBytes.collectAsState()
@@ -102,8 +102,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
-            Text(stringResource(R.string.settings), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
+            Text(stringResource(R.string.settings), fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             SectionTitle("Appearance")

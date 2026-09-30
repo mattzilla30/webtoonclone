@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -155,6 +156,7 @@ private val tabs = listOf(
     Tab("search", "Search", Icons.Default.Search),
     Tab("updates", "Updates", Icons.Default.Refresh),
     Tab("library", "My Series", Icons.Default.Favorite),
+    Tab("settings", "Settings", Icons.Default.Settings),
 )
 
 @Composable
@@ -241,13 +243,13 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                     vm,
                                     onOpenSeries = { nav.navigate("series/$it") },
                                     onOpenSearch = { nav.navigateTab("search") },
-                                    onOpenSettings = { nav.navigate("settings") },
+                                    onOpenSettings = { nav.navigateTab("settings") },
                                 )
                             }
                         }
                         composable("settings") {
                             val vm = koinViewModel<SettingsViewModel>()
-                            SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
+                            SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
                         }
                         composable("series/{seriesId}") { entry ->
                             val seriesId = entry.arguments!!.getString("seriesId")!!

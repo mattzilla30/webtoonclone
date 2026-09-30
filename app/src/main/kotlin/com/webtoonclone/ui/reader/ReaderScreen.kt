@@ -26,6 +26,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -105,15 +107,26 @@ fun ReaderScreen(
                 ) { barsVisible = !barsVisible },
             ) {
                 itemsIndexed(page.pages, key = { _, url -> url }) { index, url ->
-                    SubcomposeAsyncImage(
-                        model = url,
-                        contentDescription = "Page ${index + 1}",
-                        contentScale = ContentScale.FillWidth,
-                        modifier = Modifier.fillMaxWidth(),
-                        loading = { Box(Modifier.fillMaxWidth().height(500.dp).background(Color(0xFF2A2A2A))) },
-                        error = { Text("Page ${index + 1} failed to load", color = Color.White, modifier = Modifier.padding(16.dp)) },
-                        success = { SubcomposeAsyncImageContent() },
-                    )
+                    // Bumping the attempt count rebuilds the image, which asks the server again.
+                    var attempt by remember { mutableIntStateOf(0) }
+                    key(attempt) {
+                        SubcomposeAsyncImage(
+                            model = url,
+                            contentDescription = "Page ${index + 1}",
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier.fillMaxWidth(),
+                            loading = { Box(Modifier.fillMaxWidth().height(500.dp).background(Color(0xFF2A2A2A))) },
+                            error = {
+                                Box(
+                                    Modifier.fillMaxWidth().height(200.dp).background(Color(0xFF2A2A2A)).clickable { attempt++ },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text("Page ${index + 1} failed to load. Tap to retry.", color = Color.White)
+                                }
+                            },
+                            success = { SubcomposeAsyncImageContent() },
+                        )
+                    }
                 }
                 item {
                     Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {

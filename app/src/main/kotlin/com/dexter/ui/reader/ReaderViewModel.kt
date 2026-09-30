@@ -43,6 +43,8 @@ data class ReaderPage(
     val total: Int,
     /** First page to show. Non-zero when you left this chapter partway through. */
     val startPage: Int,
+    /** The series title, when it is known from a saved copy. */
+    val seriesTitle: String? = null,
 )
 
 class ReaderViewModel(
@@ -152,6 +154,8 @@ class ReaderViewModel(
                             index = index,
                             total = list.size,
                             startPage = saved?.takeIf { it.chapterId == chapterId }?.page ?: 0,
+                            seriesTitle = seriesCache.load(seriesId, repository.language)?.detail?.summary?.title
+                                ?: libraryStore.data.first().knownSeries(seriesId)?.title,
                         ),
                     ).also { recordRecent(chapter) }
                 }

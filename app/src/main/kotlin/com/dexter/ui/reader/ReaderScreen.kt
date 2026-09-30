@@ -78,6 +78,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -374,7 +375,10 @@ private fun ReaderContent(
                     IconButton(onClick = onBack, colors = barIcons) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
-                    Text("Ep. ${page.chapter.number}", style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text("Ep. ${page.chapter.number}", style = MaterialTheme.typography.titleMediumEmphasized)
+                        page.seriesTitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
                     IconButton(onClick = onOpenOptions, colors = barIcons) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.reader_options))
                     }

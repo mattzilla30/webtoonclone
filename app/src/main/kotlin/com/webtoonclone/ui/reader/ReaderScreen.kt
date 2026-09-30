@@ -17,9 +17,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -136,7 +136,7 @@ fun ReaderScreen(
                     Modifier.fillMaxWidth().background(Bar).padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.clickable(onClick = onBack))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.clickable(onClick = onBack))
                     Text("Ep. ${page.chapter.number}", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(start = 16.dp))
                     Icon(
                         Icons.Default.Share,
@@ -161,13 +161,13 @@ fun ReaderScreen(
                     Text("#${page.index + 1}", color = Color.White, fontSize = 12.sp)
                     Row {
                         Icon(
-                            Icons.Default.KeyboardArrowLeft,
+                            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "Previous episode",
                             tint = if (page.prevId != null) Color.White else Color.DarkGray,
                             modifier = Modifier.clickable(enabled = page.prevId != null) { onOpenChapter(page.prevId!!) },
                         )
                         Icon(
-                            Icons.Default.KeyboardArrowRight,
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Next episode",
                             tint = if (page.nextId != null) Color.White else Color.DarkGray,
                             modifier = Modifier.padding(start = 16.dp).clickable(enabled = page.nextId != null) { onOpenChapter(page.nextId!!) },

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -100,7 +100,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        if (onClick != null) Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
+        if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
     }
 }
 

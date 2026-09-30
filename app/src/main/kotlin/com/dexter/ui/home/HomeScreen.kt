@@ -26,9 +26,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -142,17 +147,21 @@ fun HomeScreen(
                 if (recent.isNotEmpty()) {
                     item { SectionHeader("Continue Reading") }
                     item {
-                        LazyRow(
+                        val carousel = rememberCarouselState { recent.size }
+                        HorizontalUncontainedCarousel(
+                            state = carousel,
+                            itemWidth = 140.dp,
+                            itemSpacing = 8.dp,
                             contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            items(recent, key = { it.id }) { saved ->
-                                Column(Modifier.width(100.dp).clickable { onOpenChapter(saved.id, saved.chapterId!!) }) {
-                                    Cover(saved.coverUrl, saved.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-                                    Text(saved.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
-                                    saved.chapterNumber?.let {
-                                        Text("Ep. $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
+                            modifier = Modifier.fillMaxWidth().height(250.dp),
+                        ) { index ->
+                            val saved = recent[index]
+                            Box(Modifier.maskClip(MaterialTheme.shapes.large).clickable { onOpenChapter(saved.id, saved.chapterId!!) }) {
+                                Cover(saved.coverUrl, saved.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))))
+                                Column(Modifier.align(Alignment.BottomStart).padding(10.dp)) {
+                                    Text(saved.title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    saved.chapterNumber?.let { Text("Ep. $it", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall) }
                                 }
                             }
                         }
@@ -217,29 +226,28 @@ fun HomeScreen(
 
 @Composable
 private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(360.dp).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick)) {
-        Cover(series.coverUrl, series.title, Modifier.fillMaxSize())
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000))),
-            ),
-        )
-        Icon(
-            Icons.Default.Search,
-            contentDescription = stringResource(R.string.search),
-            tint = Color.White,
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(26.dp).clickable(onClick = onSearch),
-        )
-        Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
-            Text(series.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-            Text(
-                series.description,
-                color = Color.White,
-                fontSize = 13.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 6.dp),
-            )
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth().padding(16.dp).height(380.dp).clip(MaterialTheme.shapes.extraLarge).clickable(onClick = onClick),
+    ) {
+        Box {
+            Cover(series.coverUrl, series.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD9000000)))))
+            FilledTonalIconButton(onClick = onSearch, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+            }
+            Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
+                Text(series.title, color = Color.White, style = MaterialTheme.typography.headlineLargeEmphasized)
+                Text(
+                    series.description,
+                    color = Color.White.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
         }
     }
 }
@@ -247,21 +255,25 @@ private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Uni
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 16.dp, vertical = 6.dp).height(84.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(MaterialTheme.shapes.medium)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            GenreLabel(series.genre)
-            Text(series.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(
-                series.description,
-                fontSize = 11.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(Modifier.padding(12.dp).height(92.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                GenreLabel(series.genre)
+                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    series.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Cover(series.coverUrl, series.title, Modifier.width(62.dp).fillMaxHeight().clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
         }
-        Cover(series.coverUrl, series.title, Modifier.width(56.dp).fillMaxHeight().clip(RoundedCornerShape(4.dp)))
     }
 }

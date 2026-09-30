@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,6 +42,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
@@ -408,11 +411,9 @@ fun SeriesScreen(
                     }
                     val resumeId = lastRead?.chapterId
                     if (resumeId != null || startAt != null) {
-                        Box(
-                            Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primary)
-                                .clickable { if (resumeId != null) onOpenChapter(resumeId) else open(startAt!!) }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center,
+                        Button(
+                            onClick = { if (resumeId != null) onOpenChapter(resumeId) else open(startAt!!) },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min = ButtonDefaults.MediumContainerHeight),
                         ) {
                             Text(
                                 when {
@@ -420,8 +421,7 @@ fun SeriesScreen(
                                     page.hasMore -> "Latest Ep. ${startAt!!.number}"
                                     else -> "Episode ${startAt!!.number}"
                                 },
-                                color = Color.Black,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMediumEmphasized,
                             )
                         }
                     }

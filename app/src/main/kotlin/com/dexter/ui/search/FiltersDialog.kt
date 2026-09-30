@@ -41,6 +41,7 @@ import com.dexter.data.Genres
 import com.dexter.data.OriginalLanguageOptions
 import com.dexter.data.SearchFilters
 import com.dexter.data.StatusOptions
+import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
 import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
@@ -106,6 +107,7 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
                 TagGroup("Content", ContentTags, draft) { draft = draft.cycleTag(it) }
                 TagGroup("Formats", Formats, draft) { draft = draft.cycleTag(it) }
                 TagGroup("Genres", Genres.map { it.name }, draft) { draft = draft.cycleTag(it) }
+                TagGroup("Suggestive", SuggestiveTags, draft) { draft = draft.cycleTag(it) }
                 TagGroup("Themes", Themes, draft) { draft = draft.cycleTag(it) }
                 Column(Modifier.padding(bottom = 24.dp)) {}
             }

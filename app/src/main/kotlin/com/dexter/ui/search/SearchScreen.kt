@@ -59,6 +59,7 @@ import com.dexter.data.Genres
 import com.dexter.data.Order
 import com.dexter.data.SavedSearch
 import com.dexter.data.SeriesSummary
+import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
@@ -290,6 +291,7 @@ private fun Idle(
         tagSection("Content", ContentTags, onTag)
         tagSection("Formats", Formats, onTag)
         tagSection("Genres", Genres.map { it.name }, onTag)
+        tagSection("Suggestive", SuggestiveTags, onTag)
         tagSection("Themes", Themes, onTag)
         item { Box(Modifier.padding(bottom = 24.dp)) }
     }

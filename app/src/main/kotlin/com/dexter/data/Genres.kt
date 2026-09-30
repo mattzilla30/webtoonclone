@@ -52,3 +52,13 @@ val Formats = listOf(
 
 /** MangaDex "content" tags, which flag mature material. */
 val ContentTags = listOf("Gore", "Sexual Violence")
+
+/**
+ * Tags that point to suggestive or adult material, gathered from the theme and content groups so
+ * you can reach them in one place. MangaDex has no separate suggestive tag group, so each name
+ * here also appears in [Themes] or [ContentTags].
+ */
+val SuggestiveTags = listOf(
+    "Crossdressing", "Genderswap", "Gyaru", "Harem", "Incest", "Loli",
+    "Monster Girls", "Reverse Harem", "Sexual Violence", "Shota",
+)

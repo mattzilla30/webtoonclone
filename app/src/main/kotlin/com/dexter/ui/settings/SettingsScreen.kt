@@ -1,5 +1,6 @@
 package com.dexter.ui.settings
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -58,6 +60,7 @@ import com.dexter.data.ReaderBackground
 import com.dexter.data.ThemeMode
 import com.dexter.data.Themes
 import com.dexter.data.formatBytes
+import com.dexter.notify.CHANNEL_ID
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.iconTap
@@ -69,6 +72,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     val cacheBytes by viewModel.cacheBytes.collectAsState()
     LaunchedEffect(Unit) { viewModel.refreshCacheSize() }
     val message by viewModel.message.collectAsState()
+    val context = LocalContext.current
     val pending by viewModel.pending.collectAsState()
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.exportTo(uri)
@@ -215,6 +219,16 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             SwitchRow("Combine into one notification", "One summary for all new chapters found in a check.", settings.notificationDigest) { on ->
                 viewModel.update { it.copy(notificationDigest = on) }
             }
+            InfoRow(
+                title = "Sound and alerts",
+                subtitle = "Open Android's settings for new chapter notifications.",
+                onClick = {
+                    val intent = Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, CHANNEL_ID)
+                    runCatching { context.startActivity(intent) }
+                },
+            )
             SwitchRow("Quiet hours", "Hold notifications during these hours. New chapters notify once quiet hours end.", settings.quietHours) { on ->
                 viewModel.update { it.copy(quietHours = on) }
             }

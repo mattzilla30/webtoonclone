@@ -26,7 +26,8 @@ import kotlinx.coroutines.flow.first
 import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
-private const val CHANNEL_ID = "new_chapters"
+/** The notification channel for new chapters. Settings links to its system page. */
+const val CHANNEL_ID = "new_chapters"
 private const val WORK_NAME = "new-chapters"
 private const val GROUP_KEY = "new_chapters_group"
 private const val DIGEST_ID = 1
@@ -209,6 +210,9 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
     companion object {
         /** Runs every 30 minutes on any network. Safe to call on every launch. */
         fun schedule(context: Context) {
+            // Create the channel up front, so its system settings page exists before the first notification.
+            context.getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(NotificationChannel(CHANNEL_ID, "New chapters", NotificationManager.IMPORTANCE_DEFAULT))
             val request = PeriodicWorkRequestBuilder<NewChaptersWorker>(30, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()

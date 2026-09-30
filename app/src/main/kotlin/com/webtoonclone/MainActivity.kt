@@ -123,12 +123,13 @@ private fun WebtoonNav(openCount: Int, openSeries: String?, onOpened: () -> Unit
                 modifier = Modifier.padding(padding),
             ) {
                 composable("home") {
-                    val vm = viewModel { HomeViewModel(app.repository) }
+                    val vm = viewModel { HomeViewModel(app.repository, app.libraryStore) }
                     Box(Modifier.fillMaxSize()) {
                         HomeScreen(
                             vm,
                             onOpenSeries = { nav.navigate("series/$it") },
                             onOpenSearch = { nav.navigateTab("search") },
+                            onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
                             openCount = openCount,
                         )
                     }

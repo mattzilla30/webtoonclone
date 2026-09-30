@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -52,9 +55,11 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSeries: (String) -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenChapter: (seriesId: String, chapterId: String) -> Unit,
     openCount: Int,
 ) {
     val state by viewModel.state.collectAsState()
+    val recent by viewModel.recent.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // A new app open reloads with fresh random picks. Returning from a series page does not.
@@ -73,6 +78,26 @@ fun HomeScreen(
     LoadView(state, onRetry = viewModel::retry) { home ->
         LazyColumn(Modifier.fillMaxSize()) {
             home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
+
+            if (recent.isNotEmpty()) {
+                item { SectionHeader("Continue Reading") }
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(recent, key = { it.id }) { saved ->
+                            Column(Modifier.width(100.dp).clickable { onOpenChapter(saved.id, saved.chapterId!!) }) {
+                                Cover(saved.coverUrl, saved.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+                                Text(saved.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                                saved.chapterNumber?.let {
+                                    Text("Ep. $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             item { SectionHeader("New Series") }
             items(home.newSeries.size) { i ->

@@ -14,7 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -70,21 +72,25 @@ fun DownloadsScreen(
                         }
                     }
                     items(group.chapters, key = { it.chapterId }) { chapter ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { onOpenChapter(chapter.seriesId, chapter.chapterId) }.padding(horizontal = 24.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                        Surface(
+                            onClick = { onOpenChapter(chapter.seriesId, chapter.chapterId) },
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp),
                         ) {
-                            Text(
-                                buildString {
-                                    append("Ep. ${chapter.number}")
-                                    if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(formatBytes(chapter.bytes), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp))
-                            Text(stringResource(R.string.remove), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.delete(chapter.chapterId) })
+                            Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        buildString {
+                                            append("Ep. ${chapter.number}")
+                                            if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(formatBytes(chapter.bytes), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                TextButton(onClick = { viewModel.delete(chapter.chapterId) }) { Text(stringResource(R.string.remove)) }
+                            }
                         }
                     }
                 }

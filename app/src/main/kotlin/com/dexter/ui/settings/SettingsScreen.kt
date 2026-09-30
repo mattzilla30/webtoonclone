@@ -20,8 +20,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -219,30 +221,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             }
 
             SectionTitle("Storage")
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.cache), style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        cacheBytes?.let(::formatBytes) ?: "Measuring...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(stringResource(R.string.clear_cache), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { viewModel.clearCache() })
-            }
+            InfoRow(
+                title = stringResource(R.string.cache),
+                subtitle = cacheBytes?.let(::formatBytes) ?: "Measuring…",
+                action = { TextButton(onClick = { viewModel.clearCache() }) { Text(stringResource(R.string.clear_cache)) } },
+            )
 
             SwitchRow("Save on Wi-Fi only", "Downloads wait for an unmetered connection.", settings.downloadWifiOnly) { on ->
                 viewModel.update { it.copy(downloadWifiOnly = on) }
             }
-            Row(Modifier.fillMaxWidth().clickable(onClick = onOpenDownloads).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.downloaded_chapters), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-            }
-
-            Row(Modifier.fillMaxWidth().clickable(onClick = onOpenStats).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.reading_stats), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-            }
+            InfoRow(title = stringResource(R.string.downloaded_chapters), onClick = onOpenDownloads)
+            InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
 
             SectionTitle("Backup")
             Text(
@@ -250,25 +239,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text(stringResource(R.string.save_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { exportLauncher.launch("dexter-backup.json") })
-                Text(stringResource(R.string.restore_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { exportLauncher.launch("dexter-backup.json") }) { Text(stringResource(R.string.save_backup)) }
+                OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) { Text(stringResource(R.string.restore_backup)) }
             }
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.daily_backup_folder), style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        if (settings.autoBackupFolder == null) "Off" else "On. Writes dexter-backup.json once a day.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(stringResource(R.string.choose), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { folderLauncher.launch(null) })
-                if (settings.autoBackupFolder != null) {
-                    Text(stringResource(R.string.turn_off), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setAutoBackupFolder(null) })
-                }
-            }
-
+            InfoRow(
+                title = stringResource(R.string.daily_backup_folder),
+                subtitle = if (settings.autoBackupFolder == null) "Off" else "On. Writes dexter-backup.json once a day.",
+                action = {
+                    TextButton(onClick = { folderLauncher.launch(null) }) { Text(stringResource(R.string.choose)) }
+                    if (settings.autoBackupFolder != null) {
+                        TextButton(onClick = { viewModel.setAutoBackupFolder(null) }) { Text(stringResource(R.string.turn_off)) }
+                    }
+                },
+            )
             Text("", modifier = Modifier.padding(bottom = 24.dp))
         }
     }
@@ -352,4 +336,31 @@ private fun TagPickerDialog(blocked: Set<String>, onToggle: (String) -> Unit, on
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) } },
     )
+}
+
+/** A card row with a title, an optional subtitle, and either a tap action (with an arrow) or buttons on the right. */
+@Composable
+private fun InfoRow(
+    title: String,
+    subtitle: String? = null,
+    onClick: (() -> Unit)? = null,
+    action: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+) {
+    val content: @Composable () -> Unit = {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                if (subtitle != null) {
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            action()
+            if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+        }
+    }
+    if (onClick != null) {
+        Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { content() }
+    } else {
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { content() }
+    }
 }

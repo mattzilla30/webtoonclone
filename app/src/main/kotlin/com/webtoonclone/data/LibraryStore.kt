@@ -59,6 +59,8 @@ class LibraryStore(private val context: Context) {
         lib.copy(searches = lib.searches.filterNot { it == query })
     }
 
+    suspend fun setSearchOrder(order: String) = update { it.copy(searchOrder = order) }
+
     suspend fun setSortAlphabetical(alphabetical: Boolean) = update { it.copy(sortAlphabetical = alphabetical) }
 
     suspend fun setNotifications(enabled: Boolean) = update { it.copy(notificationsEnabled = enabled) }

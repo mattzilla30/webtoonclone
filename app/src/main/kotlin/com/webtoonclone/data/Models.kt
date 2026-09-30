@@ -66,4 +66,6 @@ data class LibraryData(
     val notificationsEnabled: Boolean = true,
     /** My Series sorts A-Z when true, newest first when false. Kept between launches. */
     val sortAlphabetical: Boolean = false,
+    /** The last search sort chosen, as an [Order] name. */
+    val searchOrder: String = "Popular",
 )

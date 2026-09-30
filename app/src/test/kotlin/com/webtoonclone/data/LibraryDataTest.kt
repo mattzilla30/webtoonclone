@@ -1,6 +1,7 @@
 package com.webtoonclone.data
 
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,5 +28,19 @@ class LibraryDataTest {
         val az = LibraryData(sortAlphabetical = true)
         val back = json.decodeFromString<LibraryData>(json.encodeToString(LibraryData.serializer(), az))
         assertTrue(back.sortAlphabetical)
+    }
+
+    @Test
+    fun searchOrderDefaultsToPopularAndRoundTrips() {
+        assertEquals("Popular", json.decodeFromString<LibraryData>("{}").searchOrder)
+        val newest = LibraryData(searchOrder = Order.Newest.name)
+        val back = json.decodeFromString<LibraryData>(json.encodeToString(LibraryData.serializer(), newest))
+        assertEquals(Order.Newest, Order.valueOf(back.searchOrder))
+    }
+
+    @Test
+    fun everyOrderNameSurvivesValueOf() {
+        // The saved name is parsed back on launch, so renaming an Order would silently reset it.
+        Order.entries.forEach { assertEquals(it, Order.valueOf(it.name)) }
     }
 }

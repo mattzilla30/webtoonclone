@@ -10,6 +10,7 @@ import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -46,6 +47,14 @@ class SearchViewModel(
     var query = ""
         private set
 
+    init {
+        // Start from the sort you chose last time.
+        viewModelScope.launch {
+            val saved = runCatching { Order.valueOf(library.data.first().searchOrder) }.getOrNull()
+            if (saved != null && request == null) _sort.value = saved
+        }
+    }
+
     fun search(text: String) {
         query = text.trim()
         if (query.isEmpty()) return clear()
@@ -66,6 +75,7 @@ class SearchViewModel(
     fun setSort(order: Order) {
         if (order == _sort.value) return
         _sort.value = order
+        viewModelScope.launch { library.setSearchOrder(order.name) }
         val current = request ?: return
         viewModelScope.launch { start(current) }
     }

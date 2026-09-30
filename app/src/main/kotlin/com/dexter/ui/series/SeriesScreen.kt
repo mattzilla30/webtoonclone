@@ -94,6 +94,7 @@ import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
+import com.dexter.ui.OfflineBanner
 import com.dexter.ui.PickTile
 import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.compact
@@ -205,25 +206,16 @@ fun SeriesScreen(
             val headerContent: LazyListScope.() -> Unit = {
                 offlineSavedAt?.let { savedAt ->
                     item {
-                        Text(
-                            "Offline. Showing a copy saved ${timeAgo(java.time.Instant.ofEpochMilli(savedAt))}. Tap to retry.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { viewModel.load() }
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
+                        OfflineBanner(savedAt, "a copy", onRetry = { viewModel.load() })
                     }
                 }
                 item {
-                    Box(Modifier.fillMaxWidth().height(340.dp).background(Color(0xFF2A2A2A))) {
+                    Box(Modifier.fillMaxWidth().height(340.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
                         Cover(summary.coverUrl, summary.title, Modifier.fillMaxSize())
                         Box(
                             Modifier.fillMaxSize().background(
                                 Brush.verticalGradient(
-                                    listOf(Color(0x66000000), Color(0x99181818), Color(0xFF181818)),
+                                    listOf(Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.6f), MaterialTheme.colorScheme.background),
                                 ),
                             ),
                         )
@@ -253,7 +245,7 @@ fun SeriesScreen(
                         }
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
                             GenreLabel(summary.genre)
-                            Text(summary.title, style = MaterialTheme.typography.headlineLargeEmphasized, color = Color.White)
+                            Text(summary.title, style = MaterialTheme.typography.headlineLargeEmphasized, color = MaterialTheme.colorScheme.onBackground)
                             val authorId = summary.authorId
                             Text(
                                 summary.author.orEmpty(),
@@ -656,17 +648,12 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
                     }
                 }
             }
-            Text(stringResource(R.string.covers), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
-            Text(
-                "Open on MangaDex",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { onOpenLink("https://mangadex.org/title/${detail.summary.id}") }.padding(vertical = 4.dp),
-            )
+            TextButton(onClick = onOpenCovers) { Text(stringResource(R.string.covers)) }
+            TextButton(onClick = { onOpenLink("https://mangadex.org/title/${detail.summary.id}") }) { Text("Open on MangaDex") }
             if (detail.links.isNotEmpty()) {
                 Text(stringResource(R.string.links), style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(top = 12.dp))
                 detail.links.forEach { link ->
-                    Text(link.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onOpenLink(link.url) }.padding(vertical = 4.dp))
+                    TextButton(onClick = { onOpenLink(link.url) }) { Text(link.label) }
                 }
             }
         }

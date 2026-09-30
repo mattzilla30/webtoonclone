@@ -82,7 +82,7 @@ fun SkeletonList(rows: Int = 8) {
         label = "skeleton-alpha",
     )
     val block = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
-    val shape = RoundedCornerShape(4.dp)
+    val shape = MaterialTheme.shapes.extraSmall
     val loadingLabel = stringResource(R.string.loading)
     Column(
         Modifier.fillMaxSize().padding(16.dp).semantics { contentDescription = loadingLabel },

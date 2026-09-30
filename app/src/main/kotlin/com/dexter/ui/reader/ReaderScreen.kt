@@ -26,6 +26,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -105,8 +106,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val Bar = Color(0xE6181818)
-
 /** The color behind the pages, chosen in settings. */
 fun readerBackgroundColor(background: ReaderBackground): Color = when (background) {
     ReaderBackground.Dark -> Color(0xFF181818)
@@ -124,6 +123,10 @@ private val MAX_STRIP_WIDTH = 720.dp
 
 /** Pixels scrolled every 16 ms at each auto-scroll level. Level 0 is off. */
 private val AUTO_SCROLL_PX = floatArrayOf(0f, 1.5f, 3f, 5f, 8f, 12f)
+
+/** The translucent panel colour behind the reader's bars. */
+@Composable
+private fun barColor() = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f)
 
 @Composable
 fun ReaderScreen(
@@ -348,20 +351,20 @@ private fun ReaderContent(
             // A small counter stays visible when the bars are hidden.
             Surface(
                 shape = CircleShape,
-                color = Bar,
-                contentColor = Color.White,
+                color = barColor(),
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
             ) {
                 Text("${position + 1} / $count", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
         }
 
-        val barIcons = IconButtonDefaults.iconButtonColors(contentColor = Color.White, disabledContentColor = Color.DarkGray)
+        val barIcons = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurface, disabledContentColor = Color.DarkGray)
         if (barsVisible) {
             Surface(
-                color = Bar,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+                color = barColor(),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shape = MaterialTheme.shapes.extraLarge.copy(topStart = CornerSize(0.dp), topEnd = CornerSize(0.dp)),
                 modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
             ) {
                 Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -387,9 +390,9 @@ private fun ReaderContent(
                 }
             }
             Surface(
-                color = Bar,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = barColor(),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
                 modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
             ) {
                 Column {
@@ -468,13 +471,13 @@ private fun PageImage(url: String, index: Int, fill: Boolean) {
             contentScale = if (fill) ContentScale.Fit else ContentScale.FillWidth,
             modifier = if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
             loading = {
-                Box(Modifier.then(if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(500.dp)).background(Color(0xFF2A2A2A)))
+                Box(Modifier.then(if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(500.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh))
             },
             error = {
                 Box(
                     Modifier
                         .then(if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(200.dp))
-                        .background(Color(0xFF2A2A2A))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .clickable {
                             autoRetries = 0
                             attempt++
@@ -483,7 +486,7 @@ private fun PageImage(url: String, index: Int, fill: Boolean) {
                 ) {
                     Text(
                         if (autoRetries < AUTO_RETRIES) "Retrying page ${index + 1}..." else "Page ${index + 1} failed to load. Tap to retry.",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             },

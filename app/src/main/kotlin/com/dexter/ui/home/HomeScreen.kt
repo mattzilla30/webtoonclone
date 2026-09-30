@@ -64,6 +64,7 @@ import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
+import com.dexter.ui.OfflineBanner
 import com.dexter.ui.PickTile
 import com.dexter.ui.SectionHeader
 import com.dexter.ui.adaptiveColumns
@@ -131,16 +132,7 @@ fun HomeScreen(
             LazyColumn(Modifier.fillMaxSize()) {
                 offlineSavedAt?.let { savedAt ->
                     item {
-                        Text(
-                            "Offline. Showing home saved ${timeAgo(Instant.ofEpochMilli(savedAt))}. Tap to retry.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { viewModel.retry() }
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
+                        OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
                     }
                 }
                 home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }

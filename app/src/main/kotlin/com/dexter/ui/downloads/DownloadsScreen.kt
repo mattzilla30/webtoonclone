@@ -68,7 +68,7 @@ fun DownloadsScreen(
                                 Text(group.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                                 Text("${group.chapters.size} chapters, ${formatBytes(group.bytes)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text(stringResource(R.string.remove), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.deleteSeries(group.seriesId) })
+                            TextButton(onClick = { viewModel.deleteSeries(group.seriesId) }) { Text(stringResource(R.string.remove)) }
                         }
                     }
                     items(group.chapters, key = { it.chapterId }) { chapter ->

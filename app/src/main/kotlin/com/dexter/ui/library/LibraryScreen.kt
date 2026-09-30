@@ -155,15 +155,13 @@ fun LibraryScreen(
                     }
                 }
                 if (collection != null) {
-                    Text(
-                        "Delete this collection",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp).clickable {
+                    TextButton(
+                        onClick = {
                             viewModel.deleteCollection(collection)
                             collectionFilter = null
                         },
-                    )
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    ) { Text("Delete this collection") }
                 }
             }
             OutlinedTextField(

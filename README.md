@@ -28,6 +28,17 @@ RELEASE_KEY_PASSWORD=...
 
 Without them the release APK is unsigned.
 
+## Features added in this round
+
+- Reading lists (Reading, Plan to Read, Completed, Dropped) from a status button on the series page, and a LISTS tab in My Series.
+- Backup and restore to a JSON file in Settings. The library database and preferences also join Android's cloud backup.
+- mangadex.org title and chapter links open in the app. Launcher shortcuts (Search, My Series, Continue) and a Continue Reading widget.
+- Advanced search: status, demographic, original language, year, and include or exclude tags with match all or any.
+- Author pages, similar series, scanlation group credits with a preferred group per series, volume headings, and a content language setting.
+- Paged reading modes, zoom, and tap zones in the reader.
+- Side navigation rail and wider cover grids on tablets. Screen transitions.
+- Koin for dependency injection, a hand-written baseline profile, Compose UI tests in `androidTest` (compile-checked in CI, run them on a device with `./gradlew :app:connectedDebugAndroidTest`), CI and release workflows. See `RELEASING.md`.
+
 ## Settings
 
 My Series has a gear icon that opens Settings:

@@ -92,6 +92,17 @@ class MangaDexLiveTest {
         val newest = repository.browse(title = "love", order = Order.Newest, limit = 5).map { it.id }
         assertTrue("sort had no effect", popular.isNotEmpty() && popular != newest)
 
+        // The app's HTTP cache: a repeat API request is served locally, an at-home request never is.
+        val cached = cachingClient(java.nio.file.Files.createTempDirectory("api-cache").toFile())
+        fun get(url: String) = cached.newCall(okhttp3.Request.Builder().url(url).header("User-Agent", "webtoonclone-test").build())
+            .execute().use { it.body.string(); it.cacheResponse != null }
+        val tagUrl = "https://api.mangadex.org/manga/tag"
+        assertTrue("first request should hit the network", !get(tagUrl))
+        assertTrue("second request should come from the cache", get(tagUrl))
+        val atHome = "https://api.mangadex.org/at-home/server/${chapters.first().id}"
+        get(atHome)
+        assertTrue("at-home responses must not be cached", !get(atHome))
+
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)
         val second = repository.browse(title = "love", page = 1)

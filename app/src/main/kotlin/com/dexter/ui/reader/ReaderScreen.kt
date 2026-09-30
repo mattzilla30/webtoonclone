@@ -139,6 +139,7 @@ fun ReaderScreen(
     val settings by viewModel.settings.collectAsState()
     val mode by viewModel.mode.collectAsState()
     val chosenMode by viewModel.chosenMode.collectAsState()
+    val hasSeriesLook by viewModel.hasSeriesLook.collectAsState()
     var showOptions by remember { mutableStateOf(false) }
     val zoom = remember { ZoomState() }
 
@@ -174,6 +175,8 @@ fun ReaderScreen(
                 settings = settings,
                 mode = mode,
                 chosenMode = chosenMode,
+                seriesLook = hasSeriesLook,
+                onSeriesLook = viewModel::setSeriesLook,
                 onChange = viewModel::updateSettings,
                 onMode = viewModel::setMode,
                 onDismiss = { showOptions = false },
@@ -555,6 +558,8 @@ private fun ReaderOptions(
     settings: Settings,
     mode: ReadingMode,
     chosenMode: ReadingMode,
+    seriesLook: Boolean,
+    onSeriesLook: (Boolean) -> Unit,
     onChange: ((Settings) -> Settings) -> Unit,
     onMode: (ReadingMode) -> Unit,
     onDismiss: () -> Unit,
@@ -566,6 +571,11 @@ private fun ReaderOptions(
             Text(stringResource(R.string.reading_mode_for_this_series), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 modeLabels.forEach { (value, label) -> ChoiceChip(label, chosenMode == value) { onMode(value) } }
+            }
+
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Separate look for this series", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(checked = seriesLook, onCheckedChange = onSeriesLook)
             }
 
             Text(stringResource(R.string.dimming), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))

@@ -10,6 +10,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+/** The reader's dimming and background for one series. */
+@Serializable
+data class SeriesLook(val dim: Int = 0, val background: ReaderBackground = ReaderBackground.Dark)
+
 /** Every rating MangaDex uses, mildest first. */
 val ContentRatings = listOf("safe", "suggestive", "erotica", "pornographic")
 
@@ -72,6 +76,8 @@ data class Settings(
     val language: String = "en",
     /** The scanlation group to prefer for each series, by series id. */
     val preferredGroups: Map<String, String> = emptyMap(),
+    /** A separate dimming and background for one series. A series with no entry uses the global look. */
+    val seriesLooks: Map<String, SeriesLook> = emptyMap(),
     /** A reading mode chosen for one series. A series with no entry uses Auto. */
     val seriesReadingModes: Map<String, ReadingMode> = emptyMap(),
 )

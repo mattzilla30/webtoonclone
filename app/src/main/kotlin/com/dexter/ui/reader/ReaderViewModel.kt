@@ -13,9 +13,12 @@ import com.dexter.data.SeriesCacheStore
 import com.dexter.data.Settings
 import com.dexter.data.SettingsStore
 import com.dexter.data.StatsStore
+import com.dexter.data.applyLookChange
 import com.dexter.data.detectReadingMode
+import com.dexter.data.effectiveLook
 import com.dexter.data.findChapter
 import com.dexter.data.resolveMode
+import com.dexter.data.withSeriesLook
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.async
@@ -53,8 +56,19 @@ class ReaderViewModel(
     private val downloads: DownloadStore,
     private val stats: StatsStore,
 ) : ViewModel() {
+    /** The settings as this series' reader sees them, with its own dimming and background when it has them. */
     val settings: StateFlow<Settings> = settingsStore.settings
+        .map { effectiveLook(it, seriesId) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
+
+    /** Whether this series has its own dimming and background. */
+    val hasSeriesLook: StateFlow<Boolean> = settingsStore.settings
+        .map { seriesId in it.seriesLooks }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setSeriesLook(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.update { withSeriesLook(it, seriesId, enabled) } }
+    }
 
     /** The mode detected from the series' tags and original language. */
     private val detected = MutableStateFlow(ReadingMode.Vertical)
@@ -83,7 +97,7 @@ class ReaderViewModel(
     }
 
     fun updateSettings(change: (Settings) -> Settings) {
-        viewModelScope.launch { settingsStore.update(change) }
+        viewModelScope.launch { settingsStore.update { applyLookChange(it, seriesId, change) } }
     }
 
     private val _state = MutableStateFlow<Load<ReaderPage>>(Load.Loading)

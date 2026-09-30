@@ -57,4 +57,18 @@ class FiltersTest {
     fun aSeriesWithNoKnownTagsHasNothingSimilar() {
         assertEquals(emptyList<String>(), similarTags(listOf("Full Color", "Web Comic")))
     }
+
+    @Test
+    fun everyLimitBecomesARemovableChip() {
+        val filters = SearchFilters(included = listOf("Action"), excluded = listOf("Gore"), status = listOf("ongoing"), year = 2020)
+        val chips = activeFilters(filters)
+        assertEquals(listOf("+ Action", "\u2212 Gore", "Ongoing", "2020"), chips.map { it.label })
+        assertEquals(filters.copy(year = null), chips.last().without)
+        assertEquals(3, chips.size - 1)
+    }
+
+    @Test
+    fun noLimitsMeansNoChips() {
+        assertTrue(activeFilters(SearchFilters()).isEmpty())
+    }
 }

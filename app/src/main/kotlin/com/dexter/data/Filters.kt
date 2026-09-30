@@ -52,3 +52,16 @@ fun effectiveExcluded(excluded: List<String>, blocked: Set<String>, included: Li
     val wanted = included.map { it.lowercase() }.toSet()
     return (excluded + blocked).distinctBy { it.lowercase() }.filter { it.lowercase() !in wanted || it in excluded }
 }
+
+/** One active limit shown as a removable chip: what to show, and the filters left after removing it. */
+data class ActiveFilter(val label: String, val without: SearchFilters)
+
+/** Every limit set in [filters] as a chip, so each can be removed on its own. */
+fun activeFilters(filters: SearchFilters): List<ActiveFilter> = buildList {
+    filters.included.forEach { add(ActiveFilter("+ $it", filters.copy(included = filters.included - it))) }
+    filters.excluded.forEach { add(ActiveFilter("\u2212 $it", filters.copy(excluded = filters.excluded - it))) }
+    filters.status.forEach { add(ActiveFilter(it.replaceFirstChar { c -> c.uppercase() }, filters.copy(status = filters.status - it))) }
+    filters.demographics.forEach { add(ActiveFilter(it.replaceFirstChar { c -> c.uppercase() }, filters.copy(demographics = filters.demographics - it))) }
+    filters.originalLanguages.forEach { add(ActiveFilter(languageName(it), filters.copy(originalLanguages = filters.originalLanguages - it))) }
+    filters.year?.let { add(ActiveFilter(it.toString(), filters.copy(year = null))) }
+}

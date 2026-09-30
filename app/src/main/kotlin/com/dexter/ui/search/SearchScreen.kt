@@ -71,6 +71,7 @@ import com.dexter.data.SearchFilters
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
+import com.dexter.data.activeFilters
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
@@ -186,6 +187,21 @@ fun SearchScreen(
         } else {
             offlineSavedAt?.let { OfflineBanner(it, "results", onRetry = viewModel::retry) }
             SortRow(sort, viewModel::setSort)
+            if (!filters.isEmpty) {
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    activeFilters(filters).forEach { active ->
+                        InputChip(
+                            selected = true,
+                            onClick = { viewModel.setFilters(active.without) },
+                            label = { Text(active.label) },
+                            trailingIcon = { Icon(Icons.Default.Clear, contentDescription = "Remove", modifier = Modifier.size(InputChipDefaults.IconSize)) },
+                        )
+                    }
+                }
+            }
             if (viewModel.canSave) {
                 TextButton(onClick = { saveName = text.ifBlank { "" } }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Save this search") }
             }

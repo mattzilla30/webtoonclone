@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -206,14 +207,31 @@ fun LibraryScreen(
             }
             if (items.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        when (tab) {
-                            LibraryList.Subscribed -> "Subscribe to a series to see it here."
-                            LibraryList.Lists -> "Add a series to a list from its page."
-                            LibraryList.Recent -> "Series you read show up here."
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        val filtering = query.isNotBlank() || unreadOnly || statusFilter != null || collection != null
+                        Text(
+                            when {
+                                filtering -> "Nothing matches your filters."
+                                tab == LibraryList.Subscribed -> "Subscribe to a series to see it here."
+                                tab == LibraryList.Lists -> "Add a series to a list from its page."
+                                else -> "Series you read show up here."
+                            },
+                            style = MaterialTheme.typography.titleMediumEmphasized,
+                        )
+                        if (filtering) {
+                            FilledTonalButton(
+                                onClick = {
+                                    query = ""
+                                    unreadOnly = false
+                                    statusFilter = null
+                                    collectionFilter = null
+                                },
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) { Text("Clear filters") }
+                        } else {
+                            FilledTonalButton(onClick = onOpenSearch, modifier = Modifier.padding(top = 16.dp)) { Text("Find something to read") }
+                        }
+                    }
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {

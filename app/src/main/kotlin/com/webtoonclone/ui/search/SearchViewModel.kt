@@ -6,6 +6,7 @@ import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.OfflineStore
 import com.webtoonclone.data.Order
+import com.webtoonclone.data.SearchFilters
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.data.searchKey
 import com.webtoonclone.ui.Load
@@ -73,6 +74,27 @@ class SearchViewModel(
     /** What the current results came from, so a new sort can rerun it. */
     private var request: Request? = null
 
+    private val _filters = MutableStateFlow(SearchFilters())
+
+    /** The advanced limits applied to the current results. */
+    val filters: StateFlow<SearchFilters> = _filters
+
+    /** Applies [next] to the current results, or starts a filtered listing when nothing is showing. */
+    fun setFilters(next: SearchFilters) {
+        if (next == _filters.value) return
+        _filters.value = next
+        val current = request
+        viewModelScope.launch {
+            when {
+                current != null -> start(current)
+                !next.isEmpty -> {
+                    query = "Filtered"
+                    start(Request(title = null, tag = null))
+                }
+            }
+        }
+    }
+
     private class Request(val title: String?, val tag: String?)
 
     /** Fetches one page of the current search or genre. Null when nothing is showing. */
@@ -137,6 +159,7 @@ class SearchViewModel(
 
     fun clear() {
         query = ""
+        _filters.value = SearchFilters()
         source = null
         request = null
         _offlineSavedAt.value = null
@@ -177,8 +200,9 @@ class SearchViewModel(
 
     private suspend fun start(req: Request) {
         val order = _sort.value
+        val filters = _filters.value
         val fetch: suspend (page: Int) -> List<SeriesSummary> = { p ->
-            repository.browse(title = req.title, tag = req.tag, page = p, order = order, withStats = req.title == null)
+            repository.browse(title = req.title, tag = req.tag, page = p, order = order, withStats = req.title == null, filters = filters)
         }
         request = req
         _message.value = null
@@ -186,7 +210,7 @@ class SearchViewModel(
         page = 0
         endReached = false
         _results.value = Load.Loading
-        val key = searchKey(req.title, req.tag, order)
+        val key = searchKey(req.title, req.tag, order, filters, repository.language)
         _results.value = try {
             val first = fetch(0)
             _offlineSavedAt.value = null

@@ -75,7 +75,12 @@ fun SearchScreen(
     val suggestions by viewModel.suggestions.collectAsState()
     val message by viewModel.message.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
+    val filters by viewModel.filters.collectAsState()
+    var showFilters by rememberSaveable { mutableStateOf(false) }
     var text by rememberSaveable { mutableStateOf(viewModel.query) }
+    if (showFilters) {
+        FiltersDialog(filters, onApply = { viewModel.setFilters(it) }, onDismiss = { showFilters = false })
+    }
 
     LaunchedEffect(initialGenre) {
         if (initialGenre != null) {
@@ -118,6 +123,9 @@ fun SearchScreen(
                 keyboardActions = KeyboardActions(onSearch = { viewModel.search(text) }),
                 modifier = Modifier.weight(1f),
             )
+            TextButton(onClick = { showFilters = true }) {
+                Text(if (filters.isEmpty) "Filters" else "Filters (${filters.activeCount})", color = Green)
+            }
             if (results != null) {
                 TextButton(onClick = { text = ""; viewModel.onTyping(""); viewModel.clear() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }

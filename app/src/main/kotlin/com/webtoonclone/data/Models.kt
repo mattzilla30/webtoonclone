@@ -1,16 +1,22 @@
 package com.webtoonclone.data
 
+import kotlinx.serialization.Serializable
+
 data class SeriesSummary(
     val id: String,
     val title: String,
     val coverUrl: String?,
+    val genre: String? = null,
+    val author: String? = null,
+    val description: String = "",
+    val follows: Int? = null,
 )
 
 data class SeriesDetail(
     val summary: SeriesSummary,
-    val description: String,
     val status: String,
     val tags: List<String>,
+    val rating: Double?,
 )
 
 data class Chapter(
@@ -23,4 +29,32 @@ data class Chapter(
 data class ReadingProgress(
     val chapterId: String,
     val page: Int,
+)
+
+data class HomeContent(
+    val hero: SeriesSummary?,
+    val newSeries: List<SeriesSummary>,
+    val picks: List<SeriesSummary>,
+    val popular: List<SeriesSummary>,
+    val genreBands: List<GenreBand>,
+)
+
+data class GenreBand(val genre: String, val tagline: String, val series: List<SeriesSummary>)
+
+/** A series saved on this device, either as recent history or as a subscription. */
+@Serializable
+data class SavedSeries(
+    val id: String,
+    val title: String,
+    val coverUrl: String? = null,
+    val chapterId: String? = null,
+    val chapterNumber: String? = null,
+    val at: Long = 0,
+)
+
+@Serializable
+data class LibraryData(
+    val recent: List<SavedSeries> = emptyList(),
+    val subscribed: List<SavedSeries> = emptyList(),
+    val searches: List<String> = emptyList(),
 )

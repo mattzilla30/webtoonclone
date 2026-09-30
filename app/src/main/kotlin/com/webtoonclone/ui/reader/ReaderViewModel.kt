@@ -3,6 +3,8 @@ package com.webtoonclone.ui.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.Chapter
+import com.webtoonclone.data.LibraryStore
+import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.ProgressStore
 import com.webtoonclone.ui.Load
@@ -17,6 +19,8 @@ data class ReaderPage(
     val pages: List<String>,
     val prevId: String?,
     val nextId: String?,
+    val index: Int,
+    val total: Int,
 )
 
 class ReaderViewModel(
@@ -24,6 +28,7 @@ class ReaderViewModel(
     private val chapterId: String,
     private val repository: MangaDexRepository,
     private val progressStore: ProgressStore,
+    private val libraryStore: LibraryStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<Load<ReaderPage>>(Load.Loading)
@@ -47,12 +52,24 @@ class ReaderViewModel(
                             pages = pages.await(),
                             prevId = list.getOrNull(index - 1)?.id,
                             nextId = list.getOrNull(index + 1)?.id,
+                            index = index,
+                            total = list.size,
                         ),
-                    )
+                    ).also { recordRecent(list[index]) }
                 }
             } catch (e: Exception) {
                 Load.Error(e.message ?: "Could not load chapter")
             }
+        }
+    }
+
+    private fun recordRecent(chapter: Chapter) {
+        viewModelScope.launch {
+            // The series title and cover come from a second request so the library list can show them.
+            val summary = runCatching { repository.series(seriesId).summary }.getOrNull() ?: return@launch
+            libraryStore.recordRecent(
+                SavedSeries(seriesId, summary.title, summary.coverUrl, chapterId, chapter.number),
+            )
         }
     }
 

@@ -1,0 +1,64 @@
+package com.webtoonclone.data
+
+import android.content.Context
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+
+private val Context.libraryDataStore by preferencesDataStore(name = "library")
+private val LIBRARY = stringPreferencesKey("library")
+private const val MAX_RECENT = 50
+private const val MAX_SEARCHES = 10
+
+/** Recent reads, subscriptions, and search history, all kept on the device. */
+class LibraryStore(private val context: Context) {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    val data: Flow<LibraryData> = context.libraryDataStore.data.map { prefs ->
+        prefs[LIBRARY]?.let { runCatching { json.decodeFromString<LibraryData>(it) }.getOrNull() }
+            ?: LibraryData()
+    }
+
+    suspend fun recordRecent(series: SavedSeries) = update { lib ->
+        val rest = lib.recent.filterNot { it.id == series.id }
+        lib.copy(recent = (listOf(series.copy(at = System.currentTimeMillis())) + rest).take(MAX_RECENT))
+    }
+
+    suspend fun removeRecent(ids: Set<String>) = update { lib ->
+        lib.copy(recent = lib.recent.filterNot { it.id in ids })
+    }
+
+    suspend fun toggleSubscribed(series: SavedSeries) = update { lib ->
+        val exists = lib.subscribed.any { it.id == series.id }
+        lib.copy(
+            subscribed = if (exists) lib.subscribed.filterNot { it.id == series.id }
+            else listOf(series) + lib.subscribed,
+        )
+    }
+
+    suspend fun removeSubscribed(ids: Set<String>) = update { lib ->
+        lib.copy(subscribed = lib.subscribed.filterNot { it.id in ids })
+    }
+
+    suspend fun addSearch(query: String) = update { lib ->
+        lib.copy(searches = (listOf(query) + lib.searches.filterNot { it == query }).take(MAX_SEARCHES))
+    }
+
+    suspend fun removeSearch(query: String) = update { lib ->
+        lib.copy(searches = lib.searches.filterNot { it == query })
+    }
+
+    suspend fun clearSearches() = update { it.copy(searches = emptyList()) }
+
+    private suspend fun update(change: (LibraryData) -> LibraryData) {
+        context.libraryDataStore.edit { prefs ->
+            val current = prefs[LIBRARY]?.let { runCatching { json.decodeFromString<LibraryData>(it) }.getOrNull() }
+                ?: LibraryData()
+            prefs[LIBRARY] = json.encodeToString(LibraryData.serializer(), change(current))
+        }
+    }
+}

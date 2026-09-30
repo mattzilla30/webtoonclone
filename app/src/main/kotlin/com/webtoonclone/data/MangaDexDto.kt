@@ -24,10 +24,25 @@ internal data class MangaAttributesDto(
 )
 
 @Serializable
-internal data class TagDto(val attributes: TagAttributesDto)
+internal data class TagDto(val id: String = "", val attributes: TagAttributesDto)
 
 @Serializable
-internal data class TagAttributesDto(val name: Map<String, String> = emptyMap())
+internal data class TagAttributesDto(
+    val name: Map<String, String> = emptyMap(),
+    val group: String = "",
+)
+
+@Serializable
+internal data class TagListDto(val data: List<TagDto>)
+
+@Serializable
+internal data class StatsDto(val statistics: Map<String, StatDto> = emptyMap())
+
+@Serializable
+internal data class StatDto(val follows: Int? = null, val rating: RatingDto? = null)
+
+@Serializable
+internal data class RatingDto(val average: Double? = null)
 
 @Serializable
 internal data class RelationshipDto(
@@ -36,7 +51,7 @@ internal data class RelationshipDto(
 )
 
 @Serializable
-internal data class RelationshipAttributesDto(val fileName: String? = null)
+internal data class RelationshipAttributesDto(val fileName: String? = null, val name: String? = null)
 
 @Serializable
 internal data class ChapterListDto(val data: List<ChapterDto>)

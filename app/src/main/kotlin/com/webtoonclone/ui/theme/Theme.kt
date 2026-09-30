@@ -5,13 +5,23 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Colors = darkColorScheme(
-    primary = Color(0xFF00DC64),
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E),
+val Green = Color(0xFF00DC64)
+val GreenDark = Color(0xFF00B852)
+
+private val Dark = darkColorScheme(
+    primary = Green,
+    onPrimary = Color.Black,
+    background = Color(0xFF181818),
+    onBackground = Color.White,
+    surface = Color(0xFF181818),
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF2A2A2A),
+    onSurfaceVariant = Color(0xFF9A9A9A),
+    outlineVariant = Color(0xFF333333),
 )
 
+/** The whole app uses the dark scheme. */
 @Composable
 fun WebtoonTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = Colors, content = content)
+    MaterialTheme(colorScheme = Dark, content = content)
 }

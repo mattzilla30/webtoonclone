@@ -61,3 +61,11 @@ fun relationLabel(kind: String): String = when (kind) {
 /** Turns MangaDex's score counts ("1" to "10") into counts keyed by score, ignoring anything else. */
 fun ratingCounts(distribution: Map<String, Int>): Map<Int, Int> =
     distribution.mapNotNull { (score, count) -> score.toIntOrNull()?.takeIf { it in 1..10 }?.let { it to count } }.toMap().toSortedMap(reverseOrder())
+
+/** A short line of the main facts about a series: status, year, demographic, and original language. */
+fun factsLine(detail: SeriesDetail): String = listOfNotNull(
+    detail.status.takeIf { it.isNotBlank() }?.replaceFirstChar { it.uppercase() },
+    detail.year?.toString(),
+    detail.demographic,
+    languageName(detail.originalLanguage).takeIf { it.isNotBlank() },
+).joinToString(" \u00b7 ")

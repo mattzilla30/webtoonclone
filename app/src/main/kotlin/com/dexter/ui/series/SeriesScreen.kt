@@ -89,6 +89,7 @@ import com.dexter.data.Chapter
 import com.dexter.data.ChapterListItem
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SeriesDetail
+import com.dexter.data.factsLine
 import com.dexter.data.groupByVolume
 import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
@@ -260,6 +261,7 @@ fun SeriesScreen(
                                     Modifier
                                 },
                             )
+                            Text(factsLine(page.detail), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 summary.follows?.let {
                                     Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))

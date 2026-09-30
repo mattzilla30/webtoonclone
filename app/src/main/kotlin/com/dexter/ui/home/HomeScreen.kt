@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -138,7 +139,7 @@ fun HomeScreen(
                             OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
                         }
                     }
-                    home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
+                    home.hero?.let { hero -> item { Hero(hero, onOpenSearch, onShuffle = viewModel::retry) { onOpenSeries(hero.id) } } }
 
                     if (recent.isNotEmpty()) {
                         item { SectionHeader("Continue Reading") }
@@ -214,7 +215,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Unit) {
+private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onShuffle: () -> Unit, onClick: () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -223,8 +224,13 @@ private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Uni
         Box {
             Cover(series.coverUrl, series.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD9000000)))))
-            FilledTonalIconButton(onClick = onSearch, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
-                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+            Row(Modifier.align(Alignment.TopEnd).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalIconButton(onClick = onShuffle) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Shuffle picks")
+                }
+                FilledTonalIconButton(onClick = onSearch) {
+                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                }
             }
             Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
                 Text(series.title, color = Color.White, style = MaterialTheme.typography.headlineLargeEmphasized)

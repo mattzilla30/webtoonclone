@@ -21,17 +21,23 @@ import com.webtoonclone.WebtoonApp
 import com.webtoonclone.data.SavedSeries
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
 private const val CHANNEL_ID = "new_chapters"
 private const val WORK_NAME = "new-chapters"
 const val EXTRA_SERIES_ID = "seriesId"
+const val EXTRA_CHAPTER_ID = "chapterId"
 
 /** Checks subscribed series for chapters newer than the last one seen and posts a notification. */
 class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-
     override suspend fun doWork(): Result {
         val app = applicationContext as WebtoonApp
+        val settings = app.settingsStore.current()
+        // During quiet hours nothing is checked, so the next run after them catches up and notifies once.
+        if (settings.quietHours && isQuietHour(LocalTime.now().hour, settings.quietStartHour, settings.quietEndHour)) {
+            return Result.success()
+        }
         val library = app.libraryStore.data.first()
         val subscribed = library.subscribed
         var failed = false
@@ -44,8 +50,8 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
                 continue
             }
             val known = series.knownChapterId
-            if (latest != null && known != null && latest.id != known && library.notificationsEnabled) {
-                notify(series, latest.number)
+            if (latest != null && known != null && latest.id != known && library.notificationsEnabled && series.notify) {
+                notify(series, latest.id, latest.number)
             }
             // First sighting only records the chapter, so old chapters never notify. With
             // notifications off the chapter is still recorded, so turning them on stays quiet.
@@ -57,7 +63,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         return if (failed) Result.retry() else Result.success()
     }
 
-    private fun notify(series: SavedSeries, chapterNumber: String) {
+    private fun notify(series: SavedSeries, chapterId: String, chapterNumber: String) {
         val context = applicationContext
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
 
@@ -71,6 +77,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_SERIES_ID, series.id)
+                putExtra(EXTRA_CHAPTER_ID, chapterId)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

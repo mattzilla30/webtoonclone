@@ -14,5 +14,6 @@ class HttpCacheTest {
     @Test
     fun expiringImageServerUrlsAreNeverCached() {
         assertEquals("no-store", cacheControlFor("/at-home/server/abc"))
+        assertEquals("no-store", cacheControlFor("/manga/random"))
     }
 }

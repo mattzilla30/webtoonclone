@@ -15,6 +15,7 @@ private const val PAGE_SIZE = 24
 private const val LANG = "en"
 private const val CHAPTER_PAGE = 500
 private const val MAX_ATTEMPTS = 3
+private const val RANDOM_TRIES = 5
 private const val PAGE_URL_TTL_MS = 10L * 60 * 1000
 private const val UPDATES_PAGE = 50
 
@@ -22,12 +23,22 @@ enum class Order(val param: String) {
     Popular("followedCount"),
     Newest("createdAt"),
     Updated("latestUploadedChapter"),
+    TopRated("rating"),
 }
 
 class MangaDexRepository(private val client: OkHttpClient) {
-
     private val json = Json { ignoreUnknownKeys = true }
     private var tagIndex: TagIndex? = null
+
+    /** Set from Settings. Read on the network threads, so both are volatile. */
+    @Volatile var dataSaver = false
+
+    @Volatile var originalTitles = false
+
+    fun applySettings(settings: Settings) {
+        dataSaver = settings.dataSaver
+        originalTitles = settings.originalTitles
+    }
     private val pageUrls = TtlCache<String, List<String>>(PAGE_URL_TTL_MS)
 
     suspend fun browse(
@@ -60,6 +71,24 @@ class MangaDexRepository(private val client: OkHttpClient) {
         if (!withStats || list.isEmpty()) return list
         val stats = stats(list.map { it.id })
         return list.map { it.copy(follows = stats[it.id]?.follows) }
+    }
+
+    /**
+     * A random series that has English chapters, or null if five tries find none. The endpoint picks
+     * without regard to language, so a few tries are usually enough.
+     */
+    suspend fun randomSeries(): SeriesSummary? {
+        repeat(RANDOM_TRIES) {
+            val url = "$API/manga/random".toHttpUrl().newBuilder()
+                .addQueryParameter("includes[]", "cover_art")
+                .addQueryParameter("includes[]", "author")
+                .addQueryParameter("contentRating[]", "safe")
+                .addQueryParameter("contentRating[]", "suggestive")
+                .build()
+            val manga = json.decodeFromString<MangaOneDto>(fetch(url)).data
+            if (LANG in manga.attributes.availableTranslatedLanguages) return manga.toSummary()
+        }
+        return null
     }
 
     /** The newest series that already have chapters. Polled so new uploads show up. */
@@ -150,11 +179,17 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .build()
         val manga = json.decodeFromString<MangaOneDto>(fetch(url)).data
         val stat = stats(listOf(id))[id]
+        val summary = manga.toSummary().copy(follows = stat?.follows)
         return SeriesDetail(
-            summary = manga.toSummary().copy(follows = stat?.follows),
+            summary = summary,
             status = manga.attributes.status,
             tags = manga.attributes.tags.map { it.attributes.name.pick() },
             rating = stat?.rating?.average,
+            altTitles = alternateTitles(manga.attributes.title, manga.attributes.altTitles, shown = summary.title),
+            year = manga.attributes.year,
+            demographic = demographicLabel(manga.attributes.publicationDemographic),
+            originalLanguage = manga.attributes.originalLanguage,
+            links = buildLinks(manga.attributes.links),
         )
     }
 
@@ -204,11 +239,19 @@ class MangaDexRepository(private val client: OkHttpClient) {
      * that chapter with the same addresses. [forceRefresh] asks for new ones, for a retry.
      */
     suspend fun pages(chapterId: String, forceRefresh: Boolean = false): List<String> {
-        if (!forceRefresh) pageUrls.get(chapterId)?.let { return it }
+        // The two image sets have different addresses, so the saver choice is part of the key.
+        val saver = dataSaver
+        val key = "$chapterId:${if (saver) "saver" else "full"}"
+        if (!forceRefresh) pageUrls.get(key)?.let { return it }
         val body = fetch("$API/at-home/server/$chapterId".toHttpUrl())
         val home = json.decodeFromString<AtHomeDto>(body)
-        val urls = home.chapter.data.map { "${home.baseUrl}/data/${home.chapter.hash}/$it" }
-        pageUrls.put(chapterId, urls)
+        val chapter = home.chapter
+        val urls = if (saver && chapter.dataSaver.isNotEmpty()) {
+            chapter.dataSaver.map { "${home.baseUrl}/data-saver/${chapter.hash}/$it" }
+        } else {
+            chapter.data.map { "${home.baseUrl}/data/${chapter.hash}/$it" }
+        }
+        pageUrls.put(key, urls)
         return urls
     }
 
@@ -284,15 +327,8 @@ class MangaDexRepository(private val client: OkHttpClient) {
      * English name in altTitles. Non-English works use the first English alt title.
      * A work with none keeps its main title.
      */
-    private fun MangaDto.displayTitle(): String {
-        val main = attributes.title
-        val translated = attributes.altTitles.firstNotNullOfOrNull { it[LANG] }
-        return when {
-            attributes.originalLanguage == LANG -> main[LANG] ?: translated ?: main.pick()
-            translated != null -> translated
-            else -> main.pick()
-        }
-    }
+    private fun MangaDto.displayTitle(): String =
+        chooseTitle(attributes.title, attributes.altTitles, attributes.originalLanguage, originalTitles, LANG)
 
     private fun Map<String, String>.pick(): String = this[LANG] ?: values.firstOrNull().orEmpty()
 }

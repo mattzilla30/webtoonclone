@@ -17,10 +17,17 @@ internal data class MangaDto(
 
 @Serializable
 internal data class MangaAttributesDto(
-    val title: Map<String, String> = emptyMap(),
-    val altTitles: List<Map<String, String>> = emptyList(),
+    @Serializable(with = LenientStringMap::class) val title: Map<String, String> = emptyMap(),
+    val altTitles: List<
+        @Serializable(with = LenientStringMap::class)
+        Map<String, String>,
+    > = emptyList(),
     val originalLanguage: String = "",
-    val description: Map<String, String> = emptyMap(),
+    val availableTranslatedLanguages: List<String?> = emptyList(),
+    val year: Int? = null,
+    val publicationDemographic: String? = null,
+    @Serializable(with = LenientStringMap::class) val links: Map<String, String>? = null,
+    @Serializable(with = LenientStringMap::class) val description: Map<String, String> = emptyMap(),
     val status: String = "",
     val tags: List<TagDto> = emptyList(),
 )
@@ -30,7 +37,7 @@ internal data class TagDto(val id: String = "", val attributes: TagAttributesDto
 
 @Serializable
 internal data class TagAttributesDto(
-    val name: Map<String, String> = emptyMap(),
+    @Serializable(with = LenientStringMap::class) val name: Map<String, String> = emptyMap(),
     val group: String = "",
 )
 
@@ -78,4 +85,8 @@ internal data class ChapterAttributesDto(
 internal data class AtHomeDto(val baseUrl: String, val chapter: AtHomeChapterDto)
 
 @Serializable
-internal data class AtHomeChapterDto(val hash: String, val data: List<String>)
+internal data class AtHomeChapterDto(
+    val hash: String,
+    val data: List<String>,
+    val dataSaver: List<String> = emptyList(),
+)

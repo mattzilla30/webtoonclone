@@ -28,6 +28,27 @@ RELEASE_KEY_PASSWORD=...
 
 Without them the release APK is unsigned.
 
+## Settings
+
+My Series has a gear icon that opens Settings:
+
+- Theme: dark (the default), true black, light, or follow the system. Material You colors are optional.
+- Data saver, reader background, volume-key scrolling, and reporting page loads to MangaDex.
+- English or original (romanized) titles.
+- Notifications on or off, and quiet hours.
+- Cache size with a Clear cache button.
+- Saving crash reports on the device, which is off until you turn it on.
+- Credits and licenses.
+
+## Code style
+
+```
+./gradlew :app:ktlintCheck    # report problems
+./gradlew :app:ktlintFormat   # fix them
+```
+
+The rules are in `.editorconfig`.
+
 ## Live API test
 
 ```

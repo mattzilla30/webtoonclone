@@ -2,16 +2,19 @@ package com.webtoonclone.ui.series
 
 import android.Manifest
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -24,14 +27,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -56,15 +64,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.net.toUri
 import com.webtoonclone.data.Chapter
+import com.webtoonclone.data.SeriesDetail
+import com.webtoonclone.data.languageName
+import com.webtoonclone.ui.ChoiceChip
 import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.GenreLabel
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.compact
-import com.webtoonclone.ui.timeAgo
+import com.webtoonclone.ui.formatChapterDate
 import com.webtoonclone.ui.theme.Green
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
+import com.webtoonclone.ui.timeAgo
 import java.util.Locale
 
 @Composable
@@ -72,8 +83,10 @@ fun SeriesScreen(
     viewModel: SeriesViewModel,
     onOpenChapter: (chapterId: String) -> Unit,
     onHome: () -> Unit,
+    onOpenTag: (String) -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val notifyEnabled by viewModel.notifyEnabled.collectAsState()
     val lastRead by viewModel.lastRead.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
@@ -101,10 +114,16 @@ fun SeriesScreen(
             val open: (Chapter) -> Unit = { chapter ->
                 val link = chapter.externalUrl
                 if (link == null) onOpenChapter(chapter.id)
-                else context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
+                else context.startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
             }
 
-            if (showInfo) InfoDialog(page.detail.status, summary.description, summary.author) { showInfo = false }
+            if (showInfo) {
+                InfoDialog(
+                    page.detail,
+                    onOpenLink = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) },
+                    onDismiss = { showInfo = false },
+                )
+            }
 
             LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 offlineSavedAt?.let { savedAt ->
@@ -122,12 +141,12 @@ fun SeriesScreen(
                     }
                 }
                 item {
-                    Box(Modifier.fillMaxWidth().height(340.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(Modifier.fillMaxWidth().height(340.dp).background(Color(0xFF2A2A2A))) {
                         Cover(summary.coverUrl, summary.title, Modifier.fillMaxSize())
                         Box(
                             Modifier.fillMaxSize().background(
                                 Brush.verticalGradient(
-                                    listOf(Color(0x66000000), Color(0x99181818), MaterialTheme.colorScheme.background),
+                                    listOf(Color(0x66000000), Color(0x99181818), Color(0xFF181818)),
                                 ),
                             ),
                         )
@@ -152,6 +171,14 @@ fun SeriesScreen(
                                     }
                                     .padding(horizontal = 12.dp, vertical = 5.dp),
                             )
+                            if (subscribed) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = if (notifyEnabled) "Notifications on for this series" else "Notifications off for this series",
+                                    tint = if (notifyEnabled) Green else Color(0xFF777777),
+                                    modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setNotify(!notifyEnabled) },
+                                )
+                            }
                             Icon(Icons.Default.Info, contentDescription = "Info", tint = Color.White, modifier = Modifier.padding(start = 16.dp).clickable { showInfo = true })
                             Icon(
                                 Icons.Default.Share,
@@ -186,6 +213,9 @@ fun SeriesScreen(
                 if (summary.description.isNotBlank()) {
                     item { Description(summary.description) }
                 }
+                if (page.detail.tags.isNotEmpty()) {
+                    item { TagChips(page.detail.tags, onOpenTag) }
+                }
                 item {
                     if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
                         Text(
@@ -216,7 +246,18 @@ fun SeriesScreen(
                     }
                 }
                 items(page.chapters, key = { it.id }) { chapter ->
-                    EpisodeRow(chapter, summary.coverUrl, read = isChapterRead(chapter.number, lastRead?.chapterNumber)) { open(chapter) }
+                    val readable = chapter.externalUrl == null
+                    val previous = previousReadable(page.chapters, chapter)
+                    EpisodeRow(
+                        chapter,
+                        summary.coverUrl,
+                        read = isChapterRead(chapter.number, lastRead?.chapterNumber),
+                        onClick = { open(chapter) },
+                        // Read marks apply to chapters that open in the reader.
+                        onMarkRead = if (readable) ({ viewModel.markReadUpTo(chapter, page.detail) }) else null,
+                        // Marking unread needs an earlier chapter to fall back to, or the full list.
+                        onMarkUnread = if (readable && (previous != null || !page.hasMore)) ({ viewModel.markUnreadFrom(previous, page.detail) }) else null,
+                    )
                 }
                 if (loadingMore) {
                     item {
@@ -247,7 +288,7 @@ private fun Description(text: String) {
             fontSize = 13.sp,
             maxLines = if (expanded) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis,
-            color = Color.White.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
             onTextLayout = { if (!expanded) cutOff = it.hasVisualOverflow },
         )
         if (cutOff || expanded) {
@@ -262,45 +303,98 @@ private fun Description(text: String) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun EpisodeRow(chapter: Chapter, coverUrl: String?, read: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().alpha(if (read) 0.5f else 1f).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f))
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(
-                buildString {
-                    append("Ep. ${chapter.number}")
-                    if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
-                    if (chapter.externalUrl != null) append("  ↗")
-                },
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(formatDate(chapter.publishedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun InfoDialog(status: String, description: String, author: String?, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(20.dp),
+private fun EpisodeRow(
+    chapter: Chapter,
+    coverUrl: String?,
+    read: Boolean,
+    onClick: () -> Unit,
+    onMarkRead: (() -> Unit)?,
+    onMarkUnread: (() -> Unit)?,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .alpha(if (read) 0.5f else 1f)
+                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null) ({ menu = true }) else null)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(status.uppercase(), color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text(description, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
-            if (!author.isNullOrBlank()) {
-                Text("Written by", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(author, fontSize = 13.sp)
+            Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f))
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Text(
+                    buildString {
+                        append("Ep. ${chapter.number}")
+                        if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
+                        if (chapter.externalUrl != null) append("  ↗")
+                    },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(formatChapterDate(chapter.publishedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            if (onMarkRead != null) {
+                DropdownMenuItem(text = { Text("Mark read up to here") }, onClick = { menu = false; onMarkRead() })
+            }
+            if (onMarkUnread != null) {
+                DropdownMenuItem(text = { Text("Mark unread from here") }, onClick = { menu = false; onMarkUnread() })
             }
         }
     }
 }
 
-private val dateFormat = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
+/** The series' tags. Tapping one searches it. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagChips(tags: List<String>, onOpenTag: (String) -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        tags.forEach { tag -> ChoiceChip(tag, selected = false) { onOpenTag(tag) } }
+    }
+}
 
-private fun formatDate(iso: String): String =
-    runCatching { OffsetDateTime.parse(iso).format(dateFormat) }.getOrDefault("")
+@Composable
+private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+        ) {
+            Text(detail.status.uppercase(), color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            val facts = listOfNotNull(
+                detail.year?.toString(),
+                detail.demographic,
+                languageName(detail.originalLanguage).takeIf { it.isNotEmpty() },
+            )
+            if (facts.isNotEmpty()) {
+                Text(facts.joinToString(" · "), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            }
+            Text(detail.summary.description, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
+            if (!detail.summary.author.isNullOrBlank()) {
+                Text("Written by", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(detail.summary.author, fontSize = 13.sp)
+            }
+            if (detail.altTitles.isNotEmpty()) {
+                Text("Also known as", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                detail.altTitles.forEach { Text(it, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
+            }
+            if (detail.links.isNotEmpty()) {
+                Text("Links", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                detail.links.forEach { link ->
+                    Text(link.label, fontSize = 13.sp, color = Green, modifier = Modifier.clickable { onOpenLink(link.url) }.padding(vertical = 4.dp))
+                }
+            }
+        }
+    }
+}

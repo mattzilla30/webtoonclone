@@ -1,5 +1,6 @@
 package com.webtoonclone.ui.series
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,5 +40,20 @@ class ReadStateTest {
         assertFalse(hasUnreadChapters(null, "10"))
         assertFalse(hasUnreadChapters("11", null))
         assertFalse(hasUnreadChapters("Oneshot", "10"))
+    }
+
+    private fun chapter(id: String, external: Boolean = false) =
+        com.webtoonclone.data.Chapter(id, id, "", "", if (external) "https://example.com" else null)
+
+    @Test
+    fun theNextOlderReadableChapterBecomesTheLastRead() {
+        val list = listOf(chapter("c3"), chapter("c2", external = true), chapter("c1"))
+        assertEquals("c1", previousReadable(list, list[0])?.id)
+    }
+
+    @Test
+    fun theOldestChapterHasNoPreviousOne() {
+        val list = listOf(chapter("c2"), chapter("c1"))
+        assertEquals(null, previousReadable(list, list[1]))
     }
 }

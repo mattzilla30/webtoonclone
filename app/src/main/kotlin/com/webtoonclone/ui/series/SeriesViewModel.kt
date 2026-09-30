@@ -4,11 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.CachedSeries
 import com.webtoonclone.data.Chapter
-import com.webtoonclone.data.MAX_CACHED_CHAPTERS
-import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.LibraryStore
+import com.webtoonclone.data.MAX_CACHED_CHAPTERS
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SavedSeries
+import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.SeriesDetail
 import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
@@ -34,7 +34,6 @@ class SeriesViewModel(
     private val libraryStore: LibraryStore,
     private val seriesCache: SeriesCacheStore,
 ) : ViewModel() {
-
     private val _state = MutableStateFlow<Load<SeriesPage>>(Load.Loading)
     val state: StateFlow<Load<SeriesPage>> = _state
 
@@ -51,6 +50,33 @@ class SeriesViewModel(
 
     val subscribed: StateFlow<Boolean> = libraryStore.data.map { lib -> lib.subscribed.any { it.id == seriesId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Whether new chapters of this series notify. Always true until you switch it off. */
+    val notifyEnabled: StateFlow<Boolean> = libraryStore.data
+        .map { lib -> lib.subscribed.firstOrNull { it.id == seriesId }?.notify ?: true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setNotify(enabled: Boolean) {
+        viewModelScope.launch { libraryStore.setSeriesNotify(seriesId, enabled) }
+    }
+
+    /** Sets [chapter] as the last one read, so it and every earlier chapter show as read. */
+    fun markReadUpTo(chapter: Chapter, detail: SeriesDetail) {
+        viewModelScope.launch {
+            libraryStore.recordRecent(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl, chapter.id, chapter.number))
+        }
+    }
+
+    /** Moves the last-read mark back to [previous], or clears it when there is nothing earlier. */
+    fun markUnreadFrom(previous: Chapter?, detail: SeriesDetail) {
+        viewModelScope.launch {
+            if (previous != null) {
+                libraryStore.recordRecent(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl, previous.id, previous.number))
+            } else {
+                libraryStore.removeRecent(setOf(seriesId))
+            }
+        }
+    }
 
     init { load() }
 

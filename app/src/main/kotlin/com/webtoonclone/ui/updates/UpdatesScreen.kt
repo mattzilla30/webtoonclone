@@ -30,12 +30,14 @@ import androidx.compose.ui.unit.sp
 import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.GenreLabel
 import com.webtoonclone.ui.LoadView
+import com.webtoonclone.ui.OfflineBanner
 import com.webtoonclone.ui.timeAgo
 
 @Composable
 fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
     val state by viewModel.state.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
         Text("Updates", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(16.dp))
@@ -51,6 +53,9 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
             }
 
             LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                offlineSavedAt?.let { savedAt ->
+                    item { OfflineBanner(savedAt, "updates", onRetry = viewModel::load) }
+                }
                 items(entries, key = { it.series.id }) { entry ->
                     Row(
                         Modifier.fillMaxWidth().clickable { onOpenSeries(entry.series.id) }.padding(horizontal = 16.dp, vertical = 6.dp),

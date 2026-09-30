@@ -1,3 +1,5 @@
+import org.gradle.api.attributes.Bundling
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -43,6 +45,11 @@ android {
 
     buildFeatures { compose = true }
 
+    lint {
+        // The app ships arm64-v8a only, by design, so the missing x86_64 support is expected.
+        disable += "ChromeOsAbiSupport"
+    }
+
     testOptions { unitTests.isReturnDefaultValues = true }
 }
 
@@ -66,4 +73,32 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
+}
+
+// Kotlin style checks. `./gradlew :app:ktlintCheck` reports problems and `:app:ktlintFormat` fixes them.
+// The rules are in the .editorconfig at the project root.
+val ktlint: Configuration by configurations.creating
+
+dependencies {
+    ktlint("com.pinterest.ktlint:ktlint-cli:1.8.0") {
+        attributes { attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL)) }
+    }
+}
+
+val ktlintFiles = arrayOf("src/**/*.kt", "*.kts")
+
+tasks.register<JavaExec>("ktlintCheck") {
+    group = "verification"
+    description = "Checks Kotlin code style with ktlint."
+    classpath = ktlint
+    mainClass.set("com.pinterest.ktlint.Main")
+    args(*ktlintFiles)
+}
+
+tasks.register<JavaExec>("ktlintFormat") {
+    group = "formatting"
+    description = "Fixes Kotlin code style problems with ktlint."
+    classpath = ktlint
+    mainClass.set("com.pinterest.ktlint.Main")
+    args("-F", *ktlintFiles)
 }

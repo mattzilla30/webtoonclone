@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore by preferencesDataStore(name = "progress")
 
 class ProgressStore(private val context: Context) {
-
     private fun key(seriesId: String) = stringPreferencesKey("series_$seriesId")
 
     fun observe(seriesId: String): Flow<ReadingProgress?> =

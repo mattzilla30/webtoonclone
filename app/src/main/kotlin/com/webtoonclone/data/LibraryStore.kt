@@ -19,7 +19,6 @@ private const val MAX_SEARCHES = 10
 
 /** Recent reads, subscriptions, and search history, all kept on the device. */
 class LibraryStore(private val context: Context) {
-
     private val json = Json { ignoreUnknownKeys = true }
 
     val data: Flow<LibraryData> = context.libraryDataStore.data.map { prefs ->
@@ -87,6 +86,10 @@ class LibraryStore(private val context: Context) {
     }
 
     suspend fun dismissHint() = update { it.copy(hintDismissed = true) }
+
+    suspend fun setSeriesNotify(seriesId: String, enabled: Boolean) = update { lib ->
+        lib.copy(subscribed = lib.subscribed.map { if (it.id == seriesId) it.copy(notify = enabled) else it })
+    }
 
     suspend fun setSearchOrder(order: String) = update { it.copy(searchOrder = order) }
 

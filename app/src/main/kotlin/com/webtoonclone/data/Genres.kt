@@ -52,4 +52,3 @@ val Formats = listOf(
 
 /** MangaDex "content" tags, which flag mature material. */
 val ContentTags = listOf("Gore", "Sexual Violence")
-

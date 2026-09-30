@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
-
     val library: StateFlow<LibraryData> = store.data
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryData())
 

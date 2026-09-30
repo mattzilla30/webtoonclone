@@ -8,12 +8,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,16 +28,16 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -47,10 +50,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.webtoonclone.data.ContentTags
 import com.webtoonclone.data.Formats
-import com.webtoonclone.data.Order
 import com.webtoonclone.data.Genres
+import com.webtoonclone.data.Order
+import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.data.Themes
+import com.webtoonclone.ui.ChoiceChip
+import com.webtoonclone.ui.Cover
+import com.webtoonclone.ui.GenreLabel
 import com.webtoonclone.ui.LoadView
+import com.webtoonclone.ui.OfflineBanner
 import com.webtoonclone.ui.PickTile
 import com.webtoonclone.ui.theme.Green
 
@@ -64,6 +72,9 @@ fun SearchScreen(
     val recent by viewModel.recentSearches.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
     val sort by viewModel.sort.collectAsState()
+    val suggestions by viewModel.suggestions.collectAsState()
+    val message by viewModel.message.collectAsState()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     var text by rememberSaveable { mutableStateOf(viewModel.query) }
 
     LaunchedEffect(initialGenre) {
@@ -77,15 +88,22 @@ fun SearchScreen(
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = {
+                    text = it
+                    viewModel.onTyping(it)
+                },
                 placeholder = { Text("Search series") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 trailingIcon = {
                     if (text.isNotEmpty()) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(18.dp).clickable {
-                            text = ""
-                            viewModel.clear()
-                        })
+                        Icon(
+                            Icons.Default.Clear, contentDescription = "Clear",
+                            modifier = Modifier.size(18.dp).clickable {
+                                text = ""
+                                viewModel.onTyping("")
+                                viewModel.clear()
+                            },
+                        )
                     }
                 },
                 singleLine = true,
@@ -101,17 +119,32 @@ fun SearchScreen(
                 modifier = Modifier.weight(1f),
             )
             if (results != null) {
-                TextButton(onClick = { text = ""; viewModel.clear() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                TextButton(onClick = { text = ""; viewModel.onTyping(""); viewModel.clear() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
 
         val current = results
         if (current == null) {
-            Idle(recent, viewModel) { tag ->
-                text = tag
-                viewModel.openTag(tag)
-            }
+            Idle(
+                recent = recent,
+                suggestions = if (shouldSuggest(text)) suggestions else emptyList(),
+                message = message,
+                viewModel = viewModel,
+                onOpenSeries = onOpenSeries,
+                onBrowse = { name ->
+                    when (name) {
+                        "Random" -> viewModel.openRandom(onOpenSeries)
+                        "Recently added" -> { text = name; viewModel.openBrowse(name, Order.Newest) }
+                        "Top rated" -> { text = name; viewModel.openBrowse(name, Order.TopRated) }
+                    }
+                },
+                onTag = { tag ->
+                    text = tag
+                    viewModel.openTag(tag)
+                },
+            )
         } else {
+            offlineSavedAt?.let { OfflineBanner(it, "results", onRetry = viewModel::retry) }
             SortRow(sort, viewModel::setSort)
             LoadView(current, onRetry = { viewModel.search(text) }) { series ->
                 if (series.isEmpty()) {
@@ -152,10 +185,30 @@ fun SearchScreen(
 @Composable
 private fun Idle(
     recent: List<String>,
+    suggestions: List<SeriesSummary>,
+    message: String?,
     viewModel: SearchViewModel,
+    onOpenSeries: (String) -> Unit,
+    onBrowse: (String) -> Unit,
     onTag: (String) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        if (message != null) {
+            item { Text(message, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp)) }
+        }
+        // Titles that match what is being typed, before the browse lists.
+        items(suggestions, key = { it.id }) { series ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onOpenSeries(series.id) }.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Cover(series.coverUrl, series.title, Modifier.width(36.dp).aspectRatio(2f / 3f))
+                Column(Modifier.padding(start = 12.dp)) {
+                    GenreLabel(series.genre)
+                    Text(series.title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
         if (recent.isNotEmpty()) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -176,6 +229,7 @@ private fun Idle(
             }
         }
         // Sections and their tags are in alphabetical order.
+        tagSection("Browse", BrowseOptions, onBrowse)
         tagSection("Content", ContentTags, onTag)
         tagSection("Formats", Formats, onTag)
         tagSection("Genres", Genres.map { it.name }, onTag)
@@ -209,25 +263,16 @@ private val sortLabels = listOf(
     Order.Popular to "Popular",
     Order.Newest to "Newest",
     Order.Updated to "Recently updated",
+    Order.TopRated to "Top rated",
 )
+
+/** Lists that need no search. Random opens one series, and the others list every series in an order. */
+private val BrowseOptions = listOf("Random", "Recently added", "Top rated")
 
 /** Chips that choose how search results are ordered. */
 @Composable
 private fun SortRow(selected: Order, onSelect: (Order) -> Unit) {
     Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        sortLabels.forEach { (order, label) ->
-            val active = order == selected
-            Text(
-                label,
-                fontSize = 12.sp,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                color = if (active) Color.Black else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (active) Green else MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { onSelect(order) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            )
-        }
+        sortLabels.forEach { (order, label) -> ChoiceChip(label, order == selected) { onSelect(order) } }
     }
 }

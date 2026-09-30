@@ -1,0 +1,20 @@
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = off
+# Compose functions are named in PascalCase.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# The code keeps signatures and chains on one line where they fit. These wrapping rules would
+# rewrite most files without finding a defect, so they stay off.
+ktlint_standard_function-signature = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_chain-method-continuation = disabled
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_if-else-wrapping = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_when-entry-bracing = disabled
+ktlint_standard_blank-line-between-when-conditions = disabled
+ktlint_standard_blank-line-before-declaration = disabled

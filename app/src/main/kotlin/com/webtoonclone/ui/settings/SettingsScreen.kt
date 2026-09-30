@@ -1,0 +1,170 @@
+package com.webtoonclone.ui.settings
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.webtoonclone.data.ReaderBackground
+import com.webtoonclone.data.ThemeMode
+import com.webtoonclone.data.formatBytes
+import com.webtoonclone.ui.ChoiceChip
+import com.webtoonclone.ui.theme.Green
+
+@Composable
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout: () -> Unit) {
+    val settings by viewModel.settings.collectAsState()
+    val library by viewModel.library.collectAsState()
+    val cacheBytes by viewModel.cacheBytes.collectAsState()
+    LaunchedEffect(Unit) { viewModel.refreshCacheSize() }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.clickable(onClick = onBack))
+            Text("Settings", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
+        }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+            SectionTitle("Appearance")
+            ChoiceRow(
+                "Theme",
+                listOf(
+                    ThemeMode.Dark to "Dark",
+                    ThemeMode.Black to "True black",
+                    ThemeMode.Light to "Light",
+                    ThemeMode.System to "System",
+                ),
+                settings.theme,
+            ) { choice -> viewModel.update { it.copy(theme = choice) } }
+            SwitchRow("Material You colors", "Use your wallpaper colors for backgrounds. Accents stay green.", settings.dynamicColor) { on ->
+                viewModel.update { it.copy(dynamicColor = on) }
+            }
+
+            SectionTitle("Reading")
+            SwitchRow("Data saver", "Load smaller page images. Applies to chapters you open next.", settings.dataSaver) { on ->
+                viewModel.update { it.copy(dataSaver = on) }
+            }
+            ChoiceRow(
+                "Reader background",
+                listOf(ReaderBackground.Dark to "Dark", ReaderBackground.Black to "Black", ReaderBackground.White to "White"),
+                settings.readerBackground,
+            ) { choice -> viewModel.update { it.copy(readerBackground = choice) } }
+            SwitchRow("Volume keys scroll", "Volume up and down move the reader by a page.", settings.volumeKeys) { on ->
+                viewModel.update { it.copy(volumeKeys = on) }
+            }
+            SwitchRow(
+                "Report image loads to MangaDex",
+                "MangaDex asks apps to say whether page images loaded. A report holds the image address, its size, and how long it took.",
+                settings.reportImageLoads,
+            ) { on -> viewModel.update { it.copy(reportImageLoads = on) } }
+
+            SectionTitle("Titles")
+            SwitchRow("Original titles", "Show the romanized original title instead of the English one.", settings.originalTitles) { on ->
+                viewModel.update { it.copy(originalTitles = on) }
+            }
+
+            SectionTitle("Notifications")
+            SwitchRow(
+                "New chapter notifications",
+                "Check subscribed series about every 30 minutes. You can also silence one series on its page.",
+                library.notificationsEnabled,
+            ) { on -> viewModel.setNotifications(on) }
+            SwitchRow("Quiet hours", "Hold notifications during these hours. New chapters notify once quiet hours end.", settings.quietHours) { on ->
+                viewModel.update { it.copy(quietHours = on) }
+            }
+            if (settings.quietHours) {
+                HourStepper("From", settings.quietStartHour) { hour -> viewModel.update { it.copy(quietStartHour = hour) } }
+                HourStepper("Until", settings.quietEndHour) { hour -> viewModel.update { it.copy(quietEndHour = hour) } }
+            }
+
+            SectionTitle("Storage")
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Cache", fontSize = 14.sp)
+                    Text(
+                        cacheBytes?.let(::formatBytes) ?: "Measuring...",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text("Clear cache", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
+            }
+
+            SectionTitle("Privacy")
+            SwitchRow(
+                "Save crash reports",
+                "Keep the last crash on this device and offer to share it next launch. Nothing is sent unless you choose to share it.",
+                settings.crashReports,
+            ) { on -> viewModel.update { it.copy(crashReports = on) } }
+
+            SectionTitle("About")
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onOpenAbout).padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Credits and licenses", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            }
+            Text("", modifier = Modifier.padding(bottom = 24.dp))
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text.uppercase(), color = Green, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp))
+}
+
+@Composable
+private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, fontSize = 14.sp)
+            Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Text(title, fontSize = 14.sp)
+        FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { (value, label) -> ChoiceChip(label, value == selected) { onSelect(value) } }
+        }
+    }
+}
+
+/** An hour of the day (0 to 23) with minus and plus buttons that wrap around midnight. */
+@Composable
+private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text("-", fontSize = 20.sp, color = Green, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 23) % 24) }.padding(horizontal = 16.dp))
+        Text("%02d:00".format(hour), fontSize = 14.sp)
+        Text("+", fontSize = 20.sp, color = Green, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 1) % 24) }.padding(horizontal = 16.dp))
+    }
+}

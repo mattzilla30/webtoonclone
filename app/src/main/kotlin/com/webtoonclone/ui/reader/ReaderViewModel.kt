@@ -4,20 +4,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.Chapter
 import com.webtoonclone.data.LibraryStore
-import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.ProgressStore
+import com.webtoonclone.data.SavedSeries
+import com.webtoonclone.data.Settings
+import com.webtoonclone.data.SettingsStore
 import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class ReaderPage(
     val chapter: Chapter,
+    /** Every chapter you can read here, oldest first, for the chapter list. */
+    val chapters: List<Chapter>,
     val pages: List<String>,
     val prevId: String?,
     val nextId: String?,
@@ -33,7 +39,14 @@ class ReaderViewModel(
     private val repository: MangaDexRepository,
     private val progressStore: ProgressStore,
     private val libraryStore: LibraryStore,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
+    val settings: StateFlow<Settings> = settingsStore.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
+
+    fun updateSettings(change: (Settings) -> Settings) {
+        viewModelScope.launch { settingsStore.update(change) }
+    }
 
     private val _state = MutableStateFlow<Load<ReaderPage>>(Load.Loading)
     val state: StateFlow<Load<ReaderPage>> = _state
@@ -71,6 +84,7 @@ class ReaderViewModel(
                     Load.Ready(
                         ReaderPage(
                             chapter = list[index],
+                            chapters = list,
                             pages = pages.await(),
                             prevId = list.getOrNull(index - 1)?.id,
                             nextId = list.getOrNull(index + 1)?.id,

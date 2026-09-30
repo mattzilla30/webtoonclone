@@ -2,13 +2,13 @@ package com.webtoonclone.data
 
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /** Calls the real MangaDex API. Run with `./gradlew :app:testDebugUnitTest -Dlive=true`. */
 class MangaDexLiveTest {
-
     private val repository = MangaDexRepository(OkHttpClient())
 
     @Test
@@ -107,6 +107,45 @@ class MangaDexLiveTest {
         val firstLoad = repository.pages(chapters.first().id)
         assertTrue("page URLs should be reused", firstLoad === repository.pages(chapters.first().id))
         assertTrue("a forced refresh should still return pages", repository.pages(chapters.first().id, forceRefresh = true).isNotEmpty())
+
+        // Parsing holds up across many series. MangaDex sends [] for empty fields on some of them, and
+        // a single run only sees a few, so read a spread of deep pages and several random draws.
+        listOf(Order.Popular to 6, Order.Newest to 3, Order.Updated to 4, Order.TopRated to 5).forEach { (order, page) ->
+            assertTrue("no series on $order page $page", repository.browse(page = page, order = order).isNotEmpty())
+        }
+        repeat(8) { assertTrue("random draw $it failed", repository.randomSeries() != null) }
+
+        // Random: series with English chapters, and not the same one every time.
+        val randoms = (1..3).mapNotNull { repository.randomSeries() }
+        assertTrue("random found nothing", randoms.isNotEmpty())
+        assertTrue("random repeated one series", randoms.size < 3 || randoms.map { it.id }.toSet().size > 1)
+
+        // Details: a well-known series has a year, an original language, and outside links.
+        val solo = repository.browse(title = "Solo Leveling", limit = 5).first { it.title.equals("Solo Leveling", ignoreCase = true) }
+        val soloDetail = repository.series(solo.id)
+        assertTrue("no year", soloDetail.year != null)
+        assertTrue("no original language", soloDetail.originalLanguage.isNotEmpty())
+        assertTrue("no AniList link: ${soloDetail.links}", soloDetail.links.any { it.label == "AniList" })
+        assertTrue("alternate titles repeat the shown title", soloDetail.altTitles.none { it.equals(solo.title, ignoreCase = true) })
+
+        // Original titles setting: the romanized name replaces the English one.
+        val originalRepo = MangaDexRepository(OkHttpClient()).also { it.originalTitles = true }
+        val originalTitles = originalRepo.browse(title = "Solo Leveling", limit = 5).map { it.title }
+        assertTrue("expected the romanized title, got $originalTitles", originalTitles.any { it.contains("Honjaman", ignoreCase = true) })
+
+        // Data saver: the smaller image set has its own addresses, and those images load.
+        val saverRepo = MangaDexRepository(OkHttpClient()).also { it.dataSaver = true }
+        val saverPages = saverRepo.pages(chapters.first().id)
+        assertTrue("saver pages should use /data-saver/: ${saverPages.first()}", saverPages.all { "/data-saver/" in it })
+        assertTrue("full pages should use /data/", pages.all { "/data/" in it })
+        fun imageBytes(url: String) = OkHttpClient().newCall(Request.Builder().url(url).header("User-Agent", "webtoonclone-test").build())
+            .execute().use { check(it.isSuccessful) { "image ${it.code}: $url" }; it.body.bytes().size }
+        assertTrue("the saver image should not be larger", imageBytes(saverPages.first()) <= imageBytes(pages.first()))
+
+        // Top rated is a different list from most followed.
+        val topRated = repository.browse(order = Order.TopRated, limit = 5).map { it.id }
+        assertTrue("top rated is empty", topRated.isNotEmpty())
+        assertTrue("top rated matches popular", topRated != repository.browse(order = Order.Popular, limit = 5).map { it.id })
 
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)

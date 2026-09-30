@@ -5,8 +5,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 private val Context.seriesCacheDataStore by preferencesDataStore(name = "series_cache")
@@ -31,7 +31,6 @@ fun mergeCache(old: List<CachedSeries>, added: CachedSeries, max: Int = MAX_CACH
 
 /** The most recently opened series pages, kept on the device. */
 class SeriesCacheStore(private val context: Context) {
-
     private val json = Json { ignoreUnknownKeys = true }
     private val serializer = ListSerializer(CachedSeries.serializer())
 

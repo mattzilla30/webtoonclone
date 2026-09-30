@@ -19,9 +19,16 @@ data class SeriesDetail(
     val status: String,
     val tags: List<String>,
     val rating: Double?,
+    val altTitles: List<String> = emptyList(),
+    val year: Int? = null,
+    val demographic: String? = null,
+    /** MangaDex language code of the original work, such as "ja". */
+    val originalLanguage: String = "",
+    val links: List<SeriesLink> = emptyList(),
 )
 
 /** A series with its newest chapter, for the Updates tab. */
+@Serializable
 data class UpdateEntry(val series: SeriesSummary, val chapterNumber: String, val publishedAt: String)
 
 data class ChapterPage(val chapters: List<Chapter>, val nextOffset: Int?)
@@ -64,6 +71,8 @@ data class SavedSeries(
     val knownChapterId: String? = null,
     /** The number of that chapter, so unread chapters can be counted by number. */
     val knownChapterNumber: String? = null,
+    /** Whether new chapters of this subscribed series notify. */
+    val notify: Boolean = true,
 )
 
 @Serializable

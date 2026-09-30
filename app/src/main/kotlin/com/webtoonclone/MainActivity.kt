@@ -1,16 +1,19 @@
 package com.webtoonclone
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -24,10 +27,12 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,32 +44,50 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.webtoonclone.data.ReaderBackground
+import com.webtoonclone.data.Settings
+import com.webtoonclone.notify.EXTRA_CHAPTER_ID
 import com.webtoonclone.notify.EXTRA_SERIES_ID
+import com.webtoonclone.notify.openRoutes
 import com.webtoonclone.ui.home.HomeScreen
 import com.webtoonclone.ui.home.HomeViewModel
 import com.webtoonclone.ui.library.LibraryScreen
 import com.webtoonclone.ui.library.LibraryViewModel
 import com.webtoonclone.ui.reader.ReaderScreen
 import com.webtoonclone.ui.reader.ReaderViewModel
+import com.webtoonclone.ui.reader.VolumeKeyPager
+import com.webtoonclone.ui.reader.readerBackgroundColor
 import com.webtoonclone.ui.search.SearchScreen
 import com.webtoonclone.ui.search.SearchViewModel
 import com.webtoonclone.ui.series.SeriesScreen
 import com.webtoonclone.ui.series.SeriesViewModel
+import com.webtoonclone.ui.settings.AboutScreen
+import com.webtoonclone.ui.settings.SettingsScreen
+import com.webtoonclone.ui.settings.SettingsViewModel
+import com.webtoonclone.ui.theme.DarkTheme
 import com.webtoonclone.ui.theme.Green
+import com.webtoonclone.ui.theme.WebtoonTheme
+import com.webtoonclone.ui.theme.isDark
 import com.webtoonclone.ui.updates.UpdatesScreen
 import com.webtoonclone.ui.updates.UpdatesViewModel
-import com.webtoonclone.ui.theme.WebtoonTheme
+import android.graphics.Color as AndroidColor
+
+/** A notification tap: the series to open, and the chapter to open on top of it when there is one. */
+private data class PendingOpen(val seriesId: String, val chapterId: String?)
 
 class MainActivity : ComponentActivity() {
     /** Counts app opens. The home screen reshuffles its picks when this changes. */
     private var openCount by mutableIntStateOf(0)
 
     /** Set when a notification opens the app. Consumed once by the navigation host. */
-    private var pendingSeries by mutableStateOf<String?>(null)
+    private var pending by mutableStateOf<PendingOpen?>(null)
+
+    private fun readPending(intent: android.content.Intent): PendingOpen? =
+        intent.getStringExtra(EXTRA_SERIES_ID)?.let { PendingOpen(it, intent.getStringExtra(EXTRA_CHAPTER_ID)) }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
-        pendingSeries = intent.getStringExtra(EXTRA_SERIES_ID)
+        pending = readPending(intent)
     }
 
     override fun onStart() {
@@ -72,15 +95,26 @@ class MainActivity : ComponentActivity() {
         openCount++
     }
 
+    /** While the reader is open and the setting is on, the volume keys scroll it instead of changing volume. */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        VolumeKeyPager.handle(event) || super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        VolumeKeyPager.handle(event) || super.onKeyUp(keyCode, event)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The app draws inside the system bars. Transparent bars with light icons suit the dark theme.
+        // The app draws inside the system bars. The bar style follows the theme once it is known.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
         )
-        pendingSeries = intent.getStringExtra(EXTRA_SERIES_ID)
-        setContent { WebtoonNav(openCount, pendingSeries) { pendingSeries = null } }
+        pending = readPending(intent)
+        val app = application as WebtoonApp
+        setContent {
+            val settings by app.settingsStore.settings.collectAsState(initial = Settings())
+            WebtoonNav(settings, openCount, pending) { pending = null }
+        }
     }
 }
 
@@ -94,89 +128,110 @@ private val tabs = listOf(
 )
 
 @Composable
-private fun WebtoonNav(openCount: Int, openSeries: String?, onOpened: () -> Unit) {
+private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, onOpened: () -> Unit) {
     val app = LocalContext.current.applicationContext as WebtoonApp
     val nav = rememberNavController()
-    val route by nav.currentBackStackEntryAsState().let { entry ->
-        androidx.compose.runtime.derivedStateOf { entry.value?.destination?.route }
-    }
-    LaunchedEffect(openSeries) {
-        if (openSeries != null) {
-            nav.navigate("series/$openSeries")
+    val backStackEntry by nav.currentBackStackEntryAsState()
+    val route = backStackEntry?.destination?.route
+    LaunchedEffect(open) {
+        if (open != null) {
+            openRoutes(open.seriesId, open.chapterId).forEach { nav.navigate(it) }
             onOpened()
         }
     }
     val onTab = route?.substringBefore('?') in tabs.map { it.route }
+    val onReader = route?.startsWith("series/") == true && route.count { it == '/' } == 2
 
-    WebtoonTheme {
-      // One inset pad for the whole app keeps every screen between the status and navigation bars.
-      Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).systemBarsPadding()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            bottomBar = { if (onTab) BottomBar(nav, route?.substringBefore('?')) },
-        ) { padding ->
-            NavHost(
-                nav,
-                startDestination = "home",
-                modifier = Modifier.padding(padding),
-            ) {
-                composable("home") {
-                    val vm = viewModel { HomeViewModel(app.repository, app.libraryStore) }
-                    Box(Modifier.fillMaxSize()) {
-                        HomeScreen(
+    // Light icons on dark surfaces and dark icons on light ones. The reader has its own background.
+    val activity = LocalActivity.current as? ComponentActivity
+    val systemDark = isSystemInDarkTheme()
+    val barsDark = if (onReader) settings.readerBackground != ReaderBackground.White else isDark(settings.theme, systemDark)
+    DisposableEffect(barsDark) {
+        val style = if (barsDark) SystemBarStyle.dark(AndroidColor.TRANSPARENT) else SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+        activity?.enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+        onDispose { }
+    }
+
+    WebtoonTheme(settings) {
+        val rootBackground = if (onReader) readerBackgroundColor(settings.readerBackground) else MaterialTheme.colorScheme.background
+        // One inset pad for the whole app keeps every screen between the status and navigation bars.
+        Box(Modifier.fillMaxSize().background(rootBackground).systemBarsPadding()) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = MaterialTheme.colorScheme.background,
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                bottomBar = { if (onTab) BottomBar(nav, route?.substringBefore('?')) },
+            ) { padding ->
+                NavHost(nav, startDestination = "home", modifier = Modifier.padding(padding)) {
+                    composable("home") {
+                        val vm = viewModel { HomeViewModel(app.repository, app.libraryStore, app.settingsStore, app.crashLog) }
+                        Box(Modifier.fillMaxSize()) {
+                            HomeScreen(
+                                vm,
+                                onOpenSeries = { nav.navigate("series/$it") },
+                                onOpenSearch = { nav.navigateTab("search") },
+                                onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                openCount = openCount,
+                            )
+                        }
+                    }
+                    composable("search?genre={genre}") { entry ->
+                        val vm = viewModel { SearchViewModel(app.repository, app.libraryStore, app.offlineStore) }
+                        Box(Modifier.fillMaxSize()) {
+                            SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
+                        }
+                    }
+                    composable("updates") {
+                        val vm = viewModel { UpdatesViewModel(app.repository, app.offlineStore) }
+                        Box(Modifier.fillMaxSize()) {
+                            UpdatesScreen(vm, onOpenSeries = { nav.navigate("series/$it") })
+                        }
+                    }
+                    composable("library") {
+                        val vm = viewModel { LibraryViewModel(app.libraryStore) }
+                        Box(Modifier.fillMaxSize()) {
+                            LibraryScreen(
+                                vm,
+                                onOpenSeries = { nav.navigate("series/$it") },
+                                onOpenSearch = { nav.navigateTab("search") },
+                                onOpenSettings = { nav.navigate("settings") },
+                            )
+                        }
+                    }
+                    composable("settings") {
+                        val vm = viewModel { SettingsViewModel(app) }
+                        SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenAbout = { nav.navigate("about") })
+                    }
+                    composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
+                    composable("series/{seriesId}") { entry ->
+                        val seriesId = entry.arguments!!.getString("seriesId")!!
+                        val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore, app.seriesCache) }
+                        SeriesScreen(
                             vm,
-                            onOpenSeries = { nav.navigate("series/$it") },
-                            onOpenSearch = { nav.navigateTab("search") },
-                            onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                            openCount = openCount,
+                            onOpenChapter = { nav.navigate("series/$seriesId/$it") },
+                            onHome = { nav.navigateTab("home") },
+                            onOpenTag = { tag -> nav.navigate("search?genre=${android.net.Uri.encode(tag)}") },
                         )
                     }
-                }
-                composable("search?genre={genre}") { entry ->
-                    val vm = viewModel { SearchViewModel(app.repository, app.libraryStore) }
-                    Box(Modifier.fillMaxSize()) {
-                        SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
+                    composable("series/{seriesId}/{chapterId}") { entry ->
+                        val seriesId = entry.arguments!!.getString("seriesId")!!
+                        val chapterId = entry.arguments!!.getString("chapterId")!!
+                        val vm = viewModel(key = chapterId) {
+                            ReaderViewModel(seriesId, chapterId, app.repository, app.progressStore, app.libraryStore, app.settingsStore)
+                        }
+                        // The reader stays dark in a light app, so its bars and text keep their contrast.
+                        DarkTheme {
+                            ReaderScreen(
+                                vm,
+                                seriesId,
+                                onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}") } },
+                                onBack = { nav.popBackStack("series/{seriesId}", inclusive = false) },
+                            )
+                        }
                     }
-                }
-                composable("updates") {
-                    val vm = viewModel { UpdatesViewModel(app.repository) }
-                    Box(Modifier.fillMaxSize()) {
-                        UpdatesScreen(vm, onOpenSeries = { nav.navigate("series/$it") })
-                    }
-                }
-                composable("library") {
-                    val vm = viewModel { LibraryViewModel(app.libraryStore) }
-                    Box(Modifier.fillMaxSize()) {
-                        LibraryScreen(vm, onOpenSeries = { nav.navigate("series/$it") }, onOpenSearch = { nav.navigateTab("search") })
-                    }
-                }
-                composable("series/{seriesId}") { entry ->
-                    val seriesId = entry.arguments!!.getString("seriesId")!!
-                    val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore, app.seriesCache) }
-                    SeriesScreen(
-                        vm,
-                        onOpenChapter = { nav.navigate("series/$seriesId/$it") },
-                        onHome = { nav.navigateTab("home") },
-                    )
-                }
-                composable("series/{seriesId}/{chapterId}") { entry ->
-                    val seriesId = entry.arguments!!.getString("seriesId")!!
-                    val chapterId = entry.arguments!!.getString("chapterId")!!
-                    val vm = viewModel(key = chapterId) {
-                        ReaderViewModel(seriesId, chapterId, app.repository, app.progressStore, app.libraryStore)
-                    }
-                    ReaderScreen(
-                        vm,
-                        seriesId,
-                        onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}") } },
-                        onBack = { nav.popBackStack("series/{seriesId}", inclusive = false) },
-                    )
                 }
             }
         }
-      }
     }
 }
 
@@ -194,7 +249,7 @@ private fun BottomBar(nav: NavHostController, current: String?) {
         tabs.forEach { tab ->
             NavigationBarItem(
                 selected = current == tab.route,
-                onClick = { nav.navigateTab(if (tab.route == "search") "search" else tab.route) },
+                onClick = { nav.navigateTab(tab.route) },
                 icon = { Icon(tab.icon, contentDescription = tab.label) },
                 label = { Text(tab.label) },
                 colors = NavigationBarItemDefaults.colors(

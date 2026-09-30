@@ -1,13 +1,11 @@
 package com.webtoonclone.ui
 
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,15 +14,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -162,6 +164,38 @@ fun timeAgo(time: java.time.Instant, now: java.time.Instant = java.time.Instant.
         minutes < 60 -> "$minutes min ago"
         minutes < 60 * 24 -> "${minutes / 60} h ago"
         minutes < 60 * 24 * 30 -> "${minutes / (60 * 24)} d ago"
-        else -> java.time.LocalDate.ofInstant(time, java.time.ZoneId.systemDefault()).toString()
+        else -> java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+            .format(java.time.LocalDate.ofInstant(time, java.time.ZoneId.systemDefault()))
     }
+}
+
+/** A rounded choice chip. The selected one is green. */
+@Composable
+fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        fontSize = 12.sp,
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+        color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) Green else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
+}
+
+/** A thin bar shown when a screen displays a saved copy because the network failed. Tap to retry. */
+@Composable
+fun OfflineBanner(savedAt: Long, what: String, onRetry: () -> Unit) {
+    Text(
+        "Offline. Showing $what saved ${timeAgo(java.time.Instant.ofEpochMilli(savedAt))}. Tap to retry.",
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onRetry)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }

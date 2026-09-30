@@ -21,3 +21,9 @@ fun hasUnreadChapters(knownNumber: String?, lastReadNumber: String?): Boolean {
     return known > lastRead
 }
 
+/**
+ * The chapter that becomes "last read" when you mark [chapter] and everything after it unread: the
+ * next older readable chapter. The list is newest first, so older chapters come later in it.
+ */
+fun previousReadable(chapters: List<com.webtoonclone.data.Chapter>, chapter: com.webtoonclone.data.Chapter): com.webtoonclone.data.Chapter? =
+    chapters.dropWhile { it.id != chapter.id }.drop(1).firstOrNull { it.externalUrl == null }

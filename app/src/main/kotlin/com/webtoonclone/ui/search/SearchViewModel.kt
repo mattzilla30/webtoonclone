@@ -210,7 +210,7 @@ class SearchViewModel(
         page = 0
         endReached = false
         _results.value = Load.Loading
-        val key = searchKey(req.title, req.tag, order, filters, repository.language)
+        val key = searchKey(req.title, req.tag, order, filters, "${repository.language}|${repository.contentRatings.joinToString(",")}")
         _results.value = try {
             val first = fetch(0)
             _offlineSavedAt.value = null

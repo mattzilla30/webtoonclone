@@ -10,6 +10,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+/** Every rating MangaDex uses, mildest first. */
+val ContentRatings = listOf("safe", "suggestive", "erotica", "pornographic")
+
+/** The ratings to request for [chosen], in MangaDex order. An empty choice falls back to safe so lists never go blank. */
+fun ratingsFor(chosen: Set<String>): List<String> = ContentRatings.filter { it in chosen }.ifEmpty { listOf("safe") }
+
 @Serializable
 enum class ThemeMode { Dark, Light, System, Black }
 
@@ -42,6 +48,8 @@ data class Settings(
     val autoScrollLevel: Int = 0,
     /** Volume keys scroll the reader by a page. */
     val volumeKeys: Boolean = false,
+    /** Content ratings to show, using MangaDex names. All four by default. */
+    val contentRatings: Set<String> = ContentRatings.toSet(),
     /** MangaDex language code for chapters, titles, and descriptions. */
     val language: String = "en",
     /** The scanlation group to prefer for each series, by series id. */

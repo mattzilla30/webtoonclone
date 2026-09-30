@@ -18,7 +18,7 @@ private const val API = "https://api.mangadex.org"
 private const val PAGE_SIZE = 24
 private const val CHAPTER_PAGE = 500
 private const val MAX_ATTEMPTS = 3
-private const val RANDOM_TRIES = 5
+private const val RANDOM_TRIES = 12
 private const val PAGE_URL_TTL_MS = 10L * 60 * 1000
 private const val UPDATES_PAGE = 50
 private const val SIMILAR_MINIMUM = 4
@@ -47,8 +47,15 @@ class MangaDexRepository(private val client: OkHttpClient) {
     /** Goes up when a setting that changes what the lists contain (language, original titles) changes. */
     val contentVersion: StateFlow<Int> = _contentVersion
 
+    /** The content ratings to list, as MangaDex names them. Sorted so a change is easy to spot. */
+    @Volatile var contentRatings: List<String> = ContentRatings
+
+    private fun HttpUrl.Builder.ratings(): HttpUrl.Builder = apply { contentRatings.forEach { addQueryParameter("contentRating[]", it) } }
+
     fun applySettings(settings: Settings) {
-        val contentChanged = settings.language != language || settings.originalTitles != originalTitles
+        val ratings = ratingsFor(settings.contentRatings)
+        val contentChanged = settings.language != language || settings.originalTitles != originalTitles || ratings != contentRatings
+        contentRatings = ratings
         dataSaver = settings.dataSaver
         originalTitles = settings.originalTitles
         language = settings.language
@@ -80,8 +87,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("includes[]", "cover_art")
             .addQueryParameter("includes[]", "author")
             .addQueryParameter("availableTranslatedLanguage[]", language)
-            .addQueryParameter("contentRating[]", "safe")
-            .addQueryParameter("contentRating[]", "suggestive")
+            .ratings()
             .apply {
                 if (ids == null) addQueryParameter("order[${order.param}]", "desc")
                 ids?.forEach { addQueryParameter("ids[]", it) }
@@ -103,7 +109,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
     }
 
     /**
-     * A random series that has chapters in the chosen language, or null if five tries find none. The
+     * A random series that has chapters in the chosen language, or null if a dozen tries find none. The
      * endpoint picks without regard to language, so a few tries are usually enough.
      */
     suspend fun randomSeries(): SeriesSummary? {
@@ -111,8 +117,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             val url = "$API/manga/random".toHttpUrl().newBuilder()
                 .addQueryParameter("includes[]", "cover_art")
                 .addQueryParameter("includes[]", "author")
-                .addQueryParameter("contentRating[]", "safe")
-                .addQueryParameter("contentRating[]", "suggestive")
+                .ratings()
                 .build()
             val manga = json.decodeFromString<MangaOneDto>(fetch(url)).data
             if (language in manga.attributes.availableTranslatedLanguages) return manga.toSummary()
@@ -136,6 +141,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
     /** The newest chapter that opens in the reader, or null when the series has none. */
     suspend fun latestChapter(seriesId: String): Chapter? {
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
+            .ratings()
             .addQueryParameter("limit", "1")
             .addQueryParameter("includeExternalUrl", "0")
             .addQueryParameter("translatedLanguage[]", language)
@@ -153,8 +159,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("includeExternalUrl", "0")
             .addQueryParameter("translatedLanguage[]", language)
             .addQueryParameter("order[readableAt]", "desc")
-            .addQueryParameter("contentRating[]", "safe")
-            .addQueryParameter("contentRating[]", "suggestive")
+            .ratings()
             .build()
         val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
         // Keep the newest chapter per series, in feed order.
@@ -181,8 +186,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("includeExternalUrl", "0")
             .addQueryParameter("translatedLanguage[]", language)
             .addQueryParameter("order[readableAt]", "desc")
-            .addQueryParameter("contentRating[]", "safe")
-            .addQueryParameter("contentRating[]", "suggestive")
+            .ratings()
             .build()
         val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
         val ids = feed.flatMap { c -> c.relationships.filter { it.type == "manga" }.map { it.id } }
@@ -227,6 +231,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         preferredGroup: String? = null,
     ): ChapterPage {
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
+            .ratings()
             .addQueryParameter("limit", CHAPTER_PAGE.toString())
             .addQueryParameter("offset", offset.toString())
             .addQueryParameter("translatedLanguage[]", language)

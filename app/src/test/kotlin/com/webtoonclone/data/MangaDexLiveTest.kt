@@ -191,4 +191,16 @@ class MangaDexLiveTest {
         assertTrue("page 1 is empty", second.isNotEmpty())
         assertTrue("page 1 repeats page 0", second.none { s -> first.any { it.id == s.id } })
     }
+
+    @Test
+    fun allContentRatingsAreListed() = runBlocking {
+        assumeTrue(System.getProperty("live") == "true" || System.getenv("LIVE") == "true")
+
+        val mild = MangaDexRepository(OkHttpClient()).apply { contentRatings = listOf("safe") }
+        val adult = MangaDexRepository(OkHttpClient()).apply { contentRatings = listOf("pornographic") }
+        val adultIds = adult.browse(limit = 20).map { it.id }.toSet()
+        val mildIds = mild.browse(limit = 20).map { it.id }.toSet()
+        assertTrue("no pornographic series listed", adultIds.isNotEmpty())
+        assertTrue("safe list shows pornographic series", adultIds.intersect(mildIds).isEmpty())
+    }
 }

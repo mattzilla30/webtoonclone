@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.webtoonclone.R
+import com.webtoonclone.data.ContentRatings
 import com.webtoonclone.data.Languages
 import com.webtoonclone.data.ReaderBackground
 import com.webtoonclone.data.ThemeMode
@@ -135,6 +136,28 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Column(Modifier.padding(vertical = 8.dp)) {
+                Text("Content ratings", fontSize = 14.sp)
+                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ContentRatings.forEach { rating ->
+                        val on = rating in settings.contentRatings
+                        ChoiceChip(rating.replaceFirstChar { it.uppercase() }, on) {
+                            viewModel.update { current ->
+                                val next = if (on) current.contentRatings - rating else current.contentRatings + rating
+                                // Keep at least one, so the lists never go blank.
+                                if (next.isEmpty()) current else current.copy(contentRatings = next)
+                            }
+                        }
+                    }
+                }
+                Text(
+                    "Choose which MangaDex ratings appear in lists and search. Erotica and pornographic are on by default here.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
 
             SectionTitle("Notifications")
             SwitchRow(

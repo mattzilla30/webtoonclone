@@ -116,7 +116,7 @@ private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             GenreLabel(series.genre)
-            Text(series.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(series.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(
                 series.description,
                 fontSize = 11.sp,

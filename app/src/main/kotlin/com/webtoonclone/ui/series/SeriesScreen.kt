@@ -252,8 +252,6 @@ private fun EpisodeRow(chapter: Chapter, coverUrl: String?, onClick: () -> Unit)
                 },
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             Text(formatDate(chapter.publishedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

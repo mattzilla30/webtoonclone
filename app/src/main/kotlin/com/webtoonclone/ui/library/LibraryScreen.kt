@@ -86,7 +86,7 @@ fun LibraryScreen(
                     ) {
                         Cover(series.coverUrl, series.title, Modifier.size(52.dp))
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text(series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp, maxLines = 1)
+                            Text(series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                             series.chapterNumber?.let {
                                 Text("Ep. $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

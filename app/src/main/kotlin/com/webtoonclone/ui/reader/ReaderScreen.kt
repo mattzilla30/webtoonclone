@@ -144,6 +144,21 @@ fun ReaderScreen(
                 }
             }
 
+            if (!barsVisible) {
+                // A small counter stays visible when the bars are hidden.
+                val position = (listState.firstVisibleItemIndex + 1).coerceAtMost(page.pages.size)
+                Text(
+                    "$position / ${page.pages.size}",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(12.dp)
+                        .background(Bar, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
+
             if (barsVisible) {
                 Row(
                     Modifier.fillMaxWidth().background(Bar).padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter),

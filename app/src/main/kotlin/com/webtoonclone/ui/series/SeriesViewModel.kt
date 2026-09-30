@@ -7,6 +7,7 @@ import com.webtoonclone.data.Chapter
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MAX_CACHED_CHAPTERS
 import com.webtoonclone.data.MangaDexRepository
+import com.webtoonclone.data.ReadingStatus
 import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.SeriesDetail
@@ -55,6 +56,17 @@ class SeriesViewModel(
     val notifyEnabled: StateFlow<Boolean> = libraryStore.data
         .map { lib -> lib.subscribed.firstOrNull { it.id == seriesId }?.notify ?: true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** The reading list this series is in, or null when it is in none. */
+    val status: StateFlow<ReadingStatus?> = libraryStore.data
+        .map { lib -> lib.lists.firstOrNull { it.id == seriesId }?.status }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setStatus(detail: SeriesDetail, status: ReadingStatus?) {
+        viewModelScope.launch {
+            libraryStore.setStatus(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl), status)
+        }
+    }
 
     fun setNotify(enabled: Boolean) {
         viewModelScope.launch { libraryStore.setSeriesNotify(seriesId, enabled) }

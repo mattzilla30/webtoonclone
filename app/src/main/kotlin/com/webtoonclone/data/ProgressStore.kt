@@ -5,12 +5,15 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "progress")
 
+private const val PREFIX = "series_"
+
 class ProgressStore(private val context: Context) {
-    private fun key(seriesId: String) = stringPreferencesKey("series_$seriesId")
+    private fun key(seriesId: String) = stringPreferencesKey(PREFIX + seriesId)
 
     fun observe(seriesId: String): Flow<ReadingProgress?> =
         context.dataStore.data.map { prefs ->
@@ -22,5 +25,19 @@ class ProgressStore(private val context: Context) {
 
     suspend fun save(seriesId: String, chapterId: String, page: Int) {
         context.dataStore.edit { it[key(seriesId)] = "$chapterId:$page" }
+    }
+
+    /** Every saved position, keyed by series id, as "chapterId:page". */
+    suspend fun export(): Map<String, String> =
+        context.dataStore.data.first().asMap().entries
+            .filter { it.key.name.startsWith(PREFIX) && it.value is String }
+            .associate { it.key.name.removePrefix(PREFIX) to it.value as String }
+
+    /** Replaces every saved position with [positions]. */
+    suspend fun replaceAll(positions: Map<String, String>) {
+        context.dataStore.edit { prefs ->
+            prefs.asMap().keys.filter { it.name.startsWith(PREFIX) }.forEach { prefs.remove(it) }
+            positions.forEach { (id, value) -> prefs[key(id)] = value }
+        }
     }
 }

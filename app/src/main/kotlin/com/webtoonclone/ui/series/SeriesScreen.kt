@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import com.webtoonclone.data.Chapter
+import com.webtoonclone.data.ReadingStatus
 import com.webtoonclone.data.SeriesDetail
 import com.webtoonclone.data.languageName
 import com.webtoonclone.ui.ChoiceChip
@@ -91,6 +92,8 @@ fun SeriesScreen(
     val loadingMore by viewModel.loadingMore.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val subscribed by viewModel.subscribed.collectAsState()
+    val status by viewModel.status.collectAsState()
+    var statusMenu by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
     // Notifications need permission on Android 13 and later. Ask when the user first subscribes.
@@ -171,6 +174,39 @@ fun SeriesScreen(
                                     }
                                     .padding(horizontal = 12.dp, vertical = 5.dp),
                             )
+                            Box(Modifier.padding(start = 10.dp)) {
+                                Text(
+                                    status?.label ?: "+ List",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .border(1.dp, Color.White, RoundedCornerShape(14.dp))
+                                        .clickable { statusMenu = true }
+                                        .padding(horizontal = 12.dp, vertical = 5.dp),
+                                )
+                                DropdownMenu(expanded = statusMenu, onDismissRequest = { statusMenu = false }) {
+                                    ReadingStatus.entries.forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(option.label) },
+                                            onClick = {
+                                                viewModel.setStatus(page.detail, option)
+                                                statusMenu = false
+                                            },
+                                        )
+                                    }
+                                    if (status != null) {
+                                        DropdownMenuItem(
+                                            text = { Text("Remove from lists") },
+                                            onClick = {
+                                                viewModel.setStatus(page.detail, null)
+                                                statusMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                             if (subscribed) {
                                 Icon(
                                     Icons.Default.Notifications,

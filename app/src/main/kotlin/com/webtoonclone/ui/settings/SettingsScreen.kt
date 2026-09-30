@@ -1,5 +1,7 @@
 package com.webtoonclone.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,10 +16,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,6 +43,35 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
     val library by viewModel.library.collectAsState()
     val cacheBytes by viewModel.cacheBytes.collectAsState()
     LaunchedEffect(Unit) { viewModel.refreshCacheSize() }
+    val message by viewModel.message.collectAsState()
+    val pending by viewModel.pending.collectAsState()
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) viewModel.exportTo(uri)
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.readBackup(uri)
+    }
+    pending?.let { backup ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelRestore,
+            title = { Text("Restore this backup?") },
+            text = {
+                Text(
+                    "It has ${backup.library.subscribed.size} subscriptions, ${backup.library.lists.size} listed series, and ${backup.library.recent.size} recent reads. " +
+                        "Your current library and settings will be replaced.",
+                )
+            },
+            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text("Restore") } },
+            dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text("Cancel") } },
+        )
+    }
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = viewModel::clearMessage,
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = viewModel::clearMessage) { Text("OK") } },
+        )
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -109,6 +142,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
                     )
                 }
                 Text("Clear cache", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
+            }
+
+            SectionTitle("Backup")
+            Text(
+                "Save your library, lists, reading positions, and settings to a file. Restoring replaces what is on this device.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Text("Save backup", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { exportLauncher.launch("webtoonclone-backup.json") })
+                Text("Restore backup", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
             }
 
             SectionTitle("Privacy")

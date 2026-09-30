@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -47,8 +49,6 @@ import com.dexter.data.Themes
 import com.dexter.data.languageName
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
-
-private val Red = Color(0xFFE5484D)
 
 /** Full-screen advanced search. Tags cycle through include, exclude, and off. Apply runs the search. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -129,19 +129,26 @@ private fun Heading(text: String) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TagGroup(title: String, tags: List<String>, draft: SearchFilters, onCycle: (String) -> Unit) {
-    Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+    Text(title, style = MaterialTheme.typography.titleSmallEmphasized, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         tags.sortedBy { it.lowercase() }.forEach { tag ->
-            val (label, background) = when (tag) {
-                in draft.included -> "+ $tag" to MaterialTheme.colorScheme.primary
-                in draft.excluded -> "- $tag" to Red
-                else -> tag to MaterialTheme.colorScheme.surfaceVariant
-            }
-            Text(
-                label,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (tag in draft.included || tag in draft.excluded) Color.White else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(background).clickable { onCycle(tag) }.padding(horizontal = 12.dp, vertical = 6.dp),
+            val included = tag in draft.included
+            val excluded = tag in draft.excluded
+            FilterChip(
+                selected = included || excluded,
+                onClick = { onCycle(tag) },
+                label = { Text(if (included) "+ $tag" else if (excluded) "\u2212 $tag" else tag) },
+                colors = if (excluded) {
+                    FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                } else {
+                    FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                },
             )
         }
     }

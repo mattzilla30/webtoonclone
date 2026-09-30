@@ -26,10 +26,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -47,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -240,29 +245,38 @@ private fun Idle(
         }
         // Titles that match what is being typed, before the browse lists.
         items(suggestions, key = { it.id }) { series ->
-            Row(
-                Modifier.fillMaxWidth().clickable { onOpenSeries(series.id) }.padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                onClick = { onOpenSeries(series.id) },
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
             ) {
-                Cover(series.coverUrl, series.title, Modifier.width(36.dp).aspectRatio(2f / 3f), thumb = true)
-                Column(Modifier.padding(start = 12.dp)) {
-                    GenreLabel(series.genre)
-                    Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
+                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Cover(series.coverUrl, series.title, Modifier.width(40.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.extraSmall), contentScale = ContentScale.Crop, thumb = true)
+                    Column(Modifier.padding(start = 12.dp)) {
+                        GenreLabel(series.genre)
+                        Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
+                    }
                 }
             }
         }
         if (saved.isNotEmpty()) {
             item {
-                Text(stringResource(R.string.saved_searches), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                Text(stringResource(R.string.saved_searches), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     saved.forEach { search ->
-                        Row(
-                            Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { viewModel.openSaved(search) }.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(search.name, style = MaterialTheme.typography.bodySmall)
-                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.deleteSaved(search.name) })
-                        }
+                        InputChip(
+                            selected = false,
+                            onClick = { viewModel.openSaved(search) },
+                            label = { Text(search.name) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = stringResource(R.string.remove),
+                                    modifier = Modifier.size(InputChipDefaults.IconSize).clickable { viewModel.deleteSaved(search.name) },
+                                )
+                            },
+                        )
                     }
                 }
             }
@@ -270,18 +284,23 @@ private fun Idle(
         if (recent.isNotEmpty()) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.recent_searches), fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.delete_all), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.clearSearches() })
+                    Text(stringResource(R.string.recent_searches), style = MaterialTheme.typography.titleMediumEmphasized)
+                    TextButton(onClick = { viewModel.clearSearches() }) { Text(stringResource(R.string.delete_all)) }
                 }
                 FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     recent.sortedBy { it.lowercase() }.forEach { term ->
-                        Row(
-                            Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { viewModel.search(term) }.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(term, style = MaterialTheme.typography.bodySmall)
-                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.removeSearch(term) })
-                        }
+                        InputChip(
+                            selected = false,
+                            onClick = { viewModel.search(term) },
+                            label = { Text(term) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = stringResource(R.string.remove),
+                                    modifier = Modifier.size(InputChipDefaults.IconSize).clickable { viewModel.removeSearch(term) },
+                                )
+                            },
+                        )
                     }
                 }
             }
@@ -301,18 +320,10 @@ private fun Idle(
 @OptIn(ExperimentalLayoutApi::class)
 private fun LazyListScope.tagSection(title: String, tags: List<String>, onTag: (String) -> Unit) {
     item {
-        Text(title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 10.dp))
+        Text(title, style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 16.dp, bottom = 10.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             tags.sortedBy { it.lowercase() }.forEach { tag ->
-                Text(
-                    tag,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onTag(tag) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+                AssistChip(onClick = { onTag(tag) }, label = { Text(tag) })
             }
         }
     }

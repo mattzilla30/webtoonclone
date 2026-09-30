@@ -63,7 +63,7 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
                         Modifier.fillMaxWidth().clickable { onOpenSeries(entry.series.id) }.padding(horizontal = 16.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Cover(entry.series.coverUrl, entry.series.title, Modifier.width(48.dp).aspectRatio(2f / 3f))
+                        Cover(entry.series.coverUrl, entry.series.title, Modifier.width(48.dp).aspectRatio(2f / 3f), thumb = true)
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             GenreLabel(entry.series.genre)
                             Text(entry.series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)

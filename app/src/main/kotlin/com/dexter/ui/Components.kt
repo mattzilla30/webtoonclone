@@ -77,14 +77,17 @@ private val genreColors = mapOf(
 fun genreColor(genre: String?): Color = genreColors[genre?.lowercase()] ?: Green
 
 @Composable
-fun Cover(url: String?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit) {
+fun Cover(url: String?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit, thumb: Boolean = false) {
     AsyncImage(
-        model = url,
+        model = if (thumb) thumbnailUrl(url) else url,
         contentDescription = description,
         contentScale = contentScale,
         modifier = modifier,
     )
 }
+
+/** The 256 px version of a MangaDex cover address, for small tiles. Other addresses pass through. */
+fun thumbnailUrl(url: String?): String? = url?.replace(".512.jpg", ".256.jpg")
 
 @Composable
 fun GenreLabel(genre: String?) {

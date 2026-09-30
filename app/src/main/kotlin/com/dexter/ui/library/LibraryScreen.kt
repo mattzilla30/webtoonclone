@@ -193,7 +193,7 @@ fun LibraryScreen(
                             Modifier.fillMaxWidth().clickable { onOpenSeries(series.id) }.padding(horizontal = 16.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Cover(series.coverUrl, series.title, Modifier.width(40.dp).aspectRatio(2f / 3f))
+                            Cover(series.coverUrl, series.title, Modifier.width(40.dp).aspectRatio(2f / 3f), thumb = true)
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
                                 if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {

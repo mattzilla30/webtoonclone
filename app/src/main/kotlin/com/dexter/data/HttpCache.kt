@@ -6,6 +6,7 @@ import okhttp3.OkHttpClient
 import java.io.File
 
 private const val API_MAX_AGE_SECONDS = 60
+private const val TAG_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 private const val CACHE_BYTES = 10L * 1024 * 1024
 
 /**
@@ -13,9 +14,13 @@ private const val CACHE_BYTES = 10L * 1024 * 1024
  * spares repeat requests when you go back to a screen. The at-home endpoint hands out page image
  * servers that expire, and MangaDex's own headers would let it be cached, so it is set to no-store.
  * The random endpoint is no-store too, or tapping Random twice in a minute would repeat a series.
+ * The tag list almost never changes, so it is kept for a week on disk, which saves a request per launch.
  */
-fun cacheControlFor(encodedPath: String): String =
-    if (encodedPath.startsWith("/at-home") || encodedPath == "/manga/random") "no-store" else "public, max-age=$API_MAX_AGE_SECONDS"
+fun cacheControlFor(encodedPath: String): String = when {
+    encodedPath.startsWith("/at-home") || encodedPath == "/manga/random" -> "no-store"
+    encodedPath == "/manga/tag" -> "public, max-age=$TAG_MAX_AGE_SECONDS"
+    else -> "public, max-age=$API_MAX_AGE_SECONDS"
+}
 
 /** An HTTP client that keeps API responses for a minute in [directory]. */
 fun cachingClient(directory: File): OkHttpClient =

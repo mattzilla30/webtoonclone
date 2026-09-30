@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,10 +50,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import coil3.SingletonImageLoader
+import coil3.request.ImageRequest
 import com.dexter.R
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
+import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.PickTile
 import com.dexter.ui.SectionHeader
@@ -76,6 +80,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val recent by viewModel.recent.collectAsState()
     val because by viewModel.becauseYouRead.collectAsState()
+    val appContext = LocalContext.current
     val columns = adaptiveColumns(LocalConfiguration.current.screenWidthDp.toFloat())
     LaunchedEffect(Unit) { viewModel.refreshBecause() }
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
@@ -102,6 +107,15 @@ fun HomeScreen(
                 delay(5.minutes)
                 viewModel.refreshNewSeries()
             }
+        }
+    }
+
+    // Load the covers further down the page ahead of the scroll.
+    val loaded = (state as? Load.Ready)?.value
+    LaunchedEffect(loaded) {
+        if (loaded != null) {
+            val loader = SingletonImageLoader.get(appContext)
+            (loaded.newSeries + loaded.picks).mapNotNull { it.coverUrl }.forEach { loader.enqueue(ImageRequest.Builder(appContext).data(it).build()) }
         }
     }
 

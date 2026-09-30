@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -63,6 +64,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -84,6 +86,7 @@ import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.PickTile
+import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.compact
 import com.dexter.ui.formatChapterDate
 import com.dexter.ui.iconTap
@@ -190,7 +193,7 @@ fun SeriesScreen(
                 )
             }
 
-            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+            val headerContent: LazyListScope.() -> Unit = {
                 offlineSavedAt?.let { savedAt ->
                     item {
                         Text(
@@ -381,6 +384,8 @@ fun SeriesScreen(
                         )
                     }
                 }
+            }
+            val chapterContent: LazyListScope.() -> Unit = {
                 item {
                     if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
                         Text(
@@ -454,6 +459,18 @@ fun SeriesScreen(
                 }
                 item { Spacer(Modifier.height(32.dp)) }
             }
+            // On a wide screen the description sits beside the chapter list, so both scroll on their own.
+            if (LocalConfiguration.current.screenWidthDp >= RAIL_MIN_WIDTH_DP) {
+                Row(Modifier.fillMaxSize()) {
+                    LazyColumn(Modifier.weight(0.42f).fillMaxSize(), content = headerContent)
+                    LazyColumn(Modifier.weight(0.58f).fillMaxSize(), state = listState, content = chapterContent)
+                }
+            } else {
+                LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                    headerContent()
+                    chapterContent()
+                }
+            }
         }
     }
 }
@@ -517,7 +534,7 @@ private fun EpisodeRow(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f))
+            Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f), thumb = true)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(
                     buildString {

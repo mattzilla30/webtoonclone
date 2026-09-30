@@ -1,9 +1,7 @@
 package com.dexter.data
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
@@ -11,13 +9,11 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.IOException
 
 private const val API = "https://api.mangadex.org"
 private const val PAGE_SIZE = 24
 private const val CHAPTER_PAGE = 500
-private const val MAX_ATTEMPTS = 3
 private const val RANDOM_TRIES = 12
 private const val PAGE_URL_TTL_MS = 10L * 60 * 1000
 private const val UPDATES_PAGE = 50
@@ -32,6 +28,7 @@ enum class Order(val param: String) {
 
 class MangaDexRepository(private val client: OkHttpClient) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val http = MangaDexHttp(client)
     private var tagIndex: TagIndex? = null
 
     /** Set from Settings. Read on the network threads, so all three are volatile. */
@@ -372,34 +369,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         emptyMap()
     }
 
-    /** Retries rate limits (429) and server errors a few times, honoring Retry-After. */
-    private suspend fun fetch(url: HttpUrl): String {
-        var attempt = 0
-        while (true) {
-            try {
-                return fetchOnce(url)
-            } catch (e: RetryableException) {
-                if (++attempt >= MAX_ATTEMPTS) {
-                    throw IOException("MangaDex ${url.encodedPath} failed: HTTP ${e.code}")
-                }
-                delay(e.delayMs ?: (1_000L * attempt))
-            }
-        }
-    }
-
-    private suspend fun fetchOnce(url: HttpUrl): String = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(url).header("User-Agent", "dexter-android/0.1").build()
-        client.newCall(request).execute().use { response ->
-            if (response.code == 429 || response.code >= 500) {
-                val wait = response.header("Retry-After")?.toLongOrNull()?.times(1_000)
-                throw RetryableException(response.code, wait?.coerceAtMost(10_000))
-            }
-            if (!response.isSuccessful) throw IOException("MangaDex ${url.encodedPath} failed: ${response.code}")
-            response.body.string()
-        }
-    }
-
-    private class RetryableException(val code: Int, val delayMs: Long?) : IOException()
+    private suspend fun fetch(url: HttpUrl): String = http.get(url)
 
     private fun MangaDto.toSummary(): SeriesSummary {
         val file = relationships.firstOrNull { it.type == "cover_art" }?.attributes?.fileName

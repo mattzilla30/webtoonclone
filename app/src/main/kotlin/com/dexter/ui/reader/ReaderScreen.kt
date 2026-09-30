@@ -103,6 +103,8 @@ fun readerBackgroundColor(background: ReaderBackground): Color = when (backgroun
 }
 
 private const val PRELOAD_AHEAD = 4
+private const val AUTO_RETRIES = 2
+private const val RETRY_BASE_MS = 800L
 private const val NEXT_CHAPTER_PRELOAD_AT = 3
 
 /** On a tablet a vertical strip this wide reads better than one stretched across the screen. */
@@ -436,9 +438,22 @@ private fun ReaderContent(
 private fun PageImage(url: String, index: Int, fill: Boolean) {
     // Bumping the attempt count rebuilds the image, which asks the server again.
     var attempt by remember { mutableIntStateOf(0) }
+    // Two quiet retries with a growing pause before the tap-to-retry message shows.
+    var autoRetries by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
     key(attempt) {
         SubcomposeAsyncImage(
             model = url,
+            onError = {
+                if (autoRetries < AUTO_RETRIES) {
+                    val wait = RETRY_BASE_MS shl autoRetries
+                    autoRetries++
+                    scope.launch {
+                        delay(wait)
+                        attempt++
+                    }
+                }
+            },
             contentDescription = "Page ${index + 1}",
             contentScale = if (fill) ContentScale.Fit else ContentScale.FillWidth,
             modifier = if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
@@ -450,10 +465,16 @@ private fun PageImage(url: String, index: Int, fill: Boolean) {
                     Modifier
                         .then(if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(200.dp))
                         .background(Color(0xFF2A2A2A))
-                        .clickable { attempt++ },
+                        .clickable {
+                            autoRetries = 0
+                            attempt++
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Page ${index + 1} failed to load. Tap to retry.", color = Color.White)
+                    Text(
+                        if (autoRetries < AUTO_RETRIES) "Retrying page ${index + 1}..." else "Page ${index + 1} failed to load. Tap to retry.",
+                        color = Color.White,
+                    )
                 }
             },
             success = { SubcomposeAsyncImageContent() },

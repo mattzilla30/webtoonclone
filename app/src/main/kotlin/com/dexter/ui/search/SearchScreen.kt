@@ -242,7 +242,7 @@ private fun Idle(
                 Modifier.fillMaxWidth().clickable { onOpenSeries(series.id) }.padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Cover(series.coverUrl, series.title, Modifier.width(36.dp).aspectRatio(2f / 3f))
+                Cover(series.coverUrl, series.title, Modifier.width(36.dp).aspectRatio(2f / 3f), thumb = true)
                 Column(Modifier.padding(start = 12.dp)) {
                     GenreLabel(series.genre)
                     Text(series.title, fontSize = 14.sp, fontWeight = FontWeight.Medium)

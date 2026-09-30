@@ -16,4 +16,9 @@ class HttpCacheTest {
         assertEquals("no-store", cacheControlFor("/at-home/server/abc"))
         assertEquals("no-store", cacheControlFor("/manga/random"))
     }
+
+    @Test
+    fun theTagListIsKeptForAWeek() {
+        assertEquals("public, max-age=604800", cacheControlFor("/manga/tag"))
+    }
 }

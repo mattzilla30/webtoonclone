@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -46,6 +49,7 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
     val state by viewModel.state.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
+    val subscribedIds by viewModel.subscribedIds.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
         AppTopBar(stringResource(R.string.updates))
@@ -89,7 +93,17 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                Text(timeAgo(entry.publishedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Column(horizontalAlignment = Alignment.End) {
+                                    if (entry.series.id in subscribedIds) {
+                                        Icon(
+                                            Icons.Default.Notifications,
+                                            contentDescription = stringResource(R.string.subscribed),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                    Text(timeAgo(entry.publishedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }

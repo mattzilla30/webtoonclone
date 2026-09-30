@@ -59,7 +59,7 @@ val appModule = module {
 
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get()) }
-    viewModel { UpdatesViewModel(get(), get()) }
+    viewModel { UpdatesViewModel(get(), get(), get()) }
     viewModel { LibraryViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
     viewModel { StatsViewModel(get()) }

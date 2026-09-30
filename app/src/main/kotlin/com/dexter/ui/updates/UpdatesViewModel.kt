@@ -2,20 +2,30 @@ package com.dexter.ui.updates
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
 import com.dexter.data.UpdateEntry
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class UpdatesViewModel(
     private val repository: MangaDexRepository,
     private val offline: OfflineStore,
+    libraryStore: LibraryStore,
 ) : ViewModel() {
+    /** Ids of the series you subscribe to, so their rows can carry a marker. */
+    val subscribedIds: StateFlow<Set<String>> = libraryStore.data
+        .map { lib -> lib.subscribed.mapTo(mutableSetOf()) { it.id } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     /** When the list is a saved copy because the network failed, the time it was saved. */
     private val _offlineSavedAt = MutableStateFlow<Long?>(null)
     val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt

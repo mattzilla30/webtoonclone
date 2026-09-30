@@ -14,6 +14,10 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
     val library: StateFlow<LibraryData> = store.data
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryData())
 
+    fun setSortAlphabetical(alphabetical: Boolean) {
+        viewModelScope.launch { store.setSortAlphabetical(alphabetical) }
+    }
+
     fun setNotifications(enabled: Boolean) {
         viewModelScope.launch { store.setNotifications(enabled) }
     }

@@ -20,4 +20,12 @@ class LibraryDataTest {
         val back = json.decodeFromString<LibraryData>(json.encodeToString(LibraryData.serializer(), off))
         assertFalse(back.notificationsEnabled)
     }
+
+    @Test
+    fun sortChoiceDefaultsToRecentAndRoundTrips() {
+        assertFalse(json.decodeFromString<LibraryData>("{}").sortAlphabetical)
+        val az = LibraryData(sortAlphabetical = true)
+        val back = json.decodeFromString<LibraryData>(json.encodeToString(LibraryData.serializer(), az))
+        assertTrue(back.sortAlphabetical)
+    }
 }

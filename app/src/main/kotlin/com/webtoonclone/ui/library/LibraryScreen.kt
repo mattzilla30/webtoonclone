@@ -47,7 +47,7 @@ fun LibraryScreen(
     val library by viewModel.library.collectAsState()
     var subscribedTab by rememberSaveable { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<String>() }
-    var alphabetical by rememberSaveable { mutableStateOf(false) }
+    val alphabetical = library.sortAlphabetical
     val items = sortSaved(if (subscribedTab) library.subscribed else library.recent, alphabetical)
 
     Column(Modifier.fillMaxSize()) {
@@ -73,7 +73,7 @@ fun LibraryScreen(
                 Text(
                     if (alphabetical) "Sort: A-Z" else "Sort: Recent",
                     fontSize = 12.sp,
-                    modifier = Modifier.clickable { alphabetical = !alphabetical },
+                    modifier = Modifier.clickable { viewModel.setSortAlphabetical(!alphabetical) },
                 )
                 Text("Delete", fontSize = 12.sp, modifier = Modifier.clickable(enabled = selected.isNotEmpty()) {
                     viewModel.delete(subscribedTab, selected.toSet())

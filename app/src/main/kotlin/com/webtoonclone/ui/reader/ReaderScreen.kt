@@ -61,7 +61,9 @@ fun ReaderScreen(
 
     Box(Modifier.fillMaxSize().background(Color(0xFF181818))) {
         LoadView(state, onRetry = viewModel::load) { page ->
-            val listState = rememberLazyListState()
+            val listState = rememberLazyListState(
+                initialFirstVisibleItemIndex = page.startPage.coerceIn(0, (page.pages.size - 1).coerceAtLeast(0)),
+            )
 
             LaunchedEffect(listState) {
                 snapshotFlow { listState.firstVisibleItemIndex }

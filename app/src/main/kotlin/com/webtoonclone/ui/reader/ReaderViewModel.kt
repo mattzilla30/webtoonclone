@@ -11,6 +11,7 @@ import com.webtoonclone.ui.Load
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -21,6 +22,8 @@ data class ReaderPage(
     val nextId: String?,
     val index: Int,
     val total: Int,
+    /** First page to show. Non-zero when you left this chapter partway through. */
+    val startPage: Int,
 )
 
 class ReaderViewModel(
@@ -43,6 +46,7 @@ class ReaderViewModel(
                 coroutineScope {
                     val chapters = async { repository.allChapters(seriesId) }
                     val pages = async { repository.pages(chapterId) }
+                    val saved = progressStore.observe(seriesId).first()
                     val list = chapters.await().filter { it.externalUrl == null }
                     val index = list.indexOfFirst { it.id == chapterId }
                     if (index == -1) error("Chapter not found")
@@ -54,6 +58,7 @@ class ReaderViewModel(
                             nextId = list.getOrNull(index + 1)?.id,
                             index = index,
                             total = list.size,
+                            startPage = saved?.takeIf { it.chapterId == chapterId }?.page ?: 0,
                         ),
                     ).also { recordRecent(list[index]) }
                 }

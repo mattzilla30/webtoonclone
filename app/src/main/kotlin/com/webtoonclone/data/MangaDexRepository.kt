@@ -1,6 +1,7 @@
 package com.webtoonclone.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
@@ -14,6 +15,7 @@ private const val API = "https://api.mangadex.org"
 private const val PAGE_SIZE = 24
 private const val LANG = "en"
 private const val CHAPTER_PAGE = 500
+private const val MAX_ATTEMPTS = 3
 
 private val GENRE_TAGLINES = mapOf(
     "Romance" to "Love, crushes, and second chances",
@@ -196,13 +198,34 @@ class MangaDexRepository(private val client: OkHttpClient) {
         emptyMap()
     }
 
-    private suspend fun fetch(url: HttpUrl): String = withContext(Dispatchers.IO) {
+    /** Retries rate limits (429) and server errors a few times, honoring Retry-After. */
+    private suspend fun fetch(url: HttpUrl): String {
+        var attempt = 0
+        while (true) {
+            try {
+                return fetchOnce(url)
+            } catch (e: RetryableException) {
+                if (++attempt >= MAX_ATTEMPTS) {
+                    throw IOException("MangaDex ${url.encodedPath} failed: HTTP ${e.code}")
+                }
+                delay(e.delayMs ?: (1_000L * attempt))
+            }
+        }
+    }
+
+    private suspend fun fetchOnce(url: HttpUrl): String = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).header("User-Agent", "webtoonclone-android/0.1").build()
         client.newCall(request).execute().use { response ->
+            if (response.code == 429 || response.code >= 500) {
+                val wait = response.header("Retry-After")?.toLongOrNull()?.times(1_000)
+                throw RetryableException(response.code, wait?.coerceAtMost(10_000))
+            }
             if (!response.isSuccessful) throw IOException("MangaDex ${url.encodedPath} failed: ${response.code}")
             response.body.string()
         }
     }
+
+    private class RetryableException(val code: Int, val delayMs: Long?) : IOException()
 
     private fun MangaDto.toSummary(): SeriesSummary {
         val file = relationships.firstOrNull { it.type == "cover_art" }?.attributes?.fileName

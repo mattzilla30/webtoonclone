@@ -64,6 +64,7 @@ internal data class ChapterAttributesDto(
     val chapter: String? = null,
     val title: String? = null,
     val publishAt: String = "",
+    val externalUrl: String? = null,
 )
 
 @Serializable

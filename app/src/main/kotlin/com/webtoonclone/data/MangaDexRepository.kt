@@ -86,7 +86,6 @@ class MangaDexRepository(private val client: OkHttpClient) {
     suspend fun chapters(seriesId: String): List<Chapter> {
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
             .addQueryParameter("limit", "500")
-            .addQueryParameter("includeExternalUrl", "0")
             .addQueryParameter("translatedLanguage[]", LANG)
             .addQueryParameter("order[chapter]", "asc")
             .build()
@@ -97,7 +96,13 @@ class MangaDexRepository(private val client: OkHttpClient) {
         return feed.mapNotNull { dto ->
             val number = dto.attributes.chapter ?: "Oneshot"
             if (!seen.add(number)) return@mapNotNull null
-            Chapter(dto.id, number, dto.attributes.title.orEmpty(), dto.attributes.publishAt)
+            Chapter(
+                dto.id,
+                number,
+                dto.attributes.title.orEmpty(),
+                dto.attributes.publishAt,
+                dto.attributes.externalUrl,
+            )
         }
     }
 

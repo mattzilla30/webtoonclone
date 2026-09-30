@@ -1,6 +1,7 @@
 package com.webtoonclone.ui.series
 
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -70,8 +71,14 @@ fun SeriesScreen(
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LoadView(state, onRetry = viewModel::load) { page ->
             val summary = page.detail.summary
-            val first = page.chapters.firstOrNull()
-            val resume = progress?.let { p -> page.chapters.find { it.id == p.chapterId } }
+            val readable = page.chapters.filter { it.externalUrl == null }
+            val first = readable.firstOrNull()
+            val resume = progress?.let { p -> readable.find { it.id == p.chapterId } }
+            val open: (Chapter) -> Unit = { chapter ->
+                val link = chapter.externalUrl
+                if (link == null) onOpenChapter(chapter.id)
+                else context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
+            }
 
             if (showInfo) InfoDialog(page.detail.status, summary.description, summary.author) { showInfo = false }
 
@@ -145,10 +152,18 @@ fun SeriesScreen(
                 }
                 item {
                     val target = resume ?: first
+                    if (target == null && page.chapters.isNotEmpty()) {
+                        Text(
+                            "This series is hosted by its publisher. Episodes open in your browser.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
                     if (target != null) {
                         Box(
                             Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(Green)
-                                .clickable { onOpenChapter(target.id) }.padding(vertical = 12.dp),
+                                .clickable { open(target) }.padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -160,7 +175,7 @@ fun SeriesScreen(
                     }
                 }
                 items(page.chapters.asReversed(), key = { it.id }) { chapter ->
-                    EpisodeRow(chapter, page.chapters.indexOf(chapter) + 1, summary.coverUrl) { onOpenChapter(chapter.id) }
+                    EpisodeRow(chapter, page.chapters.indexOf(chapter) + 1, summary.coverUrl) { open(chapter) }
                 }
                 item { Spacer(Modifier.height(32.dp)) }
             }
@@ -180,6 +195,7 @@ private fun EpisodeRow(chapter: Chapter, position: Int, coverUrl: String?, onCli
                 buildString {
                     append("Ep. ${chapter.number}")
                     if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
+                    if (chapter.externalUrl != null) append("  ↗")
                 },
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,

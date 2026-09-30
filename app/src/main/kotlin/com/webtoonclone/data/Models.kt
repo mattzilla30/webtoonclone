@@ -24,6 +24,8 @@ data class Chapter(
     val number: String,
     val title: String,
     val publishedAt: String,
+    /** Set when the publisher hosts the chapter. The app opens it in the browser. */
+    val externalUrl: String? = null,
 )
 
 data class ReadingProgress(

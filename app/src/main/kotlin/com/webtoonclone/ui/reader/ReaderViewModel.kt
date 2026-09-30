@@ -43,7 +43,7 @@ class ReaderViewModel(
                 coroutineScope {
                     val chapters = async { repository.chapters(seriesId) }
                     val pages = async { repository.pages(chapterId) }
-                    val list = chapters.await()
+                    val list = chapters.await().filter { it.externalUrl == null }
                     val index = list.indexOfFirst { it.id == chapterId }
                     if (index == -1) error("Chapter not found")
                     Load.Ready(

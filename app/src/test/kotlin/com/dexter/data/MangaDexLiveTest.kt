@@ -204,6 +204,10 @@ class MangaDexLiveTest {
         val adultIds = adult.browse(limit = 20).map { it.id }.toSet()
         val mildIds = mild.browse(limit = 20).map { it.id }.toSet()
         assertTrue("no pornographic series listed", adultIds.isNotEmpty())
+        val erotica = MangaDexRepository(OkHttpClient()).apply { contentRatings = listOf("erotica") }
+        val eroticaIds = erotica.browse(limit = 20).map { it.id }.toSet()
+        assertTrue("no erotica series listed", eroticaIds.isNotEmpty())
+        assertTrue("erotica list overlaps the safe list", eroticaIds.intersect(mildIds).isEmpty())
         assertTrue("safe list shows pornographic series", adultIds.intersect(mildIds).isEmpty())
     }
 

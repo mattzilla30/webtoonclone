@@ -60,6 +60,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.readBackup(uri)
     }
+    val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.setAutoBackupFolder(uri)
+    }
     pending?.let { backup ->
         AlertDialog(
             onDismissRequest = viewModel::cancelRestore,
@@ -165,6 +168,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
                 "Check subscribed series about every 30 minutes. You can also silence one series on its page.",
                 library.notificationsEnabled,
             ) { on -> viewModel.setNotifications(on) }
+            SwitchRow("Combine into one notification", "One summary for all new chapters found in a check.", settings.notificationDigest) { on ->
+                viewModel.update { it.copy(notificationDigest = on) }
+            }
             SwitchRow("Quiet hours", "Hold notifications during these hours. New chapters notify once quiet hours end.", settings.quietHours) { on ->
                 viewModel.update { it.copy(quietHours = on) }
             }
@@ -203,6 +209,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text(stringResource(R.string.save_backup), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { exportLauncher.launch("dexter-backup.json") })
                 Text(stringResource(R.string.restore_backup), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
+            }
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Daily backup folder", fontSize = 14.sp)
+                    Text(
+                        if (settings.autoBackupFolder == null) "Off" else "On. Writes dexter-backup.json once a day.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text("Choose", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { folderLauncher.launch(null) })
+                if (settings.autoBackupFolder != null) {
+                    Text("Turn off", fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setAutoBackupFolder(null) })
+                }
             }
 
             Text("", modifier = Modifier.padding(bottom = 24.dp))

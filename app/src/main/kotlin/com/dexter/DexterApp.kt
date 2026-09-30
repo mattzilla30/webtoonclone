@@ -6,6 +6,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.dexter.data.BackupService
 import com.dexter.data.DownloadStore
 import com.dexter.data.ImageReportInterceptor
 import com.dexter.data.ImageReporter
@@ -16,6 +17,7 @@ import com.dexter.data.ProgressStore
 import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SettingsStore
 import com.dexter.di.appModule
+import com.dexter.notify.AutoBackupWorker
 import com.dexter.notify.NewChaptersWorker
 import com.dexter.notify.updateContinueReading
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +51,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val seriesCache: SeriesCacheStore by inject()
     val offlineStore: OfflineStore by inject()
     val downloadStore: DownloadStore by inject()
+    val backupService: BackupService by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -57,6 +60,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
             modules(appModule)
         }
         NewChaptersWorker.schedule(this)
+        appScope.launch { AutoBackupWorker.sync(this@DexterApp, settingsStore.current().autoBackupFolder) }
         // Keep the parts that read settings off the main thread in step with what you choose.
         appScope.launch { runCatching { downloadStore.prune() } }
         appScope.launch {

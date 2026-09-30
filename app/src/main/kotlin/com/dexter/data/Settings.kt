@@ -50,6 +50,10 @@ data class Settings(
     val volumeKeys: Boolean = false,
     /** Content ratings to show, using MangaDex names. All four by default. */
     val contentRatings: Set<String> = ContentRatings.toSet(),
+    /** One summary notification per check instead of one per series. */
+    val notificationDigest: Boolean = false,
+    /** A folder (tree address) that gets a daily backup file, or null for no automatic backup. */
+    val autoBackupFolder: String? = null,
     /** Save chapters only on an unmetered connection. */
     val downloadWifiOnly: Boolean = true,
     /** MangaDex language code for chapters, titles, and descriptions. */

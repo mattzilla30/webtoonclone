@@ -9,7 +9,7 @@ import com.dexter.data.Backup
 import com.dexter.data.LibraryData
 import com.dexter.data.Settings
 import com.dexter.data.decodeBackup
-import com.dexter.data.encodeBackup
+import com.dexter.notify.AutoBackupWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -55,18 +55,26 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     fun exportTo(uri: Uri) {
         viewModelScope.launch {
             _message.value = runCatching {
-                val backup = Backup(
-                    savedAt = System.currentTimeMillis(),
-                    library = app.libraryStore.data.first(),
-                    settings = app.settingsStore.current(),
-                    progress = app.progressStore.export(),
-                )
-                val text = encodeBackup(backup)
-                withContext(Dispatchers.IO) {
-                    app.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
-                }
+                app.backupService.writeTo(uri)
                 "Backup saved"
             }.getOrElse { "Could not save the backup" }
+        }
+    }
+
+    /** Picks the folder for the daily backup. Null turns it off. */
+    fun setAutoBackupFolder(uri: Uri?) {
+        viewModelScope.launch {
+            if (uri != null) {
+                runCatching {
+                    app.contentResolver.takePersistableUriPermission(
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    )
+                }
+            }
+            app.settingsStore.update { it.copy(autoBackupFolder = uri?.toString()) }
+            AutoBackupWorker.sync(app, uri?.toString())
+            if (uri != null) _message.value = runCatching { app.backupService.writeToFolder(uri); "Backup saved to the folder" }.getOrElse { "Could not write to that folder" }
         }
     }
 
@@ -89,9 +97,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         _pending.value = null
         viewModelScope.launch {
             _message.value = runCatching {
-                app.libraryStore.replaceAll(backup.library)
-                app.settingsStore.update { backup.settings }
-                app.progressStore.replaceAll(backup.progress)
+                app.backupService.restore(backup)
                 "Backup restored"
             }.getOrElse { "Could not restore the backup" }
         }

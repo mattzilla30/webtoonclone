@@ -37,6 +37,9 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
         <receiver
+            android:name=".notify.MarkReadReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".notify.ContinueWidget"
             android:exported="false">
             <intent-filter>

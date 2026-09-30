@@ -2,6 +2,7 @@ package com.dexter.di
 
 import androidx.room.Room
 import com.dexter.DexterApp
+import com.dexter.data.BackupService
 import com.dexter.data.DownloadStore
 import com.dexter.data.ImageReportInterceptor
 import com.dexter.data.ImageReporter
@@ -51,6 +52,7 @@ val appModule = module {
     single { DownloadStore(androidContext(), get(), get(named("downloads"))) }
     single { SeriesCacheStore(androidContext()) }
     single { OfflineStore(androidContext()) }
+    single { BackupService(androidContext(), get(), get(), get()) }
 
     viewModel { HomeViewModel(get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get()) }

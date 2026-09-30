@@ -105,6 +105,9 @@ fun SeriesScreen(
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val subscribed by viewModel.subscribed.collectAsState()
     val status by viewModel.status.collectAsState()
+    val downloaded by viewModel.downloaded.collectAsState()
+    val downloading by viewModel.downloading.collectAsState()
+    var downloadMenu by remember { mutableStateOf(false) }
     var statusMenu by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -214,6 +217,30 @@ fun SeriesScreen(
                                             onClick = {
                                                 viewModel.setStatus(page.detail, null)
                                                 statusMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            Box(Modifier.padding(start = 10.dp)) {
+                                Text(
+                                    "Save",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .border(1.dp, Color.White, RoundedCornerShape(14.dp))
+                                        .clickable { downloadMenu = true }
+                                        .padding(horizontal = 12.dp, vertical = 5.dp),
+                                )
+                                DropdownMenu(expanded = downloadMenu, onDismissRequest = { downloadMenu = false }) {
+                                    listOf("Next 5 unread" to 5, "Next 10 unread" to 10, "All unread" to null).forEach { (label, count) ->
+                                        DropdownMenuItem(
+                                            text = { Text(label) },
+                                            onClick = {
+                                                viewModel.downloadUnread(page.detail, count)
+                                                downloadMenu = false
                                             },
                                         )
                                     }
@@ -342,6 +369,10 @@ fun SeriesScreen(
                                 summary.coverUrl,
                                 read = isChapterRead(chapter.number, lastRead?.chapterNumber),
                                 preferredGroup = preferredGroup,
+                                saved = chapter.id in downloaded,
+                                saving = chapter.id in downloading,
+                                onDownload = { viewModel.download(page.detail, chapter) },
+                                onRemoveDownload = { viewModel.removeDownload(chapter.id) },
                                 onClick = { open(chapter) },
                                 // Read marks apply to chapters that open in the reader.
                                 onMarkRead = if (readable) ({ viewModel.markReadUpTo(chapter, page.detail) }) else null,
@@ -407,6 +438,10 @@ private fun EpisodeRow(
     onMarkRead: (() -> Unit)?,
     onMarkUnread: (() -> Unit)?,
     preferredGroup: String?,
+    saved: Boolean,
+    saving: Boolean,
+    onDownload: () -> Unit,
+    onRemoveDownload: () -> Unit,
     onPreferGroup: (String?) -> Unit,
     onOpenUpload: (Chapter) -> Unit,
 ) {
@@ -416,7 +451,7 @@ private fun EpisodeRow(
             Modifier
                 .fillMaxWidth()
                 .alpha(if (read) 0.5f else 1f)
-                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty()) ({ menu = true }) else null)
+                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty() || chapter.externalUrl == null) ({ menu = true }) else null)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -432,7 +467,7 @@ private fun EpisodeRow(
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    listOfNotNull(formatChapterDate(chapter.publishedAt), chapter.group).joinToString(" · "),
+                    listOfNotNull(formatChapterDate(chapter.publishedAt), chapter.group, if (saved) "Saved" else if (saving) "Saving..." else null).joinToString(" · "),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -444,6 +479,13 @@ private fun EpisodeRow(
             }
             if (onMarkUnread != null) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.mark_unread_from_here)) }, onClick = { menu = false; onMarkUnread() })
+            }
+            if (chapter.externalUrl == null) {
+                if (saved) {
+                    DropdownMenuItem(text = { Text("Remove download") }, onClick = { menu = false; onRemoveDownload() })
+                } else if (!saving) {
+                    DropdownMenuItem(text = { Text("Download") }, onClick = { menu = false; onDownload() })
+                }
             }
             chapter.group?.let { group ->
                 if (group == preferredGroup) {

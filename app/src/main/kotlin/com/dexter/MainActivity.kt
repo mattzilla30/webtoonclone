@@ -65,6 +65,8 @@ import com.dexter.notify.parseMangaDexLink
 import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.author.AuthorScreen
 import com.dexter.ui.author.AuthorViewModel
+import com.dexter.ui.downloads.DownloadsScreen
+import com.dexter.ui.downloads.DownloadsViewModel
 import com.dexter.ui.home.HomeScreen
 import com.dexter.ui.home.HomeViewModel
 import com.dexter.ui.library.LibraryScreen
@@ -242,7 +244,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                         }
                         composable("settings") {
                             val vm = koinViewModel<SettingsViewModel>()
-                            SettingsScreen(vm, onBack = { nav.popBackStack() })
+                            SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenDownloads = { nav.navigate("downloads") })
                         }
                         composable("series/{seriesId}") { entry ->
                             val seriesId = entry.arguments!!.getString("seriesId")!!
@@ -254,6 +256,14 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                 onOpenTag = { tag -> nav.navigate("search?genre=${android.net.Uri.encode(tag)}") },
                                 onOpenSeries = { nav.navigate("series/$it") },
                                 onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${android.net.Uri.encode(name)}") },
+                            )
+                        }
+                        composable("downloads") {
+                            val vm = koinViewModel<DownloadsViewModel>()
+                            DownloadsScreen(
+                                vm,
+                                onBack = { nav.popBackStack() },
+                                onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
                             )
                         }
                         composable("author/{authorId}?name={name}") { entry ->

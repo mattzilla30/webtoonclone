@@ -47,7 +47,7 @@ import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownloads: () -> Unit) {
     val settings by viewModel.settings.collectAsState()
     val library by viewModel.library.collectAsState()
     val cacheBytes by viewModel.cacheBytes.collectAsState()
@@ -184,6 +184,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                     )
                 }
                 Text(stringResource(R.string.clear_cache), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
+            }
+
+            SwitchRow("Save on Wi-Fi only", "Downloads wait for an unmetered connection.", settings.downloadWifiOnly) { on ->
+                viewModel.update { it.copy(downloadWifiOnly = on) }
+            }
+            Row(Modifier.fillMaxWidth().clickable(onClick = onOpenDownloads).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Downloaded chapters", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
 
             SectionTitle("Backup")

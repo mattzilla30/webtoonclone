@@ -6,6 +6,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.dexter.data.DownloadStore
 import com.dexter.data.ImageReportInterceptor
 import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
@@ -37,7 +38,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** Read by the image loader's network thread, so it is volatile. */
-    @Volatile private var reportImageLoads = true
+    @Volatile var reportImageLoads = true
 
     /** The HTTP client for the MangaDex API. It keeps responses for a minute in [File]. */
     val apiClient: OkHttpClient by inject()
@@ -47,6 +48,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val libraryStore: LibraryStore by inject()
     val seriesCache: SeriesCacheStore by inject()
     val offlineStore: OfflineStore by inject()
+    val downloadStore: DownloadStore by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -56,6 +58,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
         }
         NewChaptersWorker.schedule(this)
         // Keep the parts that read settings off the main thread in step with what you choose.
+        appScope.launch { runCatching { downloadStore.prune() } }
         appScope.launch {
             libraryStore.data
                 .map { library -> library.recent.firstOrNull { it.chapterId != null } }

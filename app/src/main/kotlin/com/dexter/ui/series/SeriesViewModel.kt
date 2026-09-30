@@ -1,9 +1,11 @@
 package com.dexter.ui.series
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dexter.data.CachedSeries
 import com.dexter.data.Chapter
+import com.dexter.data.DownloadStore
 import com.dexter.data.LibraryStore
 import com.dexter.data.MAX_CACHED_CHAPTERS
 import com.dexter.data.MangaDexRepository
@@ -13,6 +15,8 @@ import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SeriesDetail
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
+import com.dexter.data.chaptersToDownload
+import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.async
@@ -40,6 +44,8 @@ class SeriesViewModel(
     private val libraryStore: LibraryStore,
     private val seriesCache: SeriesCacheStore,
     private val settingsStore: SettingsStore,
+    private val downloads: DownloadStore,
+    private val context: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow<Load<SeriesPage>>(Load.Loading)
     val state: StateFlow<Load<SeriesPage>> = _state
@@ -62,6 +68,36 @@ class SeriesViewModel(
     val notifyEnabled: StateFlow<Boolean> = libraryStore.data
         .map { lib -> lib.subscribed.firstOrNull { it.id == seriesId }?.notify ?: true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** Ids of this series' chapters saved on the device. */
+    val downloaded: StateFlow<Set<String>> = downloads.saved
+        .map { rows -> rows.filter { it.seriesId == seriesId }.mapTo(mutableSetOf()) { it.chapterId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Ids of chapters waiting or being saved now. */
+    val downloading: StateFlow<Set<String>> = downloads.active
+        .map { it.keys }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    fun download(detail: SeriesDetail, chapter: Chapter) {
+        viewModelScope.launch {
+            val wifiOnly = settingsStore.current().downloadWifiOnly
+            DownloadWorker.enqueue(context, downloads, seriesId, detail.summary.title, detail.summary.coverUrl, chapter, wifiOnly)
+        }
+    }
+
+    fun removeDownload(chapterId: String) {
+        viewModelScope.launch { downloads.delete(chapterId) }
+    }
+
+    /** Saves the next [count] unread chapters after the last one you read, or every unread one when null. */
+    fun downloadUnread(detail: SeriesDetail, count: Int?) {
+        viewModelScope.launch {
+            val all = runCatching { repository.allChapters(seriesId, settingsStore.current().preferredGroups[seriesId]) }.getOrNull() ?: return@launch
+            val last = lastRead.value?.chapterNumber
+            chaptersToDownload(all.asReversed(), last, downloaded.value, count).forEach { download(detail, it) }
+        }
+    }
 
     /** The reading list this series is in, or null when it is in none. */
     val status: StateFlow<ReadingStatus?> = libraryStore.data

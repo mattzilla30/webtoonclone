@@ -1,5 +1,6 @@
 package com.dexter.data.db
 
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -76,9 +77,57 @@ interface LibraryDao {
     suspend fun countSearches(): Int
 }
 
-@Database(entities = [SavedSeriesEntity::class, SearchEntity::class], version = 1, exportSchema = true)
+/** A chapter saved on the device. The row is written last, so a row means every page file is there. */
+@Entity(tableName = "downloads", indices = [Index("seriesId")])
+data class DownloadEntity(
+    @PrimaryKey val chapterId: String,
+    val seriesId: String,
+    val seriesTitle: String,
+    val coverUrl: String?,
+    val number: String,
+    val title: String,
+    val volume: String?,
+    val groupName: String?,
+    val publishedAt: String,
+    val pageCount: Int,
+    val bytes: Long,
+    val savedAt: Long,
+)
+
+@Dao
+interface DownloadDao {
+    @Query("SELECT * FROM downloads ORDER BY savedAt DESC")
+    fun observe(): Flow<List<DownloadEntity>>
+
+    @Query("SELECT * FROM downloads WHERE seriesId = :seriesId")
+    suspend fun forSeries(seriesId: String): List<DownloadEntity>
+
+    @Query("SELECT * FROM downloads WHERE chapterId = :chapterId")
+    suspend fun get(chapterId: String): DownloadEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(row: DownloadEntity)
+
+    @Query("DELETE FROM downloads WHERE chapterId = :chapterId")
+    suspend fun delete(chapterId: String)
+
+    @Query("DELETE FROM downloads WHERE seriesId = :seriesId")
+    suspend fun deleteSeries(seriesId: String)
+
+    @Query("DELETE FROM downloads")
+    suspend fun deleteAll()
+}
+
+@Database(
+    entities = [SavedSeriesEntity::class, SearchEntity::class, DownloadEntity::class],
+    version = 2,
+    exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun library(): LibraryDao
+
+    abstract fun downloads(): DownloadDao
 }
 
 fun SavedSeries.toEntity(list: String, position: Int) = SavedSeriesEntity(

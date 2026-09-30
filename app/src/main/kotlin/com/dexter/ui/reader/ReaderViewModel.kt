@@ -3,6 +3,7 @@ package com.dexter.ui.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dexter.data.Chapter
+import com.dexter.data.DownloadStore
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.ProgressStore
@@ -48,6 +49,7 @@ class ReaderViewModel(
     private val libraryStore: LibraryStore,
     private val settingsStore: SettingsStore,
     private val seriesCache: SeriesCacheStore,
+    private val downloads: DownloadStore,
 ) : ViewModel() {
     val settings: StateFlow<Settings> = settingsStore.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
@@ -101,6 +103,8 @@ class ReaderViewModel(
         if (previewed) return emptyList()
         val next = (_state.value as? Load.Ready)?.value?.nextId ?: return emptyList()
         previewed = true
+        // A saved chapter opens from the device, so there is nothing to preload.
+        if (downloads.isSaved(next)) return emptyList()
         return runCatching { repository.pages(next) }.getOrDefault(emptyList()).take(count)
     }
 
@@ -110,8 +114,12 @@ class ReaderViewModel(
             _state.value = try {
                 coroutineScope {
                     val preferredGroup = settingsStore.current().preferredGroups[seriesId]
-                    val chapters = async { repository.allChapters(seriesId, preferredGroup) }
-                    val pages = async { repository.pages(chapterId, forceRefresh) }
+                    val chapters = async {
+                        // With no connection, the chapters saved on this device are the list.
+                        runCatching { repository.allChapters(seriesId, preferredGroup) }
+                            .getOrElse { error -> downloads.chaptersOf(seriesId).ifEmpty { throw error } }
+                    }
+                    val pages = async { downloads.pagesOf(chapterId) ?: repository.pages(chapterId, forceRefresh) }
                     val detection = async { detectMode() }
                     val saved = progressStore.observe(seriesId).first()
                     val list = chapters.await().filter { it.externalUrl == null }

@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import androidx.room.Room
 import androidx.room.withTransaction
 import com.dexter.data.db.AppDatabase
 import com.dexter.data.db.SearchEntity
@@ -40,9 +39,8 @@ fun shouldMigrate(legacy: LibraryData, alreadyMigrated: Boolean, databaseIsEmpty
  * Recent reads, subscriptions, reading lists, and search history, kept on the device. The lists live
  * in a Room database. Small settings and the saved home screen stay in a preferences file, as before.
  */
-class LibraryStore(private val context: Context) {
+class LibraryStore(private val context: Context, private val db: AppDatabase) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val db by lazy { Room.databaseBuilder(context, AppDatabase::class.java, "library.db").build() }
     private val dao get() = db.library()
 
     private val scalars: Flow<LibraryData> = context.libraryDataStore.data.map { prefs -> decode(prefs[LIBRARY]) }

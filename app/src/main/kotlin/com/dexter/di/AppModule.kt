@@ -1,6 +1,10 @@
 package com.dexter.di
 
+import androidx.room.Room
 import com.dexter.DexterApp
+import com.dexter.data.DownloadStore
+import com.dexter.data.ImageReportInterceptor
+import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
@@ -8,7 +12,9 @@ import com.dexter.data.ProgressStore
 import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SettingsStore
 import com.dexter.data.cachingClient
+import com.dexter.data.db.AppDatabase
 import com.dexter.ui.author.AuthorViewModel
+import com.dexter.ui.downloads.DownloadsViewModel
 import com.dexter.ui.home.HomeViewModel
 import com.dexter.ui.library.LibraryViewModel
 import com.dexter.ui.reader.ReaderViewModel
@@ -20,6 +26,7 @@ import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
 
@@ -32,7 +39,16 @@ val appModule = module {
     single { MangaDexRepository(get()) }
     single { SettingsStore(androidContext()) }
     single { ProgressStore(androidContext()) }
-    single { LibraryStore(androidContext()) }
+    single {
+        Room.databaseBuilder(androidContext(), AppDatabase::class.java, "library.db").build()
+    }
+    single { LibraryStore(androidContext(), get()) }
+    single(named("downloads")) {
+        OkHttpClient.Builder()
+            .addInterceptor(ImageReportInterceptor(ImageReporter()) { (androidApplication() as DexterApp).reportImageLoads })
+            .build()
+    }
+    single { DownloadStore(androidContext(), get(), get(named("downloads"))) }
     single { SeriesCacheStore(androidContext()) }
     single { OfflineStore(androidContext()) }
 
@@ -40,8 +56,9 @@ val appModule = module {
     viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { UpdatesViewModel(get(), get()) }
     viewModel { LibraryViewModel(get()) }
+    viewModel { DownloadsViewModel(get()) }
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }
-    viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get()) }
-    viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), get(), get(), get(), get(), get()) }
+    viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), get(), get(), get(), get(), get(), get()) }
     viewModel { params -> AuthorViewModel(params.get<String>(0), get()) }
 }

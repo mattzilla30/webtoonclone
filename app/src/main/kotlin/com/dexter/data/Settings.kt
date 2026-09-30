@@ -50,6 +50,8 @@ data class Settings(
     val volumeKeys: Boolean = false,
     /** Content ratings to show, using MangaDex names. All four by default. */
     val contentRatings: Set<String> = ContentRatings.toSet(),
+    /** Save chapters only on an unmetered connection. */
+    val downloadWifiOnly: Boolean = true,
     /** MangaDex language code for chapters, titles, and descriptions. */
     val language: String = "en",
     /** The scanlation group to prefer for each series, by series id. */

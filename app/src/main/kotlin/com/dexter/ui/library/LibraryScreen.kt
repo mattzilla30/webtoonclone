@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -133,12 +134,15 @@ fun LibraryScreen(
                             selected.clear()
                         },
                         modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
+                        contentPadding = PaddingValues(horizontal = 8.dp),
                         shapes = when (index) {
                             0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
                             options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                             else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                         },
-                    ) { Text(label) }
+                    ) {
+                        Text(label, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
             if (tab == LibraryList.Lists) {

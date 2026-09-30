@@ -160,7 +160,7 @@ fun PickTile(
             }
             Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 GenreLabel(series.genre)
-                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 3)
+                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
                 HeartCount(series.follows)
             }
         }
@@ -224,7 +224,7 @@ fun AppTopBar(
     androidx.compose.material3.TopAppBar(
         title = {
             Column {
-                Text(title, style = MaterialTheme.typography.headlineSmallEmphasized, maxLines = 1)
+                Text(title, style = MaterialTheme.typography.headlineSmallEmphasized)
                 if (subtitle != null) {
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

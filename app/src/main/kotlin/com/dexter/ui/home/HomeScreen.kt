@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -153,7 +154,7 @@ fun HomeScreen(
                                 Cover(saved.coverUrl, saved.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))))
                                 Column(Modifier.align(Alignment.BottomStart).padding(10.dp)) {
-                                    Text(saved.title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(saved.title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized)
                                     saved.chapterNumber?.let { Text("Ep. $it", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall) }
                                 }
                             }
@@ -246,10 +247,10 @@ private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(MaterialTheme.shapes.medium)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
-        Row(Modifier.padding(12.dp).height(92.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(12.dp).heightIn(min = 92.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 12.dp)) {
                 GenreLabel(series.genre)
-                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
                 Text(
                     series.description,
                     style = MaterialTheme.typography.bodySmall,
@@ -258,7 +259,7 @@ private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Cover(series.coverUrl, series.title, Modifier.width(62.dp).fillMaxHeight().clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
+            Cover(series.coverUrl, series.title, Modifier.width(62.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
         }
     }
 }

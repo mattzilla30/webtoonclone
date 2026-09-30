@@ -2,6 +2,7 @@ package com.webtoonclone.ui.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.webtoonclone.data.Genres
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SeriesSummary
@@ -13,12 +14,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-val SearchGenres = listOf(
-    "Romance" to "💕", "Fantasy" to "✨", "Drama" to "🎭", "Action" to "⚔️",
-    "Sports" to "🏀", "Comedy" to "😄", "Slice of Life" to "☀️", "Superhero" to "🦸",
-    "Sci-Fi" to "🚀", "Thriller" to "🔪", "Supernatural" to "👻", "Mystery" to "🔍",
-    "Historical" to "🏛️", "Horror" to "💀",
-)
+val SearchGenres = Genres.map { it.name to it.emoji }
 
 class SearchViewModel(
     private val repository: MangaDexRepository,

@@ -18,21 +18,6 @@ private const val CHAPTER_PAGE = 500
 private const val MAX_ATTEMPTS = 3
 private const val UPDATES_PAGE = 50
 
-private val GENRE_TAGLINES = mapOf(
-    "Romance" to "Love, crushes, and second chances",
-    "Fantasy" to "Magic, dragons, and other worlds",
-    "Drama" to "Stories that stay with you",
-    "Action" to "Fights, chases, and big stakes",
-    "Comedy" to "Laughs from the first page",
-    "Mystery" to "Clues, twists, and secrets",
-    "Thriller" to "Tension that builds each chapter",
-    "Slice of Life" to "Everyday moments, told well",
-    "Sci-Fi" to "Futures worth visiting",
-    "Supernatural" to "Ghosts, spirits, and the unknown",
-    "Sports" to "Rivalries and last-second wins",
-    "Historical" to "Stories from other eras",
-)
-
 enum class Order(val param: String) {
     Popular("followedCount"),
     Newest("createdAt"),
@@ -87,7 +72,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val pool = readablePicks(7)
         val hero = pool.firstOrNull()
         val picks = pool.drop(1)
-        val bands = GENRE_TAGLINES.entries.shuffled().take(2).map { (genre, tagline) ->
+        val bands = Genres.shuffled().take(2).map { (genre, _, tagline) ->
             // Skip a random number of top series so the same covers do not lead every time.
             val page = Random.nextInt(0, 6)
             val series = browse(genre = genre, page = page, limit = 5).ifEmpty { browse(genre = genre, limit = 5) }
@@ -224,14 +209,16 @@ class MangaDexRepository(private val client: OkHttpClient) {
         return home.chapter.data.map { "${home.baseUrl}/data/${home.chapter.hash}/$it" }
     }
 
-    private suspend fun genreId(name: String): String? {
-        val ids = genreIds ?: run {
+    private suspend fun genreId(name: String): String? = genreTagIds()[name.lowercase()]
+
+    /** MangaDex genre tag ids by lowercase name. Loaded once. */
+    suspend fun genreTagIds(): Map<String, String> {
+        return genreIds ?: run {
             val tags = json.decodeFromString<TagListDto>(fetch("$API/manga/tag".toHttpUrl())).data
             tags.filter { it.attributes.group == "genre" }
                 .associate { it.attributes.name.pick().lowercase() to it.id }
                 .also { genreIds = it }
         }
-        return ids[name.lowercase()]
     }
 
     private suspend fun stats(ids: List<String>): Map<String, StatDto> = try {

@@ -68,6 +68,12 @@ class MangaDexLiveTest {
         assertTrue("no latest chapter", latest != null && latest.externalUrl == null)
         assertTrue("latest chapter is missing from the full list", chapters.any { it.id == latest!!.id })
 
+        // Every genre in the app must exist on MangaDex, or its filter would silently do nothing.
+        val tagIds = repository.genreTagIds()
+        val missing = Genres.map { it.name }.filter { it.lowercase() !in tagIds }
+        assertTrue("genres missing on MangaDex: $missing", missing.isEmpty())
+        assertTrue("MangaDex has genres the app lacks: ${tagIds.keys - Genres.map { it.name.lowercase() }.toSet()}", tagIds.size == Genres.size)
+
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)
         val second = repository.browse(title = "love", page = 1)

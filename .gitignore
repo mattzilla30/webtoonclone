@@ -1,6 +1,8 @@
-node_modules
-.next
-next-env.d.ts
-*.tsbuildinfo
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.kotlin/
 .env
-.env.local

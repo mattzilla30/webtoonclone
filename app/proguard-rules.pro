@@ -1,0 +1,5 @@
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
+-keep,includedescriptorclasses class com.webtoonclone.data.**$$serializer { *; }
+-keepclassmembers class com.webtoonclone.data.** { *** Companion; }
+-keepclasseswithmembers class com.webtoonclone.data.** { kotlinx.serialization.KSerializer serializer(...); }

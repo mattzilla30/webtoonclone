@@ -71,11 +71,15 @@ class ReaderViewModel(
 
     private fun recordRecent(chapter: Chapter) {
         viewModelScope.launch {
-            // The series title and cover come from a second request so the library list can show them.
-            val summary = runCatching { repository.series(seriesId).summary }.getOrNull() ?: return@launch
-            libraryStore.recordRecent(
-                SavedSeries(seriesId, summary.title, summary.coverUrl, chapterId, chapter.number),
-            )
+            // Reuse the title and cover you already saved. Only a first read asks MangaDex for them.
+            val known = libraryStore.data.first().knownSeries(seriesId)
+            val (title, cover) = if (known != null) {
+                known.title to known.coverUrl
+            } else {
+                val summary = runCatching { repository.series(seriesId).summary }.getOrNull() ?: return@launch
+                summary.title to summary.coverUrl
+            }
+            libraryStore.recordRecent(SavedSeries(seriesId, title, cover, chapterId, chapter.number))
         }
     }
 

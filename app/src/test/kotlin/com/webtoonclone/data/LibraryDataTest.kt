@@ -43,4 +43,15 @@ class LibraryDataTest {
         // The saved name is parsed back on launch, so renaming an Order would silently reset it.
         Order.entries.forEach { assertEquals(it, Order.valueOf(it.name)) }
     }
+
+    @Test
+    fun knownSeriesFindsRecentAndSubscribedEntries() {
+        val library = LibraryData(
+            recent = listOf(SavedSeries("a", "Alpha", "cover-a")),
+            subscribed = listOf(SavedSeries("b", "Beta", "cover-b")),
+        )
+        assertEquals("Alpha", library.knownSeries("a")?.title)
+        assertEquals("cover-b", library.knownSeries("b")?.coverUrl)
+        assertEquals(null, library.knownSeries("c"))
+    }
 }

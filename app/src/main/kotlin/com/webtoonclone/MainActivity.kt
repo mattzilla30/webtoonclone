@@ -24,7 +24,9 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -37,6 +39,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.webtoonclone.notify.EXTRA_SERIES_ID
 import com.webtoonclone.ui.home.HomeScreen
 import com.webtoonclone.ui.home.HomeViewModel
 import com.webtoonclone.ui.library.LibraryScreen
@@ -56,6 +59,14 @@ class MainActivity : ComponentActivity() {
     /** Counts app opens. The home screen reshuffles its picks when this changes. */
     private var openCount by mutableIntStateOf(0)
 
+    /** Set when a notification opens the app. Consumed once by the navigation host. */
+    private var pendingSeries by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        pendingSeries = intent.getStringExtra(EXTRA_SERIES_ID)
+    }
+
     override fun onStart() {
         super.onStart()
         openCount++
@@ -68,7 +79,8 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
-        setContent { WebtoonNav(openCount) }
+        pendingSeries = intent.getStringExtra(EXTRA_SERIES_ID)
+        setContent { WebtoonNav(openCount, pendingSeries) { pendingSeries = null } }
     }
 }
 
@@ -82,11 +94,17 @@ private val tabs = listOf(
 )
 
 @Composable
-private fun WebtoonNav(openCount: Int) {
+private fun WebtoonNav(openCount: Int, openSeries: String?, onOpened: () -> Unit) {
     val app = LocalContext.current.applicationContext as WebtoonApp
     val nav = rememberNavController()
     val route by nav.currentBackStackEntryAsState().let { entry ->
         androidx.compose.runtime.derivedStateOf { entry.value?.destination?.route }
+    }
+    LaunchedEffect(openSeries) {
+        if (openSeries != null) {
+            nav.navigate("series/$openSeries")
+            onOpened()
+        }
     }
     val onTab = route?.substringBefore('?') in tabs.map { it.route }
 

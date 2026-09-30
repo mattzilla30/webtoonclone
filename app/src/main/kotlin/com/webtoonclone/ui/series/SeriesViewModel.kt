@@ -51,7 +51,11 @@ class SeriesViewModel(
 
     fun toggleSubscribed(detail: SeriesDetail) {
         viewModelScope.launch {
-            libraryStore.toggleSubscribed(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl))
+            // Start from the newest chapter now, so only chapters that come later notify.
+            val newest = (_state.value as? Load.Ready)?.value?.chapters?.firstOrNull { it.externalUrl == null }?.id
+            libraryStore.toggleSubscribed(
+                SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl, knownChapterId = newest),
+            )
         }
     }
 

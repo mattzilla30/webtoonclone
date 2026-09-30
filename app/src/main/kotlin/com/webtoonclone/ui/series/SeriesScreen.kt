@@ -1,7 +1,10 @@
 package com.webtoonclone.ui.series
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -74,6 +77,8 @@ fun SeriesScreen(
     val subscribed by viewModel.subscribed.collectAsState()
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    // Notifications need permission on Android 13 and later. Ask when the user first subscribes.
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LoadView(state, onRetry = viewModel::load) { page ->
@@ -124,7 +129,10 @@ fun SeriesScreen(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
                                     .then(if (subscribed) Modifier.background(Green) else Modifier.border(1.dp, Green, RoundedCornerShape(14.dp)))
-                                    .clickable { viewModel.toggleSubscribed(page.detail) }
+                                    .clickable {
+                                        if (!subscribed) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        viewModel.toggleSubscribed(page.detail)
+                                    }
                                     .padding(horizontal = 12.dp, vertical = 5.dp),
                             )
                             Icon(Icons.Default.Info, contentDescription = "Info", tint = Color.White, modifier = Modifier.padding(start = 16.dp).clickable { showInfo = true })

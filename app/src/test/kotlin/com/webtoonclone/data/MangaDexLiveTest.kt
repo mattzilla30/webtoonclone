@@ -63,6 +63,11 @@ class MangaDexLiveTest {
         assertTrue("a series repeats within one page", updates.map { it.series.id }.toSet().size == updates.size)
         println("updates=${updates.size} newest=${updates.first().series.title} ep ${updates.first().chapterNumber}")
 
+        // The notification worker compares this against the last chapter it saw.
+        val latest = repository.latestChapter(series.id)
+        assertTrue("no latest chapter", latest != null && latest.externalUrl == null)
+        assertTrue("latest chapter is missing from the full list", chapters.any { it.id == latest!!.id })
+
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)
         val second = repository.browse(title = "love", page = 1)

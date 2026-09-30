@@ -96,6 +96,24 @@ class MangaDexRepository(private val client: OkHttpClient) {
         return HomeContent(hero, newSeries, picks, bands)
     }
 
+    /** The newest chapter that opens in the reader, or null when the series has none. */
+    suspend fun latestChapter(seriesId: String): Chapter? {
+        val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
+            .addQueryParameter("limit", "1")
+            .addQueryParameter("includeExternalUrl", "0")
+            .addQueryParameter("translatedLanguage[]", LANG)
+            .addQueryParameter("order[readableAt]", "desc")
+            .build()
+        val dto = json.decodeFromString<ChapterListDto>(fetch(url)).data.firstOrNull() ?: return null
+        return Chapter(
+            dto.id,
+            dto.attributes.chapter ?: "Oneshot",
+            dto.attributes.title.orEmpty(),
+            dto.attributes.publishAt,
+            dto.attributes.externalUrl,
+        )
+    }
+
     /** One page of series ordered by their newest readable chapter. Repeats across pages are possible. */
     suspend fun latestUpdates(page: Int): List<UpdateEntry> {
         val url = "$API/chapter".toHttpUrl().newBuilder()

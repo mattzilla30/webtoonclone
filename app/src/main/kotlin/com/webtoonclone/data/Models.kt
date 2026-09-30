@@ -56,6 +56,8 @@ data class SavedSeries(
     val chapterId: String? = null,
     val chapterNumber: String? = null,
     val at: Long = 0,
+    /** For subscriptions: the newest chapter seen so far. A newer one triggers a notification. */
+    val knownChapterId: String? = null,
 )
 
 @Serializable

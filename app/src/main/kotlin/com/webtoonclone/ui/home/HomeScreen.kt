@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -33,6 +34,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.minutes
 import com.webtoonclone.data.GenreBand
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.Cover
@@ -48,10 +54,25 @@ fun HomeScreen(
     onOpenSeries: (String) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenGenre: (String) -> Unit,
+    openCount: Int,
 ) {
     val state by viewModel.state.collectAsState()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    LoadView(state, onRetry = viewModel::load) { home ->
+    // A new app open reloads with fresh random picks. Returning from a series page does not.
+    LaunchedEffect(openCount) { viewModel.refreshIfNewOpen(openCount) }
+
+    // While the home screen is visible, check every five minutes for newly started series.
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(5.minutes)
+                viewModel.refreshNewSeries()
+            }
+        }
+    }
+
+    LoadView(state, onRetry = viewModel::retry) { home ->
         LazyColumn(Modifier.fillMaxSize()) {
             home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
 
@@ -81,7 +102,7 @@ fun HomeScreen(
 
 @Composable
 private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(360.dp).clickable(onClick = onClick)) {
+    Box(Modifier.fillMaxWidth().height(360.dp).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick)) {
         Cover(series.coverUrl, series.title, Modifier.fillMaxSize())
         Box(
             Modifier.fillMaxSize().background(
@@ -125,7 +146,7 @@ private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Cover(series.coverUrl, series.title, Modifier.width(96.dp).fillMaxSize().clip(RoundedCornerShape(4.dp)))
+        Cover(series.coverUrl, series.title, Modifier.width(56.dp).fillMaxHeight().clip(RoundedCornerShape(4.dp)))
     }
 }
 
@@ -146,7 +167,7 @@ private fun GenreBandRow(band: GenreBand, onOpenGenre: (String) -> Unit, onOpenS
                 Cover(
                     series.coverUrl,
                     series.title,
-                    Modifier.weight(1f).aspectRatio(1f).clip(CircleShape).clickable { onOpenSeries(series.id) },
+                    Modifier.weight(1f).aspectRatio(2f / 3f).clip(RoundedCornerShape(6.dp)).clickable { onOpenSeries(series.id) },
                 )
             }
         }

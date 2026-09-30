@@ -8,11 +8,27 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
+import kotlin.random.Random
 
 private const val API = "https://api.mangadex.org"
 private const val PAGE_SIZE = 24
 private const val LANG = "en"
 private const val CHAPTER_PAGE = 500
+
+private val GENRE_TAGLINES = mapOf(
+    "Romance" to "Love, crushes, and second chances",
+    "Fantasy" to "Magic, dragons, and other worlds",
+    "Drama" to "Stories that stay with you",
+    "Action" to "Fights, chases, and big stakes",
+    "Comedy" to "Laughs from the first page",
+    "Mystery" to "Clues, twists, and secrets",
+    "Thriller" to "Tension that builds each chapter",
+    "Slice of Life" to "Everyday moments, told well",
+    "Sci-Fi" to "Futures worth visiting",
+    "Supernatural" to "Ghosts, spirits, and the unknown",
+    "Sports" to "Rivalries and last-second wins",
+    "Historical" to "Stories from other eras",
+)
 
 enum class Order(val param: String) {
     Popular("followedCount"),
@@ -57,15 +73,19 @@ class MangaDexRepository(private val client: OkHttpClient) {
         return list.map { it.copy(follows = stats[it.id]?.follows) }
     }
 
+    /** The newest series that already have chapters. Polled so new uploads show up. */
+    suspend fun newSeries(): List<SeriesSummary> = browse(order = Order.Newest, limit = 3)
+
+    /** Picks and genre bands are random on every call, so each app open looks different. */
     suspend fun home(): HomeContent {
         // MangaDex allows about five requests per second, so these run one after another.
-        val newSeries = browse(order = Order.Newest, limit = 3)
+        val newSeries = newSeries()
         val picks = readablePicks(6)
-        val bands = listOf(
-            "Romance" to "Love, crushes, and second chances",
-            "Fantasy" to "Magic, dragons, and other worlds",
-        ).map { (genre, tagline) ->
-            GenreBand(genre, tagline, browse(genre = genre, limit = 5))
+        val bands = GENRE_TAGLINES.entries.shuffled().take(2).map { (genre, tagline) ->
+            // Skip a random number of top series so the same covers do not lead every time.
+            val page = Random.nextInt(0, 6)
+            val series = browse(genre = genre, page = page, limit = 5).ifEmpty { browse(genre = genre, limit = 5) }
+            GenreBand(genre, tagline, series)
         }
         return HomeContent(picks.firstOrNull(), newSeries, picks, bands)
     }
@@ -86,6 +106,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
         val ids = feed.flatMap { c -> c.relationships.filter { it.type == "manga" }.map { it.id } }
             .distinct()
+            .shuffled()
             .take(limit)
         if (ids.isEmpty()) return emptyList()
         val byId = browse(ids = ids, limit = ids.size, withStats = true).associateBy { it.id }

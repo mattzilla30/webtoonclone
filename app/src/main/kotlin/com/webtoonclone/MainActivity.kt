@@ -24,6 +24,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -48,6 +50,14 @@ import com.webtoonclone.ui.theme.Green
 import com.webtoonclone.ui.theme.WebtoonTheme
 
 class MainActivity : ComponentActivity() {
+    /** Counts app opens. The home screen reshuffles its picks when this changes. */
+    private var openCount by mutableIntStateOf(0)
+
+    override fun onStart() {
+        super.onStart()
+        openCount++
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // The app draws inside the system bars. Transparent bars with light icons suit the dark theme.
@@ -55,7 +65,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
-        setContent { WebtoonNav() }
+        setContent { WebtoonNav(openCount) }
     }
 }
 
@@ -68,7 +78,7 @@ private val tabs = listOf(
 )
 
 @Composable
-private fun WebtoonNav() {
+private fun WebtoonNav(openCount: Int) {
     val app = LocalContext.current.applicationContext as WebtoonApp
     val nav = rememberNavController()
     val route by nav.currentBackStackEntryAsState().let { entry ->
@@ -98,6 +108,7 @@ private fun WebtoonNav() {
                             onOpenSeries = { nav.navigate("series/$it") },
                             onOpenSearch = { nav.navigateTab("search") },
                             onOpenGenre = { nav.navigate("search?genre=$it") },
+                            openCount = openCount,
                         )
                     }
                 }

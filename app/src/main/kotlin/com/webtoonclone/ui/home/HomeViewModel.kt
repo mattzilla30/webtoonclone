@@ -14,15 +14,45 @@ class HomeViewModel(private val repository: MangaDexRepository) : ViewModel() {
     private val _state = MutableStateFlow<Load<HomeContent>>(Load.Loading)
     val state: StateFlow<Load<HomeContent>> = _state
 
-    init { load() }
+    private var seenOpen = 0
+    private var busy = false
 
-    fun load() {
-        _state.value = Load.Loading
+    /**
+     * Reloads with fresh random picks when the app has been opened since the last load.
+     * Coming back from a series page keeps the same open count, so the home screen holds still.
+     */
+    fun refreshIfNewOpen(openCount: Int) {
+        if (openCount == seenOpen) return
+        seenOpen = openCount
+        load(showSpinner = _state.value !is Load.Ready)
+    }
+
+    fun retry() = load(showSpinner = true)
+
+    /** Re-checks for newly started series without touching the rest of the screen. */
+    fun refreshNewSeries() {
+        val current = (_state.value as? Load.Ready)?.value ?: return
         viewModelScope.launch {
-            _state.value = try {
-                Load.Ready(repository.home())
+            val fresh = runCatching { repository.newSeries() }.getOrNull() ?: return@launch
+            if (fresh.map { it.id } != current.newSeries.map { it.id }) {
+                val latest = (_state.value as? Load.Ready)?.value ?: return@launch
+                _state.value = Load.Ready(latest.copy(newSeries = fresh))
+            }
+        }
+    }
+
+    private fun load(showSpinner: Boolean) {
+        if (busy) return
+        busy = true
+        if (showSpinner) _state.value = Load.Loading
+        viewModelScope.launch {
+            try {
+                _state.value = Load.Ready(repository.home())
             } catch (e: Exception) {
-                Load.Error(e.message ?: "Could not load series")
+                // A silent refresh keeps the old content when the network fails.
+                if (_state.value !is Load.Ready) _state.value = Load.Error(e.message ?: "Could not load series")
+            } finally {
+                busy = false
             }
         }
     }

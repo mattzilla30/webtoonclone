@@ -48,11 +48,11 @@ private val genreColors = mapOf(
 fun genreColor(genre: String?): Color = genreColors[genre?.lowercase()] ?: Green
 
 @Composable
-fun Cover(url: String?, description: String?, modifier: Modifier = Modifier) {
+fun Cover(url: String?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit) {
     AsyncImage(
         model = url,
         contentDescription = description,
-        contentScale = ContentScale.Crop,
+        contentScale = contentScale,
         modifier = modifier,
     )
 }
@@ -91,7 +91,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
 @Composable
 fun PickTile(series: SeriesSummary, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.clickable(onClick = onClick)) {
-        Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(1f))
+        Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
         Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
             GenreLabel(series.genre)
             Text(

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -99,7 +100,7 @@ fun SeriesScreen(
 
             LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 item {
-                    Box(Modifier.fillMaxWidth().height(340.dp)) {
+                    Box(Modifier.fillMaxWidth().height(340.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
                         Cover(summary.coverUrl, summary.title, Modifier.fillMaxSize())
                         Box(
                             Modifier.fillMaxSize().background(
@@ -242,7 +243,7 @@ private fun EpisodeRow(chapter: Chapter, coverUrl: String?, onClick: () -> Unit)
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Cover(coverUrl, null, Modifier.size(width = 56.dp, height = 56.dp))
+        Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f))
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(
                 buildString {

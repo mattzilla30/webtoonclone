@@ -39,7 +39,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.minutes
-import com.webtoonclone.data.GenreBand
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.GenreLabel
@@ -53,7 +52,6 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSeries: (String) -> Unit,
     onOpenSearch: () -> Unit,
-    onOpenGenre: (String) -> Unit,
     openCount: Int,
 ) {
     val state by viewModel.state.collectAsState()
@@ -90,10 +88,6 @@ fun HomeScreen(
                 }
             }
 
-            item { SectionHeader("Favorite Genres") }
-            items(home.genreBands.size) { i ->
-                GenreBandRow(home.genreBands[i], onOpenGenre, onOpenSeries)
-            }
 
             item { Box(Modifier.height(24.dp)) }
         }
@@ -147,29 +141,5 @@ private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit) {
             )
         }
         Cover(series.coverUrl, series.title, Modifier.width(56.dp).fillMaxHeight().clip(RoundedCornerShape(4.dp)))
-    }
-}
-
-@Composable
-private fun GenreBandRow(band: GenreBand, onOpenGenre: (String) -> Unit, onOpenSeries: (String) -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().background(genreColor(band.genre)).padding(vertical = 12.dp),
-    ) {
-        Column(Modifier.clickable { onOpenGenre(band.genre) }.padding(horizontal = 16.dp)) {
-            Text(band.genre, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text(band.tagline, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
-        }
-        Row(
-            Modifier.padding(horizontal = 16.dp).padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            band.series.forEach { series ->
-                Cover(
-                    series.coverUrl,
-                    series.title,
-                    Modifier.weight(1f).aspectRatio(2f / 3f).clip(RoundedCornerShape(6.dp)).clickable { onOpenSeries(series.id) },
-                )
-            }
-        }
     }
 }

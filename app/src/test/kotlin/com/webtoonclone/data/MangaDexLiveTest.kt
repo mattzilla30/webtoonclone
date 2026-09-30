@@ -17,11 +17,10 @@ class MangaDexLiveTest {
 
         val home = repository.home()
         assertTrue("picks are empty", home.picks.isNotEmpty())
-        assertTrue("no genre band has series", home.genreBands.any { it.series.isNotEmpty() })
         println("hero=${home.hero?.title} genre=${home.hero?.genre} author=${home.hero?.author} follows=${home.hero?.follows}")
 
         // Top series are often licensed and only link out, so look for one with readable chapters.
-        val candidates = home.picks + home.newSeries + home.genreBands.flatMap { it.series }
+        val candidates = home.picks + home.newSeries
         val readable = candidates.firstNotNullOf { series ->
             val list = repository.allChapters(series.id)
             list.firstOrNull { it.externalUrl == null }?.let { series to list.filter { c -> c.externalUrl == null } }

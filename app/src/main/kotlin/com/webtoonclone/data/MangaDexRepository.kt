@@ -9,7 +9,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
-import kotlin.random.Random
 
 private const val API = "https://api.mangadex.org"
 private const val PAGE_SIZE = 24
@@ -64,7 +63,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
     /** The newest series that already have chapters. Polled so new uploads show up. */
     suspend fun newSeries(): List<SeriesSummary> = browse(order = Order.Newest, limit = 3)
 
-    /** Picks and genre bands are random on every call, so each app open looks different. */
+    /** The hero and picks are random on every call, so each app open looks different. */
     suspend fun home(): HomeContent {
         // MangaDex allows about five requests per second, so these run one after another.
         val newSeries = newSeries()
@@ -72,13 +71,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val pool = readablePicks(7)
         val hero = pool.firstOrNull()
         val picks = pool.drop(1)
-        val bands = Genres.shuffled().take(2).map { (genre, tagline) ->
-            // Skip a random number of top series so the same covers do not lead every time.
-            val page = Random.nextInt(0, 6)
-            val series = browse(tag = genre, page = page, limit = 5).ifEmpty { browse(tag = genre, limit = 5) }
-            GenreBand(genre, tagline, series)
-        }
-        return HomeContent(hero, newSeries, picks, bands)
+        return HomeContent(hero, newSeries, picks)
     }
 
     /** The newest chapter that opens in the reader, or null when the series has none. */

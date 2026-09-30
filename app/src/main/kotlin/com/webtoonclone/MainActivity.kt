@@ -129,7 +129,6 @@ private fun WebtoonNav(openCount: Int, openSeries: String?, onOpened: () -> Unit
                             vm,
                             onOpenSeries = { nav.navigate("series/$it") },
                             onOpenSearch = { nav.navigateTab("search") },
-                            onOpenGenre = { nav.navigate("search?genre=$it") },
                             openCount = openCount,
                         )
                     }

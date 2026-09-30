@@ -42,10 +42,7 @@ data class HomeContent(
     val hero: SeriesSummary?,
     val newSeries: List<SeriesSummary>,
     val picks: List<SeriesSummary>,
-    val genreBands: List<GenreBand>,
 )
-
-data class GenreBand(val genre: String, val tagline: String, val series: List<SeriesSummary>)
 
 /** A series saved on this device, either as recent history or as a subscription. */
 @Serializable

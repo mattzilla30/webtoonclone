@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -129,74 +130,76 @@ fun HomeScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        LoadView(state, onRetry = viewModel::retry) { home ->
-            LazyColumn(Modifier.fillMaxSize()) {
-                offlineSavedAt?.let { savedAt ->
-                    item {
-                        OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
+        PullToRefreshBox(isRefreshing = state is Load.Loading, onRefresh = viewModel::retry, modifier = Modifier.fillMaxSize()) {
+            LoadView(state, onRetry = viewModel::retry) { home ->
+                LazyColumn(Modifier.fillMaxSize()) {
+                    offlineSavedAt?.let { savedAt ->
+                        item {
+                            OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
+                        }
                     }
-                }
-                home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
+                    home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
 
-                if (recent.isNotEmpty()) {
-                    item { SectionHeader("Continue Reading") }
-                    item {
-                        val carousel = rememberCarouselState { recent.size }
-                        HorizontalUncontainedCarousel(
-                            state = carousel,
-                            itemWidth = 140.dp,
-                            itemSpacing = 8.dp,
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            modifier = Modifier.fillMaxWidth().height(250.dp),
-                        ) { index ->
-                            val saved = recent[index]
-                            Box(Modifier.maskClip(MaterialTheme.shapes.large).clickable { onOpenChapter(saved.id, saved.chapterId!!) }) {
-                                Cover(saved.coverUrl, saved.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))))
-                                Column(Modifier.align(Alignment.BottomStart).padding(10.dp)) {
-                                    Text(saved.title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized)
-                                    saved.chapterNumber?.let { Text("Ep. $it", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall) }
+                    if (recent.isNotEmpty()) {
+                        item { SectionHeader("Continue Reading") }
+                        item {
+                            val carousel = rememberCarouselState { recent.size }
+                            HorizontalUncontainedCarousel(
+                                state = carousel,
+                                itemWidth = 140.dp,
+                                itemSpacing = 8.dp,
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                modifier = Modifier.fillMaxWidth().height(250.dp),
+                            ) { index ->
+                                val saved = recent[index]
+                                Box(Modifier.maskClip(MaterialTheme.shapes.large).clickable { onOpenChapter(saved.id, saved.chapterId!!) }) {
+                                    Cover(saved.coverUrl, saved.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))))
+                                    Column(Modifier.align(Alignment.BottomStart).padding(10.dp)) {
+                                        Text(saved.title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized)
+                                        saved.chapterNumber?.let { Text("Ep. $it", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall) }
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                because?.let { (title, like) ->
-                    item { SectionHeader("Because you read $title") }
-                    item {
-                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(like, key = { it.id }) { series ->
-                                PickTile(series, { onOpenSeries(series.id) }, Modifier.width(110.dp), onLongClick = { toggleSubscribe(series) })
+                    because?.let { (title, like) ->
+                        item { SectionHeader("Because you read $title") }
+                        item {
+                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(like, key = { it.id }) { series ->
+                                    PickTile(series, { onOpenSeries(series.id) }, Modifier.width(110.dp), onLongClick = { toggleSubscribe(series) })
+                                }
                             }
                         }
                     }
-                }
 
-                item { SectionHeader("New Series") }
-                items(home.newSeries.size) { i ->
-                    val series = home.newSeries[i]
-                    NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
-                }
-
-                item { SectionHeader("Today's Picks") }
-                val pickRows = home.picks.chunked(columns)
-                items(pickRows.size) { row ->
-                    Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        pickRows[row].forEach { series ->
-                            PickTile(
-                                series,
-                                { onOpenSeries(series.id) },
-                                Modifier.weight(1f),
-                                subscribed = series.id in subscribedIds,
-                                onLongClick = { toggleSubscribe(series) },
-                            )
-                        }
-                        repeat(columns - pickRows[row].size) { Box(Modifier.weight(1f)) }
+                    item { SectionHeader("New Series") }
+                    items(home.newSeries.size) { i ->
+                        val series = home.newSeries[i]
+                        NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
                     }
-                }
 
-                item { Box(Modifier.height(24.dp)) }
+                    item { SectionHeader("Today's Picks") }
+                    val pickRows = home.picks.chunked(columns)
+                    items(pickRows.size) { row ->
+                        Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            pickRows[row].forEach { series ->
+                                PickTile(
+                                    series,
+                                    { onOpenSeries(series.id) },
+                                    Modifier.weight(1f),
+                                    subscribed = series.id in subscribedIds,
+                                    onLongClick = { toggleSubscribe(series) },
+                                )
+                            }
+                            repeat(columns - pickRows[row].size) { Box(Modifier.weight(1f)) }
+                        }
+                    }
+
+                    item { Box(Modifier.height(24.dp)) }
+                }
             }
         }
 

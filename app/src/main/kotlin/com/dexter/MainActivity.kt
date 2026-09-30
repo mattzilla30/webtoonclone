@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -61,6 +63,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.dexter.data.LibraryData
 import com.dexter.data.ReaderBackground
 import com.dexter.data.Settings
 import com.dexter.notify.EXTRA_CHAPTER_ID
@@ -78,6 +81,7 @@ import com.dexter.ui.home.HomeScreen
 import com.dexter.ui.home.HomeViewModel
 import com.dexter.ui.library.LibraryScreen
 import com.dexter.ui.library.LibraryViewModel
+import com.dexter.ui.library.unreadSeriesCount
 import com.dexter.ui.reader.ReaderScreen
 import com.dexter.ui.reader.ReaderViewModel
 import com.dexter.ui.reader.VolumeKeyPager
@@ -168,6 +172,8 @@ private val tabs = listOf(
 private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, onOpened: () -> Unit) {
     val app = LocalContext.current.applicationContext as DexterApp
     val nav = rememberNavController()
+    val library by app.libraryStore.data.collectAsState(initial = LibraryData())
+    val unread = unreadSeriesCount(library)
     val backStackEntry by nav.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
     LaunchedEffect(open) {
@@ -202,12 +208,12 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
             val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
             val motion = MaterialTheme.motionScheme
             Row(Modifier.fillMaxSize()) {
-                if (wide && onTab) SideRail(nav, route?.substringBefore('?'))
+                if (wide && onTab) SideRail(nav, route?.substringBefore('?'), unread)
                 Scaffold(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     containerColor = MaterialTheme.colorScheme.background,
                     contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                    bottomBar = { if (onTab && !wide) BottomBar(nav, route?.substringBefore('?')) },
+                    bottomBar = { if (onTab && !wide) BottomBar(nav, route?.substringBefore('?'), unread) },
                 ) { padding ->
                     NavHost(
                         nav,
@@ -316,14 +322,14 @@ private fun NavHostController.navigateTab(route: String) {
 }
 
 @Composable
-private fun SideRail(nav: NavHostController, current: String?) {
+private fun SideRail(nav: NavHostController, current: String?, unread: Int) {
     val state = rememberWideNavigationRailState()
     WideNavigationRail(state = state) {
         tabs.forEach { tab ->
             WideNavigationRailItem(
                 selected = current == tab.route,
                 onClick = { nav.navigateTab(tab.route) },
-                icon = { Icon(tab.icon, contentDescription = null) },
+                icon = { TabIcon(tab, unread) },
                 label = { Text(tab.label) },
                 railExpanded = state.targetValue == WideNavigationRailValue.Expanded,
             )
@@ -332,15 +338,27 @@ private fun SideRail(nav: NavHostController, current: String?) {
 }
 
 @Composable
-private fun BottomBar(nav: NavHostController, current: String?) {
+private fun BottomBar(nav: NavHostController, current: String?, unread: Int) {
     ShortNavigationBar {
         tabs.forEach { tab ->
             ShortNavigationBarItem(
                 selected = current == tab.route,
                 onClick = { nav.navigateTab(tab.route) },
-                icon = { Icon(tab.icon, contentDescription = null) },
+                icon = { TabIcon(tab, unread) },
                 label = { Text(tab.label) },
             )
         }
+    }
+}
+
+/** A tab's icon. My Series carries a badge with the number of subscribed series that have unread chapters. */
+@Composable
+private fun TabIcon(tab: Tab, unread: Int) {
+    if (tab.route == "library" && unread > 0) {
+        BadgedBox(badge = { Badge { Text(if (unread > 99) "99+" else unread.toString()) } }) {
+            Icon(tab.icon, contentDescription = null)
+        }
+    } else {
+        Icon(tab.icon, contentDescription = null)
     }
 }

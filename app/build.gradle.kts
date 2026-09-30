@@ -19,8 +19,22 @@ android {
         ndk { abiFilters += "arm64-v8a" }
     }
 
+    // Signing reads ~/.gradle/gradle.properties or -P flags. Nothing secret lives in the repo.
+    val keystorePath = providers.gradleProperty("RELEASE_STORE_FILE").orNull
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = providers.gradleProperty("RELEASE_STORE_PASSWORD").get()
+                keyAlias = providers.gradleProperty("RELEASE_KEY_ALIAS").get()
+                keyPassword = providers.gradleProperty("RELEASE_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

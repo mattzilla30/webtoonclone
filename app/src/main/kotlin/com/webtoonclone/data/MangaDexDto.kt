@@ -18,6 +18,8 @@ internal data class MangaDto(
 @Serializable
 internal data class MangaAttributesDto(
     val title: Map<String, String> = emptyMap(),
+    val altTitles: List<Map<String, String>> = emptyList(),
+    val originalLanguage: String = "",
     val description: Map<String, String> = emptyMap(),
     val status: String = "",
     val tags: List<TagDto> = emptyList(),
@@ -55,7 +57,7 @@ internal data class RelationshipDto(
 internal data class RelationshipAttributesDto(val fileName: String? = null, val name: String? = null)
 
 @Serializable
-internal data class ChapterListDto(val data: List<ChapterDto>)
+internal data class ChapterListDto(val data: List<ChapterDto>, val total: Int = 0)
 
 @Serializable
 internal data class ChapterDto(

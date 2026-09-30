@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -25,15 +26,18 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,7 +66,8 @@ fun SeriesScreen(
     onHome: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
-    val progress by viewModel.progress.collectAsState()
+    val lastRead by viewModel.lastRead.collectAsState()
+    val loadingMore by viewModel.loadingMore.collectAsState()
     val subscribed by viewModel.subscribed.collectAsState()
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -71,8 +76,17 @@ fun SeriesScreen(
         LoadView(state, onRetry = viewModel::load) { page ->
             val summary = page.detail.summary
             val readable = page.chapters.filter { it.externalUrl == null }
-            val first = readable.firstOrNull()
-            val resume = progress?.let { p -> readable.find { it.id == p.chapterId } }
+            // With older chapters still unloaded, the oldest loaded one is not Episode 1.
+            val startAt = if (page.hasMore) readable.firstOrNull() else readable.lastOrNull()
+            val listState = rememberLazyListState()
+
+            // Load older chapters once the last few rows are on screen.
+            LaunchedEffect(listState, page.chapters.size, page.hasMore) {
+                snapshotFlow {
+                    val info = listState.layoutInfo
+                    (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
+                }.collect { nearEnd -> if (nearEnd && page.hasMore) viewModel.loadMore() }
+            }
             val open: (Chapter) -> Unit = { chapter ->
                 val link = chapter.externalUrl
                 if (link == null) onOpenChapter(chapter.id)
@@ -81,7 +95,7 @@ fun SeriesScreen(
 
             if (showInfo) InfoDialog(page.detail.status, summary.description, summary.author) { showInfo = false }
 
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 item {
                     Box(Modifier.fillMaxWidth().height(340.dp)) {
                         Cover(summary.coverUrl, summary.title, Modifier.fillMaxSize())
@@ -150,8 +164,7 @@ fun SeriesScreen(
                     }
                 }
                 item {
-                    val target = resume ?: first
-                    if (target == null && page.chapters.isNotEmpty()) {
+                    if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
                         Text(
                             "This series is hosted by its publisher. Episodes open in your browser.",
                             fontSize = 12.sp,
@@ -159,22 +172,35 @@ fun SeriesScreen(
                             modifier = Modifier.padding(16.dp),
                         )
                     }
-                    if (target != null) {
+                    val resumeId = lastRead?.chapterId
+                    if (resumeId != null || startAt != null) {
                         Box(
                             Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(Green)
-                                .clickable { open(target) }.padding(vertical = 12.dp),
+                                .clickable { if (resumeId != null) onOpenChapter(resumeId) else open(startAt!!) }
+                                .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                if (resume != null) "Continue Ep. ${resume.number}" else "Episode ${target.number}",
+                                when {
+                                    resumeId != null -> "Continue Ep. ${lastRead?.chapterNumber}"
+                                    page.hasMore -> "Latest Ep. ${startAt!!.number}"
+                                    else -> "Episode ${startAt!!.number}"
+                                },
                                 color = Color.Black,
                                 fontWeight = FontWeight.Bold,
                             )
                         }
                     }
                 }
-                items(page.chapters.asReversed(), key = { it.id }) { chapter ->
-                    EpisodeRow(chapter, page.chapters.indexOf(chapter) + 1, summary.coverUrl) { open(chapter) }
+                items(page.chapters, key = { it.id }) { chapter ->
+                    EpisodeRow(chapter, summary.coverUrl) { open(chapter) }
+                }
+                if (loadingMore) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(24.dp))
+                        }
+                    }
                 }
                 item { Spacer(Modifier.height(32.dp)) }
             }
@@ -183,7 +209,7 @@ fun SeriesScreen(
 }
 
 @Composable
-private fun EpisodeRow(chapter: Chapter, position: Int, coverUrl: String?, onClick: () -> Unit) {
+private fun EpisodeRow(chapter: Chapter, coverUrl: String?, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -203,7 +229,6 @@ private fun EpisodeRow(chapter: Chapter, position: Int, coverUrl: String?, onCli
             )
             Text(formatDate(chapter.publishedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text("#$position", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

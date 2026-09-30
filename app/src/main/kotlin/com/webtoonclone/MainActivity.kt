@@ -115,7 +115,7 @@ private fun WebtoonNav() {
                 }
                 composable("series/{seriesId}") { entry ->
                     val seriesId = entry.arguments!!.getString("seriesId")!!
-                    val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.progressStore, app.libraryStore) }
+                    val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore) }
                     SeriesScreen(
                         vm,
                         onOpenChapter = { nav.navigate("series/$seriesId/$it") },

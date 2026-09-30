@@ -41,7 +41,7 @@ class ReaderViewModel(
         viewModelScope.launch {
             _state.value = try {
                 coroutineScope {
-                    val chapters = async { repository.chapters(seriesId) }
+                    val chapters = async { repository.allChapters(seriesId) }
                     val pages = async { repository.pages(chapterId) }
                     val list = chapters.await().filter { it.externalUrl == null }
                     val index = list.indexOfFirst { it.id == chapterId }

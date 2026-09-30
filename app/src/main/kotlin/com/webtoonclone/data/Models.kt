@@ -19,6 +19,8 @@ data class SeriesDetail(
     val rating: Double?,
 )
 
+data class ChapterPage(val chapters: List<Chapter>, val nextOffset: Int?)
+
 data class Chapter(
     val id: String,
     val number: String,

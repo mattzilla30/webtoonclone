@@ -4,10 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.Chapter
 import com.webtoonclone.data.LibraryStore
-import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.MangaDexRepository
-import com.webtoonclone.data.ProgressStore
-import com.webtoonclone.data.ReadingProgress
+import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.SeriesDetail
 import com.webtoonclone.ui.Load
 import kotlinx.coroutines.async
@@ -19,19 +17,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class SeriesPage(val detail: SeriesDetail, val chapters: List<Chapter>)
+/** Chapters are newest first. [hasMore] is true while older chapters remain on the server. */
+data class SeriesPage(
+    val detail: SeriesDetail,
+    val chapters: List<Chapter>,
+    val hasMore: Boolean,
+)
 
 class SeriesViewModel(
     private val seriesId: String,
     private val repository: MangaDexRepository,
-    progressStore: ProgressStore,
     private val libraryStore: LibraryStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<Load<SeriesPage>>(Load.Loading)
     val state: StateFlow<Load<SeriesPage>> = _state
 
-    val progress: StateFlow<ReadingProgress?> = progressStore.observe(seriesId)
+    private val _loadingMore = MutableStateFlow(false)
+    val loadingMore: StateFlow<Boolean> = _loadingMore
+
+    private var nextOffset: Int? = 0
+    private val seen = mutableSetOf<String>()
+
+    /** The chapter this device read last, which may be older than the loaded pages. */
+    val lastRead: StateFlow<SavedSeries?> = libraryStore.data
+        .map { lib -> lib.recent.firstOrNull { it.id == seriesId && it.chapterId != null } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val subscribed: StateFlow<Boolean> = libraryStore.data.map { lib -> lib.subscribed.any { it.id == seriesId } }
@@ -47,15 +57,39 @@ class SeriesViewModel(
 
     fun load() {
         _state.value = Load.Loading
+        seen.clear()
         viewModelScope.launch {
             _state.value = try {
                 coroutineScope {
                     val detail = async { repository.series(seriesId) }
-                    val chapters = async { repository.chapters(seriesId) }
-                    Load.Ready(SeriesPage(detail.await(), chapters.await()))
+                    val first = async { repository.chapterPage(seriesId, 0, seen) }
+                    val page = first.await()
+                    nextOffset = page.nextOffset
+                    Load.Ready(SeriesPage(detail.await(), page.chapters, page.nextOffset != null))
                 }
             } catch (e: Exception) {
                 Load.Error(e.message ?: "Could not load series")
+            }
+        }
+    }
+
+    /** Appends the next page of older chapters. Called when the list scrolls near its end. */
+    fun loadMore() {
+        val offset = nextOffset ?: return
+        val current = (_state.value as? Load.Ready)?.value ?: return
+        if (_loadingMore.value) return
+        _loadingMore.value = true
+        viewModelScope.launch {
+            try {
+                val page = repository.chapterPage(seriesId, offset, seen)
+                nextOffset = page.nextOffset
+                _state.value = Load.Ready(
+                    current.copy(chapters = current.chapters + page.chapters, hasMore = page.nextOffset != null),
+                )
+            } catch (e: Exception) {
+                // Keep the list as is. Scrolling again retries.
+            } finally {
+                _loadingMore.value = false
             }
         }
     }

@@ -23,14 +23,14 @@ class MangaDexLiveTest {
         // Top series are often licensed and only link out, so look for one with readable chapters.
         val candidates = home.picks + home.newSeries + home.genreBands.flatMap { it.series }
         val readable = candidates.firstNotNullOf { series ->
-            val list = repository.chapters(series.id)
+            val list = repository.allChapters(series.id)
             list.firstOrNull { it.externalUrl == null }?.let { series to list.filter { c -> c.externalUrl == null } }
         }
         val (series, chapters) = readable
 
         // Every pick must open in the reader, so its first chapter cannot be an external link.
         val pick = home.picks.first()
-        assertTrue("pick ${pick.title} has no readable chapter", repository.chapters(pick.id).any { it.externalUrl == null })
+        assertTrue("pick ${pick.title} has no readable chapter", repository.allChapters(pick.id).any { it.externalUrl == null })
         val detail = repository.series(series.id)
         assertTrue(detail.summary.title.isNotBlank())
         println("series=${series.title} rating=${detail.rating} status=${detail.status}")
@@ -41,6 +41,21 @@ class MangaDexLiveTest {
 
         assertTrue(repository.browse(genre = "Romance", limit = 3).isNotEmpty())
         assertTrue(repository.browse(title = "tower", limit = 3).isNotEmpty())
+
+        // English titles come from altTitles. Romanized names would be lowercase-ASCII-heavy
+        // Japanese words, so check that a well-known series shows its translated name.
+        val tower = repository.browse(title = "Solo Leveling", limit = 5).map { it.title }
+        assertTrue("expected the English title, got $tower", tower.any { it.equals("Solo Leveling", ignoreCase = true) })
+
+        // Chapter paging: page 2 must start where page 1 ended, without repeats.
+        val seen = mutableSetOf<String>()
+        val longSeries = "d7037b2a-874a-4360-8a7b-07f2899152fd" // 559 English chapters at the time of writing
+        val a = repository.chapterPage(longSeries, 0, seen)
+        assertTrue("expected a next page", a.nextOffset != null)
+        val b = repository.chapterPage(longSeries, a.nextOffset!!, seen)
+        assertTrue("page 2 is empty", b.chapters.isNotEmpty())
+        assertTrue("page 2 repeats page 1", b.chapters.none { c -> a.chapters.any { it.number == c.number } })
+        println("chapter pages: ${a.chapters.size} then ${b.chapters.size}, first=${a.chapters.first().number}")
 
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)

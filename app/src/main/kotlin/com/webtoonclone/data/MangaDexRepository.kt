@@ -12,6 +12,7 @@ import java.io.IOException
 private const val API = "https://api.mangadex.org"
 private const val PAGE_SIZE = 24
 private const val LANG = "en"
+private const val CHAPTER_PAGE = 500
 
 enum class Order(val param: String) {
     Popular("followedCount"),
@@ -106,17 +107,19 @@ class MangaDexRepository(private val client: OkHttpClient) {
         )
     }
 
-    suspend fun chapters(seriesId: String): List<Chapter> {
+    /**
+     * One page of the chapter feed, newest first. [seen] carries chapter numbers across pages
+     * so a chapter uploaded by several groups shows once.
+     */
+    suspend fun chapterPage(seriesId: String, offset: Int, seen: MutableSet<String>): ChapterPage {
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
-            .addQueryParameter("limit", "500")
+            .addQueryParameter("limit", CHAPTER_PAGE.toString())
+            .addQueryParameter("offset", offset.toString())
             .addQueryParameter("translatedLanguage[]", LANG)
-            .addQueryParameter("order[chapter]", "asc")
+            .addQueryParameter("order[chapter]", "desc")
             .build()
-        val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
-
-        // Several groups often upload the same chapter. Keep the first of each number.
-        val seen = mutableSetOf<String>()
-        return feed.mapNotNull { dto ->
+        val body = json.decodeFromString<ChapterListDto>(fetch(url))
+        val chapters = body.data.mapNotNull { dto ->
             val number = dto.attributes.chapter ?: "Oneshot"
             if (!seen.add(number)) return@mapNotNull null
             Chapter(
@@ -127,6 +130,21 @@ class MangaDexRepository(private val client: OkHttpClient) {
                 dto.attributes.externalUrl,
             )
         }
+        val next = offset + body.data.size
+        return ChapterPage(chapters, if (body.data.isEmpty() || next >= body.total) null else next)
+    }
+
+    /** Every chapter, oldest first. The reader uses it to find the previous and next chapter. */
+    suspend fun allChapters(seriesId: String): List<Chapter> {
+        val seen = mutableSetOf<String>()
+        val all = mutableListOf<Chapter>()
+        var offset: Int? = 0
+        while (offset != null) {
+            val page = chapterPage(seriesId, offset, seen)
+            all += page.chapters
+            offset = page.nextOffset
+        }
+        return all.asReversed()
     }
 
     suspend fun pages(chapterId: String): List<String> {
@@ -166,12 +184,27 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val file = relationships.firstOrNull { it.type == "cover_art" }?.attributes?.fileName
         return SeriesSummary(
             id = id,
-            title = attributes.title.pick(),
+            title = displayTitle(),
             coverUrl = file?.let { "https://uploads.mangadex.org/covers/$id/$it.512.jpg" },
             genre = attributes.tags.firstOrNull { it.attributes.group == "genre" }?.attributes?.name?.pick(),
             author = relationships.firstOrNull { it.type == "author" }?.attributes?.name,
             description = attributes.description.pick(),
         )
+    }
+
+    /**
+     * MangaDex stores the romanized original name as the main title and the translated
+     * English name in altTitles. Non-English works use the first English alt title.
+     * A work with none keeps its main title.
+     */
+    private fun MangaDto.displayTitle(): String {
+        val main = attributes.title
+        val translated = attributes.altTitles.firstNotNullOfOrNull { it[LANG] }
+        return when {
+            attributes.originalLanguage == LANG -> main[LANG] ?: translated ?: main.pick()
+            translated != null -> translated
+            else -> main.pick()
+        }
     }
 
     private fun Map<String, String>.pick(): String = this[LANG] ?: values.firstOrNull().orEmpty()

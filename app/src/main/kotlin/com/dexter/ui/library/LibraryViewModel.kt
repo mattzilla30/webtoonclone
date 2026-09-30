@@ -36,4 +36,16 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
             }
         }
     }
+
+    fun removeFromCollection(name: String, ids: Set<String>) {
+        viewModelScope.launch { store.removeFromCollection(name, ids) }
+    }
+
+    fun restoreCollection(name: String, snapshot: List<SavedSeries>) {
+        viewModelScope.launch { store.restoreCollection(name, snapshot) }
+    }
+
+    fun deleteCollection(name: String) {
+        viewModelScope.launch { store.deleteCollection(name) }
+    }
 }

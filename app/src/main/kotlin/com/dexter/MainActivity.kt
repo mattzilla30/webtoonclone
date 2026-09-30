@@ -81,6 +81,8 @@ import com.dexter.ui.series.SeriesScreen
 import com.dexter.ui.series.SeriesViewModel
 import com.dexter.ui.settings.SettingsScreen
 import com.dexter.ui.settings.SettingsViewModel
+import com.dexter.ui.stats.StatsScreen
+import com.dexter.ui.stats.StatsViewModel
 import com.dexter.ui.theme.DarkTheme
 import com.dexter.ui.theme.DexterTheme
 import com.dexter.ui.theme.Green
@@ -244,7 +246,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                         }
                         composable("settings") {
                             val vm = koinViewModel<SettingsViewModel>()
-                            SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenDownloads = { nav.navigate("downloads") })
+                            SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
                         }
                         composable("series/{seriesId}") { entry ->
                             val seriesId = entry.arguments!!.getString("seriesId")!!
@@ -257,6 +259,10 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                 onOpenSeries = { nav.navigate("series/$it") },
                                 onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${android.net.Uri.encode(name)}") },
                             )
+                        }
+                        composable("stats") {
+                            val vm = koinViewModel<StatsViewModel>()
+                            StatsScreen(vm, onBack = { nav.popBackStack() })
                         }
                         composable("downloads") {
                             val vm = koinViewModel<DownloadsViewModel>()

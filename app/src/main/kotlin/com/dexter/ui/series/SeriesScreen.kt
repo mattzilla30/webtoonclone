@@ -39,12 +39,15 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -109,6 +112,8 @@ fun SeriesScreen(
     val downloading by viewModel.downloading.collectAsState()
     var downloadMenu by remember { mutableStateOf(false) }
     var statusMenu by remember { mutableStateOf(false) }
+    val collections by viewModel.collections.collectAsState()
+    var newCollection by remember { mutableStateOf<String?>(null) }
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
     // Notifications need permission on Android 13 and later. Ask when the user first subscribes.
@@ -135,6 +140,25 @@ fun SeriesScreen(
                 else context.startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
             }
 
+            newCollection?.let { name ->
+                AlertDialog(
+                    onDismissRequest = { newCollection = null },
+                    title = { Text("New collection") },
+                    text = {
+                        OutlinedTextField(value = name, onValueChange = { newCollection = it }, singleLine = true, placeholder = { Text("Name") })
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = name.isNotBlank(),
+                            onClick = {
+                                viewModel.toggleCollection(page.detail, name.trim())
+                                newCollection = null
+                            },
+                        ) { Text("Add") }
+                    },
+                    dismissButton = { TextButton(onClick = { newCollection = null }) { Text("Cancel") } },
+                )
+            }
             if (showInfo) {
                 InfoDialog(
                     page.detail,

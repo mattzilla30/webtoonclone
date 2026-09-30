@@ -12,6 +12,7 @@ import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesCacheStore
 import com.dexter.data.Settings
 import com.dexter.data.SettingsStore
+import com.dexter.data.StatsStore
 import com.dexter.data.detectReadingMode
 import com.dexter.data.findChapter
 import com.dexter.data.resolveMode
@@ -50,6 +51,7 @@ class ReaderViewModel(
     private val settingsStore: SettingsStore,
     private val seriesCache: SeriesCacheStore,
     private val downloads: DownloadStore,
+    private val stats: StatsStore,
 ) : ViewModel() {
     val settings: StateFlow<Settings> = settingsStore.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
@@ -163,6 +165,7 @@ class ReaderViewModel(
                 summary.title to summary.coverUrl
             }
             libraryStore.recordRecent(SavedSeries(seriesId, title, cover, chapterId, chapter.number))
+            runCatching { stats.recordRead(chapterId, seriesId, title) }
         }
     }
 

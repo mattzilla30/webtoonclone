@@ -145,6 +145,41 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     /** Undoes a removal by merging the earlier list back in. See [mergeRestore]. */
     suspend fun restore(list: LibraryList, snapshot: List<SavedSeries>) = modify(list) { current -> mergeRestore(current, snapshot) }
 
+    /** Adds the series to the collection [name], or removes it when it is already there. Creates the collection if needed. */
+    suspend fun toggleCollection(name: String, series: SavedSeries) = updateScalars { data ->
+        val current = data.collections[name].orEmpty()
+        val next = if (current.any { it.id == series.id }) current.filterNot { it.id == series.id } else listOf(series) + current
+        data.copy(collections = data.collections + (name to next))
+    }
+
+    /** Follows the author, recording the series that exist now as seen. Unfollows when already followed. */
+    suspend fun toggleAuthor(id: String, name: String, currentSeriesIds: List<String>) = updateScalars { data ->
+        if (data.followedAuthors.any { it.id == id }) {
+            data.copy(followedAuthors = data.followedAuthors.filterNot { it.id == id })
+        } else {
+            data.copy(followedAuthors = data.followedAuthors + FollowedAuthor(id, name, currentSeriesIds))
+        }
+    }
+
+    suspend fun markAuthorSeen(id: String, seriesIds: List<String>) = updateScalars { data ->
+        data.copy(followedAuthors = data.followedAuthors.map { if (it.id == id) it.copy(knownIds = (it.knownIds + seriesIds).distinct()) else it })
+    }
+
+    suspend fun createCollection(name: String) = updateScalars { data ->
+        if (name in data.collections) data else data.copy(collections = data.collections + (name to emptyList()))
+    }
+
+    suspend fun deleteCollection(name: String) = updateScalars { it.copy(collections = it.collections - name) }
+
+    suspend fun removeFromCollection(name: String, ids: Set<String>) = updateScalars { data ->
+        data.copy(collections = data.collections + (name to data.collections[name].orEmpty().filterNot { it.id in ids }))
+    }
+
+    /** Undoes a removal from a collection by merging the earlier list back in. */
+    suspend fun restoreCollection(name: String, snapshot: List<SavedSeries>) = updateScalars { data ->
+        data.copy(collections = data.collections + (name to mergeRestore(data.collections[name].orEmpty(), snapshot)))
+    }
+
     suspend fun addSearch(query: String) {
         ensureMigrated()
         db.withTransaction {

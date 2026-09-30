@@ -104,6 +104,17 @@ class SeriesViewModel(
         .map { lib -> lib.lists.firstOrNull { it.id == seriesId }?.status }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Names of your collections, with whether this series is in each. */
+    val collections: StateFlow<Map<String, Boolean>> = libraryStore.data
+        .map { lib -> lib.collections.mapValues { (_, members) -> members.any { it.id == seriesId } } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun toggleCollection(detail: SeriesDetail, name: String) {
+        viewModelScope.launch {
+            libraryStore.toggleCollection(name, SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl))
+        }
+    }
+
     fun setStatus(detail: SeriesDetail, status: ReadingStatus?) {
         viewModelScope.launch {
             libraryStore.setStatus(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl), status)

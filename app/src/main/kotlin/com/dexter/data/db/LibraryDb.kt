@@ -118,16 +118,36 @@ interface DownloadDao {
     suspend fun deleteAll()
 }
 
+/** One row per chapter you opened, with when you last opened it. Feeds the reading stats. */
+@Entity(tableName = "read_events", indices = [Index("at")])
+data class ReadEventEntity(
+    @PrimaryKey val chapterId: String,
+    val seriesId: String,
+    val seriesTitle: String,
+    val at: Long,
+)
+
+@Dao
+interface StatsDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(row: ReadEventEntity)
+
+    @Query("SELECT * FROM read_events")
+    fun observe(): Flow<List<ReadEventEntity>>
+}
+
 @Database(
-    entities = [SavedSeriesEntity::class, SearchEntity::class, DownloadEntity::class],
-    version = 2,
+    entities = [SavedSeriesEntity::class, SearchEntity::class, DownloadEntity::class, ReadEventEntity::class],
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun library(): LibraryDao
 
     abstract fun downloads(): DownloadDao
+
+    abstract fun stats(): StatsDao
 }
 
 fun SavedSeries.toEntity(list: String, position: Int) = SavedSeriesEntity(

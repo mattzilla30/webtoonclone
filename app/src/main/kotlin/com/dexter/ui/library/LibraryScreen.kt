@@ -24,6 +24,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +52,7 @@ import com.dexter.ui.Cover
 import com.dexter.ui.iconTap
 import com.dexter.ui.series.hasUnreadChapters
 import com.dexter.ui.theme.Green
+import com.dexter.ui.timeAgo
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
 
@@ -66,11 +68,24 @@ fun LibraryScreen(
     val tab = LibraryList.entries.firstOrNull { it.key == tabKey } ?: LibraryList.Recent
     val subscribedTab = tab == LibraryList.Subscribed
     var statusFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var collectionFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var unreadOnly by rememberSaveable { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<String>() }
     val alphabetical = library.sortAlphabetical
-    val tabItems = listFor(library, tab)
+    val collection = collectionFilter?.takeIf { tab == LibraryList.Lists && it in library.collections }
+    val tabItems = when {
+        collection != null -> library.collections.getValue(collection)
+        tab == LibraryList.Lists && statusFilter == null -> (library.lists + library.collections.values.flatten()).distinctBy { it.id }
+        else -> listFor(library, tab)
+    }
+    val lastReadNumber = { series: SavedSeries -> library.recent.firstOrNull { it.id == series.id }?.chapterNumber }
     val items = sortSaved(
-        if (tab == LibraryList.Lists) tabItems.filter { statusFilter == null || it.status?.name == statusFilter } else tabItems,
+        filterSaved(
+            if (tab == LibraryList.Lists && collection == null) tabItems.filter { statusFilter == null || it.status?.name == statusFilter } else tabItems,
+            query,
+            unreadOnly && subscribedTab,
+        ) { hasUnreadChapters(it.knownChapterNumber, lastReadNumber(it)) },
         alphabetical,
     )
 
@@ -101,10 +116,36 @@ fun LibraryScreen(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    ChoiceChip("All", statusFilter == null) { statusFilter = null }
+                    ChoiceChip("All", statusFilter == null && collection == null) { statusFilter = null; collectionFilter = null }
                     ReadingStatus.entries.forEach { status ->
-                        ChoiceChip(status.label, statusFilter == status.name) { statusFilter = status.name }
+                        ChoiceChip(status.label, collection == null && statusFilter == status.name) { statusFilter = status.name; collectionFilter = null }
                     }
+                    library.collections.keys.sorted().forEach { name ->
+                        ChoiceChip(name, collection == name) { collectionFilter = name; statusFilter = null }
+                    }
+                }
+                if (collection != null) {
+                    Text(
+                        "Delete this collection",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp).clickable {
+                            viewModel.deleteCollection(collection)
+                            collectionFilter = null
+                        },
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("Filter by title") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            if (subscribedTab) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceChip("Unread only", unreadOnly) { unreadOnly = !unreadOnly }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -118,16 +159,17 @@ fun LibraryScreen(
                     Text(
                         "Delete", fontSize = 12.sp,
                         modifier = Modifier.clickable(enabled = selected.isNotEmpty()) {
-                            undo = UndoState(tab, tabItems, selected.size)
-                            viewModel.delete(tab, selected.toSet())
+                            undo = UndoState(tab, tabItems, selected.size, collection)
+                            if (collection != null) viewModel.removeFromCollection(collection, selected.toSet()) else viewModel.delete(tab, selected.toSet())
                             selected.clear()
                         },
                     )
                     Text(
                         "Delete All", fontSize = 12.sp,
                         modifier = Modifier.clickable(enabled = items.isNotEmpty()) {
-                            undo = UndoState(tab, tabItems, items.size)
-                            viewModel.delete(tab, items.map { it.id }.toSet())
+                            undo = UndoState(tab, tabItems, items.size, collection)
+                            val ids = items.map { it.id }.toSet()
+                            if (collection != null) viewModel.removeFromCollection(collection, ids) else viewModel.delete(tab, ids)
                             selected.clear()
                         },
                     )
@@ -162,7 +204,8 @@ fun LibraryScreen(
                                     series.status?.let { Text(it.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green) }
                                 }
                                 series.chapterNumber?.let {
-                                    Text("Ep. $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(java.time.Instant.ofEpochMilli(series.at)) else ""
+                                    Text("Ep. $it$readAt", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             Checkbox(
@@ -199,7 +242,7 @@ fun LibraryScreen(
                     fontSize = 13.sp,
                     color = Green,
                     modifier = Modifier.clickable {
-                        viewModel.restore(state.list, state.snapshot)
+                        if (state.collection != null) viewModel.restoreCollection(state.collection, state.snapshot) else viewModel.restore(state.list, state.snapshot)
                         undo = null
                     },
                 )
@@ -215,7 +258,7 @@ private fun listFor(library: LibraryData, tab: LibraryList): List<SavedSeries> =
 }
 
 /** What an undo needs: which tab, the list as it was, and how many series were removed. */
-private data class UndoState(val list: LibraryList, val snapshot: List<SavedSeries>, val count: Int)
+private data class UndoState(val list: LibraryList, val snapshot: List<SavedSeries>, val count: Int, val collection: String? = null)
 
 @Composable
 private fun Tab(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {

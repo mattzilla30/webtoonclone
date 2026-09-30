@@ -2,17 +2,38 @@ package com.dexter.ui.author
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.Order
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** The series one author or artist worked on, most followed first, loaded a page at a time. */
-class AuthorViewModel(private val authorId: String, private val repository: MangaDexRepository) : ViewModel() {
+class AuthorViewModel(
+    private val authorId: String,
+    private val repository: MangaDexRepository,
+    private val library: LibraryStore,
+) : ViewModel() {
+    val following: StateFlow<Boolean> = library.data
+        .map { data -> data.followedAuthors.any { it.id == authorId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun toggleFollow(name: String) {
+        viewModelScope.launch {
+            val shown = (state.value as? Load.Ready)?.value.orEmpty().map { it.id }
+            // Series beyond the first page count as seen too, so following never floods you with old ones.
+            val newest = runCatching { repository.browse(order = Order.Newest, authorId = authorId, limit = 30).map { it.id } }.getOrDefault(emptyList())
+            library.toggleAuthor(authorId, name, (shown + newest).distinct())
+        }
+    }
+
     private val _state = MutableStateFlow<Load<List<SeriesSummary>>>(Load.Loading)
     val state: StateFlow<Load<List<SeriesSummary>>> = _state
 

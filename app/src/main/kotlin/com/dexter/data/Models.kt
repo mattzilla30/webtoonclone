@@ -65,6 +65,10 @@ data class HomeContent(
     val picks: List<SeriesSummary>,
 )
 
+/** An author or artist you follow. [knownIds] are the series already seen, so only later ones notify. */
+@Serializable
+data class FollowedAuthor(val id: String, val name: String, val knownIds: List<String> = emptyList())
+
 /** A series saved on this device, either as recent history or as a subscription. */
 @Serializable
 data class SavedSeries(
@@ -113,9 +117,13 @@ data class LibraryData(
     val searchOrder: String = "Popular",
     /** Series you put in reading lists, each with its status. */
     val lists: List<SavedSeries> = emptyList(),
+    /** Authors and artists whose new series notify. */
+    val followedAuthors: List<FollowedAuthor> = emptyList(),
+    /** Your own named collections, each a list of series. */
+    val collections: Map<String, List<SavedSeries>> = emptyMap(),
     /** True once the lists moved from the old single file into the database. */
     val roomMigrated: Boolean = false,
 ) {
     /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
-    fun knownSeries(id: String): SavedSeries? = (recent + subscribed + lists).firstOrNull { it.id == id }
+    fun knownSeries(id: String): SavedSeries? = (recent + subscribed + lists + collections.values.flatten()).firstOrNull { it.id == id }
 }

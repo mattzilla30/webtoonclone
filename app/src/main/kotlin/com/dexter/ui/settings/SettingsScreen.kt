@@ -47,7 +47,7 @@ import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownloads: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
     val settings by viewModel.settings.collectAsState()
     val library by viewModel.library.collectAsState()
     val cacheBytes by viewModel.cacheBytes.collectAsState()
@@ -197,6 +197,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
             }
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpenDownloads).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Downloaded chapters", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            }
+
+            Row(Modifier.fillMaxWidth().clickable(onClick = onOpenStats).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Reading stats", fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
 

@@ -18,7 +18,9 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.dexter.DexterApp
 import com.dexter.MainActivity
+import com.dexter.data.Order
 import com.dexter.data.SavedSeries
+import com.dexter.data.SeriesSummary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.time.LocalTime
@@ -77,8 +79,50 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             delay(300) // stay well under MangaDex's request limit
         }
+        if (library.notificationsEnabled) {
+            for (author in library.followedAuthors) {
+                val newest = try {
+                    app.repository.browse(order = Order.Newest, authorId = author.id, limit = 10)
+                } catch (e: Exception) {
+                    failed = true
+                    continue
+                }
+                val fresh = newest.filter { it.id !in author.knownIds }
+                if (fresh.isNotEmpty()) {
+                    if (author.knownIds.isNotEmpty()) postAuthor(author.name, fresh.first())
+                    app.libraryStore.markAuthorSeen(author.id, fresh.map { it.id })
+                }
+                delay(300)
+            }
+        }
         post(found, settings.notificationDigest)
         return if (failed) Result.retry() else Result.success()
+    }
+
+    private fun postAuthor(authorName: String, series: SeriesSummary) {
+        val context = applicationContext
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "New chapters", NotificationManager.IMPORTANCE_DEFAULT))
+        val open = PendingIntent.getActivity(
+            context,
+            series.id.hashCode(),
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EXTRA_SERIES_ID, series.id)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        manager.notify(
+            series.id.hashCode(),
+            Notification.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_notify_more)
+                .setContentTitle("New series by $authorName")
+                .setContentText(series.title)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build(),
+        )
     }
 
     private fun post(found: List<NewChapter>, digest: Boolean) {

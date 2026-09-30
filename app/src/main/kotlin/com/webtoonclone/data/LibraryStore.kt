@@ -5,11 +5,13 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
 private val Context.libraryDataStore by preferencesDataStore(name = "library")
 private val LIBRARY = stringPreferencesKey("library")
+private val HOME_CACHE = stringPreferencesKey("home_cache")
 private const val MAX_RECENT = 50
 private const val MAX_SEARCHES = 10
 
@@ -21,6 +23,16 @@ class LibraryStore(private val context: Context) {
     val data: Flow<LibraryData> = context.libraryDataStore.data.map { prefs ->
         prefs[LIBRARY]?.let { runCatching { json.decodeFromString<LibraryData>(it) }.getOrNull() }
             ?: LibraryData()
+    }
+
+    /** Keeps the last home content so the home screen can open offline. */
+    suspend fun saveHome(content: HomeContent) {
+        context.libraryDataStore.edit { it[HOME_CACHE] = json.encodeToString(HomeContent.serializer(), content) }
+    }
+
+    suspend fun loadHome(): HomeContent? {
+        val raw = context.libraryDataStore.data.first()[HOME_CACHE] ?: return null
+        return runCatching { json.decodeFromString<HomeContent>(raw) }.getOrNull()
     }
 
     suspend fun recordRecent(series: SavedSeries) = update { lib ->

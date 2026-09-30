@@ -2,6 +2,7 @@ package com.webtoonclone.data
 
 import kotlinx.serialization.Serializable
 
+@Serializable
 data class SeriesSummary(
     val id: String,
     val title: String,
@@ -38,6 +39,7 @@ data class ReadingProgress(
     val page: Int,
 )
 
+@Serializable
 data class HomeContent(
     val hero: SeriesSummary?,
     val newSeries: List<SeriesSummary>,

@@ -54,4 +54,12 @@ class LibraryDataTest {
         assertEquals("cover-b", library.knownSeries("b")?.coverUrl)
         assertEquals(null, library.knownSeries("c"))
     }
+
+    @Test
+    fun homeContentSurvivesTheOfflineCache() {
+        val series = SeriesSummary("id", "Title", "cover", genre = "Drama", author = "Author", description = "About", follows = 7)
+        val home = HomeContent(hero = series, newSeries = listOf(series), picks = listOf(series, series))
+        val back = json.decodeFromString<HomeContent>(json.encodeToString(HomeContent.serializer(), home))
+        assertEquals(home, back)
+    }
 }

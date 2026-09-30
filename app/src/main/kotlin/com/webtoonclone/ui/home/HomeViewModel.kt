@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val repository: MangaDexRepository,
-    libraryStore: LibraryStore,
+    private val libraryStore: LibraryStore,
 ) : ViewModel() {
 
     /** Series you read recently, newest first, for the Continue Reading row. */
@@ -62,10 +62,16 @@ class HomeViewModel(
         if (showSpinner) _state.value = Load.Loading
         viewModelScope.launch {
             try {
-                _state.value = Load.Ready(repository.home())
+                val content = repository.home()
+                _state.value = Load.Ready(content)
+                runCatching { libraryStore.saveHome(content) }
             } catch (e: Exception) {
-                // A silent refresh keeps the old content when the network fails.
-                if (_state.value !is Load.Ready) _state.value = Load.Error(friendlyError(e, "Could not load series"))
+                // A silent refresh keeps the old content when the network fails. A first load falls
+                // back to the last saved home, and shows the error only when nothing is saved.
+                if (_state.value !is Load.Ready) {
+                    val saved = runCatching { libraryStore.loadHome() }.getOrNull()
+                    _state.value = if (saved != null) Load.Ready(saved) else Load.Error(friendlyError(e, "Could not load series"))
+                }
             } finally {
                 busy = false
             }

@@ -80,14 +80,17 @@ class MangaDexRepository(private val client: OkHttpClient) {
     suspend fun home(): HomeContent {
         // MangaDex allows about five requests per second, so these run one after another.
         val newSeries = newSeries()
-        val picks = readablePicks(6)
+        // One random series leads the screen as the hero. The other six fill Today's Picks.
+        val pool = readablePicks(7)
+        val hero = pool.firstOrNull()
+        val picks = pool.drop(1)
         val bands = GENRE_TAGLINES.entries.shuffled().take(2).map { (genre, tagline) ->
             // Skip a random number of top series so the same covers do not lead every time.
             val page = Random.nextInt(0, 6)
             val series = browse(genre = genre, page = page, limit = 5).ifEmpty { browse(genre = genre, limit = 5) }
             GenreBand(genre, tagline, series)
         }
-        return HomeContent(picks.firstOrNull(), newSeries, picks, bands)
+        return HomeContent(hero, newSeries, picks, bands)
     }
 
     /**

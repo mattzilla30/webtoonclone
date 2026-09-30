@@ -1,0 +1,23 @@
+# Hand-written baseline profile: the classes and methods every launch runs. Compiled ahead of time on install.
+HSPLcom/webtoonclone/WebtoonApp;->*(**)**
+HSPLcom/webtoonclone/MainActivity;->*(**)**
+HSPLcom/webtoonclone/MainActivityKt;->*(**)**
+HSPLcom/webtoonclone/di/AppModuleKt;->*(**)**
+HSPLcom/webtoonclone/data/MangaDexRepository;->*(**)**
+HSPLcom/webtoonclone/data/SettingsStore;->*(**)**
+HSPLcom/webtoonclone/data/LibraryStore;->*(**)**
+HSPLcom/webtoonclone/ui/home/HomeScreenKt;->*(**)**
+HSPLcom/webtoonclone/ui/home/HomeViewModel;->*(**)**
+HSPLcom/webtoonclone/ui/ComponentsKt;->*(**)**
+HSPLcom/webtoonclone/ui/CommonKt;->*(**)**
+HSPLcom/webtoonclone/ui/theme/ThemeKt;->*(**)**
+HSPLcom/webtoonclone/ui/series/SeriesScreenKt;->*(**)**
+HSPLcom/webtoonclone/ui/series/SeriesViewModel;->*(**)**
+HSPLcom/webtoonclone/ui/reader/ReaderScreenKt;->*(**)**
+HSPLcom/webtoonclone/ui/reader/ReaderViewModel;->*(**)**
+HSPLcom/webtoonclone/ui/reader/ZoomKt;->*(**)**
+HSPLcom/webtoonclone/ui/search/SearchScreenKt;->*(**)**
+Lcom/webtoonclone/data/SeriesSummary;
+Lcom/webtoonclone/data/Chapter;
+Lcom/webtoonclone/data/Settings;
+Lcom/webtoonclone/data/LibraryData;

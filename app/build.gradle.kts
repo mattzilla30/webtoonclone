@@ -15,8 +15,10 @@ android {
         applicationId = "com.webtoonclone"
         minSdk = 37
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes the run number as VERSION_CODE. Local builds stay at 1.
+        versionCode = providers.environmentVariable("VERSION_CODE").orNull?.toIntOrNull() ?: 1
+        versionName = providers.gradleProperty("VERSION_NAME").orNull ?: "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // 64-bit ARM only. Emulators on x86_64 hosts need an arm64 system image.
         ndk { abiFilters += "arm64-v8a" }
@@ -67,6 +69,15 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.koin.android)
+    implementation(libs.koin.compose)
+    implementation(libs.androidx.profileinstaller)
+    testImplementation(libs.koin.test)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    debugImplementation(libs.compose.ui.test.manifest)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

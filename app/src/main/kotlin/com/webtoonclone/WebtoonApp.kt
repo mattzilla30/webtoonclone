@@ -15,7 +15,7 @@ import com.webtoonclone.data.OfflineStore
 import com.webtoonclone.data.ProgressStore
 import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.SettingsStore
-import com.webtoonclone.data.cachingClient
+import com.webtoonclone.di.appModule
 import com.webtoonclone.notify.NewChaptersWorker
 import com.webtoonclone.notify.updateContinueReading
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +27,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
+import org.koin.android.ext.android.inject
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.context.startKoin
 import java.io.File
 
 private const val IMAGE_CACHE_BYTES = 250L * 1024 * 1024
@@ -38,17 +41,21 @@ class WebtoonApp : Application(), SingletonImageLoader.Factory {
     @Volatile private var reportImageLoads = true
 
     /** The HTTP client for the MangaDex API. It keeps responses for a minute in [File]. */
-    val apiClient by lazy { cachingClient(File(cacheDir, "api")) }
-    val repository by lazy { MangaDexRepository(apiClient) }
-    val settingsStore by lazy { SettingsStore(this) }
-    val progressStore by lazy { ProgressStore(this) }
-    val libraryStore by lazy { LibraryStore(this) }
-    val seriesCache by lazy { SeriesCacheStore(this) }
-    val crashLog by lazy { CrashLog(this) }
-    val offlineStore by lazy { OfflineStore(this) }
+    val apiClient: OkHttpClient by inject()
+    val repository: MangaDexRepository by inject()
+    val settingsStore: SettingsStore by inject()
+    val progressStore: ProgressStore by inject()
+    val libraryStore: LibraryStore by inject()
+    val seriesCache: SeriesCacheStore by inject()
+    val crashLog: CrashLog by inject()
+    val offlineStore: OfflineStore by inject()
 
     override fun onCreate() {
         super.onCreate()
+        startKoin {
+            androidContext(this@WebtoonApp)
+            modules(appModule)
+        }
         NewChaptersWorker.schedule(this)
         crashLog.install()
         // Keep the parts that read settings off the main thread in step with what you choose.

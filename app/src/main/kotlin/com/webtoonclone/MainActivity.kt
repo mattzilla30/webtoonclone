@@ -49,7 +49,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -87,6 +86,8 @@ import com.webtoonclone.ui.theme.WebtoonTheme
 import com.webtoonclone.ui.theme.isDark
 import com.webtoonclone.ui.updates.UpdatesScreen
 import com.webtoonclone.ui.updates.UpdatesViewModel
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 import android.graphics.Color as AndroidColor
 
 /** A notification tap: the series to open, and the chapter to open on top of it when there is one. */
@@ -206,7 +207,7 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
                         popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(250)) { it / 12 } },
                     ) {
                         composable("home") {
-                            val vm = viewModel { HomeViewModel(app.repository, app.libraryStore, app.settingsStore, app.crashLog) }
+                            val vm = koinViewModel<HomeViewModel>()
                             Box(Modifier.fillMaxSize()) {
                                 HomeScreen(
                                     vm,
@@ -218,19 +219,19 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
                             }
                         }
                         composable("search?genre={genre}") { entry ->
-                            val vm = viewModel { SearchViewModel(app.repository, app.libraryStore, app.offlineStore) }
+                            val vm = koinViewModel<SearchViewModel>()
                             Box(Modifier.fillMaxSize()) {
                                 SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
                             }
                         }
                         composable("updates") {
-                            val vm = viewModel { UpdatesViewModel(app.repository, app.offlineStore) }
+                            val vm = koinViewModel<UpdatesViewModel>()
                             Box(Modifier.fillMaxSize()) {
                                 UpdatesScreen(vm, onOpenSeries = { nav.navigate("series/$it") })
                             }
                         }
                         composable("library") {
-                            val vm = viewModel { LibraryViewModel(app.libraryStore) }
+                            val vm = koinViewModel<LibraryViewModel>()
                             Box(Modifier.fillMaxSize()) {
                                 LibraryScreen(
                                     vm,
@@ -241,13 +242,13 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
                             }
                         }
                         composable("settings") {
-                            val vm = viewModel { SettingsViewModel(app) }
+                            val vm = koinViewModel<SettingsViewModel>()
                             SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenAbout = { nav.navigate("about") })
                         }
                         composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
                         composable("series/{seriesId}") { entry ->
                             val seriesId = entry.arguments!!.getString("seriesId")!!
-                            val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore, app.seriesCache, app.settingsStore) }
+                            val vm = koinViewModel<SeriesViewModel> { parametersOf(seriesId) }
                             SeriesScreen(
                                 vm,
                                 onOpenChapter = { nav.navigate("series/$seriesId/$it") },
@@ -260,15 +261,13 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
                         composable("author/{authorId}?name={name}") { entry ->
                             val authorId = entry.arguments!!.getString("authorId")!!
                             val name = entry.arguments?.getString("name").orEmpty()
-                            val vm = viewModel(key = authorId) { AuthorViewModel(authorId, app.repository) }
+                            val vm = koinViewModel<AuthorViewModel>(key = authorId) { parametersOf(authorId) }
                             AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
                         }
                         composable("series/{seriesId}/{chapterId}") { entry ->
                             val seriesId = entry.arguments!!.getString("seriesId")!!
                             val chapterId = entry.arguments!!.getString("chapterId")!!
-                            val vm = viewModel(key = chapterId) {
-                                ReaderViewModel(seriesId, chapterId, app.repository, app.progressStore, app.libraryStore, app.settingsStore, app.seriesCache)
-                            }
+                            val vm = koinViewModel<ReaderViewModel>(key = chapterId) { parametersOf(seriesId, chapterId) }
                             // The reader stays dark in a light app, so its bars and text keep their contrast.
                             DarkTheme {
                                 ReaderScreen(

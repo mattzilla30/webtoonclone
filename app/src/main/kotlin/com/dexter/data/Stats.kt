@@ -14,6 +14,10 @@ data class ReadingStats(
     val last7Days: Int,
     val last30Days: Int,
     val streakDays: Int,
+    /** The longest run of days in a row with at least one chapter read, ever. */
+    val longestStreakDays: Int,
+    /** Chapters per day over the last 30 days. */
+    val averagePerDay: Double,
     val perDay: List<Pair<LocalDate, Int>>,
     val topSeries: List<Pair<String, Int>>,
 )
@@ -36,6 +40,8 @@ fun computeStats(events: List<ReadEventEntity>, today: LocalDate, zone: ZoneId =
         last7Days = within(7),
         last30Days = within(30),
         streakDays = streak,
+        longestStreakDays = longestStreak(days.keys),
+        averagePerDay = within(30) / 30.0,
         perDay = (6L downTo 0L).map { today.minusDays(it).let { day -> day to (days[day] ?: 0) } },
         topSeries = events.groupingBy { it.seriesTitle }.eachCount().entries
             .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
@@ -50,4 +56,17 @@ class StatsStore(private val db: AppDatabase) {
     suspend fun recordRead(chapterId: String, seriesId: String, seriesTitle: String) {
         db.stats().insert(ReadEventEntity(chapterId, seriesId, seriesTitle, System.currentTimeMillis()))
     }
+}
+
+/** The longest run of consecutive days in [days]. */
+fun longestStreak(days: Set<LocalDate>): Int {
+    var best = 0
+    for (day in days) {
+        // Only count from the first day of a run, so each run is measured once.
+        if (day.minusDays(1) in days) continue
+        var length = 1
+        while (day.plusDays(length.toLong()) in days) length++
+        best = maxOf(best, length)
+    }
+    return best
 }

@@ -46,4 +46,17 @@ class StatsTest {
         val stats = computeStats(listOf(event("1", 0, "B"), event("2", 0, "A"), event("3", 0, "B")), today, ZoneOffset.UTC)
         assertEquals(listOf("B" to 2, "A" to 1), stats.topSeries)
     }
+
+    @Test
+    fun longestStreakFindsTheBestRun() {
+        val events = listOf(event("1", 20), event("2", 19), event("3", 18), event("4", 17), event("5", 3), event("6", 2))
+        assertEquals(4, computeStats(events, today, ZoneOffset.UTC).longestStreakDays)
+        assertEquals(0, longestStreak(emptySet()))
+    }
+
+    @Test
+    fun averageIsChaptersPerDayOverThirtyDays() {
+        val events = (1..15).map { event("e$it", it.toLong()) }
+        assertEquals(0.5, computeStats(events, today, ZoneOffset.UTC).averagePerDay, 0.0001)
+    }
 }

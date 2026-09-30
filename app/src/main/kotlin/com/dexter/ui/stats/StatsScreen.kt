@@ -49,6 +49,10 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
                     Figure("Last 30 days", current.last30Days.toString())
                     Figure("Day streak", current.streakDays.toString())
                 }
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Figure("Best streak", current.longestStreakDays.toString())
+                    Figure("Per day (30 days)", "%.1f".format(current.averagePerDay))
+                }
                 Text(stringResource(R.string.this_week), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
                 DayBars(current)
                 if (current.topSeries.isNotEmpty()) {

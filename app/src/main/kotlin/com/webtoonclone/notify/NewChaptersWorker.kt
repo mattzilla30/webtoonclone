@@ -49,7 +49,9 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             // First sighting only records the chapter, so old chapters never notify. With
             // notifications off the chapter is still recorded, so turning them on stays quiet.
-            if (latest != null && latest.id != known) app.libraryStore.markKnown(series.id, latest.id)
+            if (latest != null && (latest.id != known || series.knownChapterNumber == null)) {
+                app.libraryStore.markKnown(series.id, latest.id, latest.number)
+            }
             delay(300) // stay well under MangaDex's request limit
         }
         return if (failed) Result.retry() else Result.success()

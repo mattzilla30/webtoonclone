@@ -25,4 +25,19 @@ class ReadStateTest {
         assertFalse(isChapterRead("Oneshot", "10"))
         assertFalse(isChapterRead("3", "Oneshot"))
     }
+
+    @Test
+    fun aNewerKnownChapterCountsAsUnread() {
+        assertTrue(hasUnreadChapters("11", "10"))
+        assertTrue(hasUnreadChapters("10.5", "10"))
+        assertFalse(hasUnreadChapters("10", "10"))
+        assertFalse(hasUnreadChapters("9", "10"))
+    }
+
+    @Test
+    fun unreadNeedsBothNumbers() {
+        assertFalse(hasUnreadChapters(null, "10"))
+        assertFalse(hasUnreadChapters("11", null))
+        assertFalse(hasUnreadChapters("Oneshot", "10"))
+    }
 }

@@ -54,9 +54,15 @@ class SeriesViewModel(
         viewModelScope.launch {
             // Start from the newest chapter now, so only chapters that come later notify. This uses
             // the same lookup as the background check, since the chapter list orders differently.
-            val newest = runCatching { repository.latestChapter(seriesId) }.getOrNull()?.id
+            val newest = runCatching { repository.latestChapter(seriesId) }.getOrNull()
             libraryStore.toggleSubscribed(
-                SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl, knownChapterId = newest),
+                SavedSeries(
+                    seriesId,
+                    detail.summary.title,
+                    detail.summary.coverUrl,
+                    knownChapterId = newest?.id,
+                    knownChapterNumber = newest?.number,
+                ),
             )
         }
     }

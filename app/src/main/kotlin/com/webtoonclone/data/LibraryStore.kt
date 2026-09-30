@@ -60,9 +60,11 @@ class LibraryStore(private val context: Context) {
     }
 
     /** Records the newest chapter the app has told you about for a subscribed series. */
-    suspend fun markKnown(seriesId: String, chapterId: String) = update { lib ->
+    suspend fun markKnown(seriesId: String, chapterId: String, chapterNumber: String) = update { lib ->
         lib.copy(
-            subscribed = lib.subscribed.map { if (it.id == seriesId) it.copy(knownChapterId = chapterId) else it },
+            subscribed = lib.subscribed.map {
+                if (it.id == seriesId) it.copy(knownChapterId = chapterId, knownChapterNumber = chapterNumber) else it
+            },
         )
     }
 

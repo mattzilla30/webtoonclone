@@ -60,6 +60,8 @@ data class SavedSeries(
     val at: Long = 0,
     /** For subscriptions: the newest chapter seen so far. A newer one triggers a notification. */
     val knownChapterId: String? = null,
+    /** The number of that chapter, so unread chapters can be counted by number. */
+    val knownChapterNumber: String? = null,
 )
 
 @Serializable

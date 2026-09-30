@@ -41,6 +41,7 @@ import com.webtoonclone.data.SavedSeries
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
 import com.webtoonclone.ui.Cover
+import com.webtoonclone.ui.series.hasUnreadChapters
 import com.webtoonclone.ui.theme.Green
 
 @Composable
@@ -111,6 +112,10 @@ fun LibraryScreen(
                     ) {
                         Cover(series.coverUrl, series.title, Modifier.width(40.dp).aspectRatio(2f / 3f))
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                            val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
+                            if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {
+                                Text("NEW", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green)
+                            }
                             Text(series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                             series.chapterNumber?.let {
                                 Text("Ep. $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -86,7 +86,6 @@ import com.dexter.ui.stats.StatsScreen
 import com.dexter.ui.stats.StatsViewModel
 import com.dexter.ui.theme.DarkTheme
 import com.dexter.ui.theme.DexterTheme
-import com.dexter.ui.theme.Green
 import com.dexter.ui.theme.isDark
 import com.dexter.ui.updates.UpdatesScreen
 import com.dexter.ui.updates.UpdatesViewModel
@@ -319,8 +318,8 @@ private fun SideRail(nav: NavHostController, current: String?) {
                 icon = { Icon(tab.icon, contentDescription = null) },
                 label = { Text(tab.label) },
                 colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = Green,
-                    selectedTextColor = Green,
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
                     indicatorColor = Color.Transparent,
                     unselectedIconColor = Color(0xFF8A8A8A),
                     unselectedTextColor = Color(0xFF8A8A8A),
@@ -340,8 +339,8 @@ private fun BottomBar(nav: NavHostController, current: String?) {
                 icon = { Icon(tab.icon, contentDescription = tab.label) },
                 label = { Text(tab.label) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Green,
-                    selectedTextColor = Green,
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
                     indicatorColor = Color.Transparent,
                     unselectedIconColor = Color(0xFF8A8A8A),
                     unselectedTextColor = Color(0xFF8A8A8A),

@@ -16,6 +16,7 @@ work = "2.12.0"
 ksp = "2.3.12"
 room = "2.8.5"
 koin = "4.2.2"
+material3 = "1.5.0-alpha29"
 profileinstaller = "1.4.1"
 
 [libraries]
@@ -33,7 +34,7 @@ koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "work" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
-compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 compose-icons-core = { module = "androidx.compose.material:material-icons-core" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }

@@ -90,7 +90,6 @@ import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.compact
 import com.dexter.ui.formatChapterDate
 import com.dexter.ui.iconTap
-import com.dexter.ui.theme.Green
 import com.dexter.ui.timeAgo
 import com.dexter.ui.windowWidthDp
 import java.util.Locale
@@ -228,12 +227,12 @@ fun SeriesScreen(
                             Spacer(Modifier.weight(1f))
                             Text(
                                 if (subscribed) "Subscribed" else "+ Subscribe",
-                                color = if (subscribed) Color.Black else Green,
+                                color = if (subscribed) Color.Black else MaterialTheme.colorScheme.primary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
-                                    .then(if (subscribed) Modifier.background(Green) else Modifier.border(1.dp, Green, RoundedCornerShape(14.dp)))
+                                    .then(if (subscribed) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier.border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)))
                                     .clickable {
                                         if (!subscribed) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                                         viewModel.toggleSubscribed(page.detail)
@@ -301,7 +300,7 @@ fun SeriesScreen(
                                 Icon(
                                     Icons.Default.Notifications,
                                     contentDescription = if (notifyEnabled) "Notifications on for this series" else "Notifications off for this series",
-                                    tint = if (notifyEnabled) Green else Color(0xFF777777),
+                                    tint = if (notifyEnabled) MaterialTheme.colorScheme.primary else Color(0xFF777777),
                                     modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setNotify(!notifyEnabled) },
                                 )
                             }
@@ -335,11 +334,11 @@ fun SeriesScreen(
                             )
                             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 summary.follows?.let {
-                                    Icon(Icons.Default.Favorite, contentDescription = null, tint = Green, modifier = Modifier.size(12.dp))
+                                    Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
                                     Text(" ${compact(it)}   ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 page.detail.rating?.let {
-                                    Icon(Icons.Default.Star, contentDescription = null, tint = Green, modifier = Modifier.size(12.dp))
+                                    Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
                                     Text(" %.2f".format(Locale.US, it), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -358,7 +357,7 @@ fun SeriesScreen(
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(related, key = { it.second.id }) { (kind, other) ->
                                 Column(Modifier.width(110.dp)) {
-                                    Text(kind, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green, modifier = Modifier.padding(bottom = 4.dp))
+                                    Text(kind, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 4.dp))
                                     PickTile(other, { onOpenSeries(other.id) }, Modifier.fillMaxWidth())
                                 }
                             }
@@ -399,7 +398,7 @@ fun SeriesScreen(
                     val resumeId = lastRead?.chapterId
                     if (resumeId != null || startAt != null) {
                         Box(
-                            Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(Green)
+                            Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primary)
                                 .clickable { if (resumeId != null) onOpenChapter(resumeId) else open(startAt!!) }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center,
@@ -423,7 +422,7 @@ fun SeriesScreen(
                             item.label,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Green,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
                         )
                         is ChapterListItem.Entry -> {
@@ -500,7 +499,7 @@ private fun Description(text: String) {
                 if (expanded) "Show less" else "Read more",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = Green,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
@@ -608,7 +607,7 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
-            Text(detail.status.uppercase(), color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(detail.status.uppercase(), color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             val facts = listOfNotNull(
                 detail.year?.toString(),
                 detail.demographic,
@@ -632,22 +631,22 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
                 detail.ratingDistribution.forEach { (score, count) ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                         Text("$score", fontSize = 11.sp, modifier = Modifier.width(20.dp))
-                        Box(Modifier.height(8.dp).fillMaxWidth(count.toFloat() / most * 0.6f).background(Green))
+                        Box(Modifier.height(8.dp).fillMaxWidth(count.toFloat() / most * 0.6f).background(MaterialTheme.colorScheme.primary))
                         Text(" $count", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            Text(stringResource(R.string.covers), fontSize = 13.sp, color = Green, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
+            Text(stringResource(R.string.covers), fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
             Text(
                 "Open on MangaDex",
                 fontSize = 13.sp,
-                color = Green,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickable { onOpenLink("https://mangadex.org/title/${detail.summary.id}") }.padding(vertical = 4.dp),
             )
             if (detail.links.isNotEmpty()) {
                 Text(stringResource(R.string.links), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
                 detail.links.forEach { link ->
-                    Text(link.label, fontSize = 13.sp, color = Green, modifier = Modifier.clickable { onOpenLink(link.url) }.padding(vertical = 4.dp))
+                    Text(link.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onOpenLink(link.url) }.padding(vertical = 4.dp))
                 }
             }
         }

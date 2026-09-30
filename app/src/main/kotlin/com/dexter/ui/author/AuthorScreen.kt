@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,7 +40,6 @@ import com.dexter.ui.LoadView
 import com.dexter.ui.PickTile
 import com.dexter.ui.adaptiveColumns
 import com.dexter.ui.iconTap
-import com.dexter.ui.theme.Green
 import com.dexter.ui.windowWidthDp
 
 @Composable
@@ -53,12 +53,12 @@ fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, o
             Text(name.ifBlank { "Author" }, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(start = 16.dp))
             Text(
                 if (following) "Following" else "+ Follow",
-                color = if (following) Color.Black else Green,
+                color = if (following) Color.Black else MaterialTheme.colorScheme.primary,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .clip(RoundedCornerShape(14.dp))
-                    .then(if (following) Modifier.background(Green) else Modifier.border(1.dp, Green, RoundedCornerShape(14.dp)))
+                    .then(if (following) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier.border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)))
                     .clickable { viewModel.toggleFollow(name) }
                     .padding(horizontal = 12.dp, vertical = 5.dp),
             )

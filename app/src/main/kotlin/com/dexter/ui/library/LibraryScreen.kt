@@ -51,7 +51,6 @@ import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.iconTap
 import com.dexter.ui.series.hasUnreadChapters
-import com.dexter.ui.theme.Green
 import com.dexter.ui.timeAgo
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
@@ -98,7 +97,7 @@ fun LibraryScreen(
                     Text(
                         if (library.notificationsEnabled) "Notifications: On" else "Notifications: Off",
                         fontSize = 12.sp,
-                        color = if (library.notificationsEnabled) Green else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (library.notificationsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.clickable { viewModel.setNotifications(!library.notificationsEnabled) },
                     )
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search), modifier = Modifier.iconTap(onOpenSearch))
@@ -147,7 +146,7 @@ fun LibraryScreen(
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${items.size} SERIES", fontSize = 12.sp, color = Green, fontWeight = FontWeight.Bold)
+                Text("${items.size} SERIES", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
                         if (alphabetical) "Sort: A-Z" else "Sort: Recent",
@@ -195,11 +194,11 @@ fun LibraryScreen(
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
                                 if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {
-                                    Text(stringResource(R.string.new_label), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green)
+                                    Text(stringResource(R.string.new_label), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 }
                                 Text(series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                 if (tab == LibraryList.Lists) {
-                                    series.status?.let { Text(it.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green) }
+                                    series.status?.let { Text(it.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
                                 }
                                 series.chapterNumber?.let {
                                     val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(java.time.Instant.ofEpochMilli(series.at)) else ""
@@ -209,7 +208,7 @@ fun LibraryScreen(
                             Checkbox(
                                 checked = series.id in selected,
                                 onCheckedChange = { if (it) selected.add(series.id) else selected.remove(series.id) },
-                                colors = CheckboxDefaults.colors(checkedColor = Green),
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
                             )
                         }
                     }
@@ -238,7 +237,7 @@ fun LibraryScreen(
                     "Undo",
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
-                    color = Green,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable {
                         if (state.collection != null) viewModel.restoreCollection(state.collection, state.snapshot) else viewModel.restore(state.list, state.snapshot)
                         undo = null
@@ -261,7 +260,7 @@ private data class UndoState(val list: LibraryList, val snapshot: List<SavedSeri
 @Composable
 private fun Tab(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.height(40.dp).background(if (active) Green else MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick),
+        modifier.height(40.dp).background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)

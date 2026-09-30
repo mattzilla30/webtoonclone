@@ -84,7 +84,6 @@ import com.dexter.data.tapAction
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.LoadView
 import com.dexter.ui.iconTap
-import com.dexter.ui.theme.Green
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -380,7 +379,7 @@ private fun ReaderContent(
                             value = position.toFloat(),
                             onValueChange = { scope.launch { goToPage(it.roundToInt()) } },
                             valueRange = 0f..lastIndex.toFloat(),
-                            colors = SliderDefaults.colors(thumbColor = Green, activeTrackColor = Green),
+                            colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
                     }
@@ -491,7 +490,7 @@ private fun EndOfChapter(page: ReaderPage, textColor: Color, onOpenChapter: (Str
                 "Next episode",
                 color = Color.Black,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 16.dp).clip(RoundedCornerShape(22.dp)).background(Green)
+                modifier = Modifier.padding(top = 16.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primary)
                     .clickable { onOpenChapter(page.nextId) }.padding(horizontal = 28.dp, vertical = 12.dp),
             )
         }
@@ -515,7 +514,7 @@ private fun ChapterPicker(chapters: List<Chapter>, currentId: String, onSelect: 
                         },
                         fontSize = 14.sp,
                         fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
-                        color = if (current) Green else MaterialTheme.colorScheme.onSurface,
+                        color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.fillMaxWidth().clickable { onSelect(chapter.id) }.padding(horizontal = 20.dp, vertical = 10.dp),
                     )
                 }
@@ -556,7 +555,7 @@ private fun ReaderOptions(
                 value = settings.readerDim.toFloat(),
                 onValueChange = { value -> onChange { it.copy(readerDim = value.roundToInt()) } },
                 valueRange = 0f..70f,
-                colors = SliderDefaults.colors(thumbColor = Green, activeTrackColor = Green),
+                colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary),
             )
 
             Text(stringResource(R.string.background), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
@@ -605,7 +604,7 @@ private fun ReaderOptions(
 
             Text(
                 "Done",
-                color = Green,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.End).clickable(onClick = onDismiss).padding(top = 16.dp, start = 16.dp),
             )

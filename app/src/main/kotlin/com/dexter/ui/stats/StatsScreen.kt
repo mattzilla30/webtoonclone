@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import com.dexter.R
 import com.dexter.data.ReadingStats
 import com.dexter.ui.iconTap
-import com.dexter.ui.theme.Green
 import java.time.format.TextStyle
 
 @Composable
@@ -73,7 +72,7 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
 @Composable
 private fun Figure(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Green)
+        Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -86,7 +85,7 @@ private fun DayBars(stats: ReadingStats) {
         stats.perDay.forEach { (day, count) ->
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("$count", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Column(Modifier.fillMaxWidth().height((70 * count / max).coerceAtLeast(2).dp).background(if (count > 0) Green else MaterialTheme.colorScheme.surfaceVariant)) {}
+                Column(Modifier.fillMaxWidth().height((70 * count / max).coerceAtLeast(2).dp).background(if (count > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)) {}
                 Text(day.dayOfWeek.getDisplayName(TextStyle.SHORT, LocalConfiguration.current.locales[0]), fontSize = 10.sp)
             }
         }

@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.sp
 import com.dexter.R
 import com.dexter.data.formatBytes
 import com.dexter.ui.iconTap
-import com.dexter.ui.theme.Green
 
 @Composable
 fun DownloadsScreen(
@@ -45,7 +44,7 @@ fun DownloadsScreen(
                 Text(formatBytes(total), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (total > 0) {
-                Text(stringResource(R.string.remove_all), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.deleteAll() })
+                Text(stringResource(R.string.remove_all), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.deleteAll() })
             }
         }
         val list = groups

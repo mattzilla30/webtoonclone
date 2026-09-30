@@ -45,7 +45,6 @@ import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
 import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
-import com.dexter.ui.theme.Green
 
 private val Red = Color(0xFFE5484D)
 
@@ -63,7 +62,7 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
                 TextButton(onClick = {
                     onApply(draft)
                     onDismiss()
-                }) { Text(stringResource(R.string.apply), color = Green, fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.apply), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                 Heading("Status")
@@ -127,7 +126,7 @@ private fun TagGroup(title: String, tags: List<String>, draft: SearchFilters, on
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         tags.sortedBy { it.lowercase() }.forEach { tag ->
             val (label, background) = when (tag) {
-                in draft.included -> "+ $tag" to Green
+                in draft.included -> "+ $tag" to MaterialTheme.colorScheme.primary
                 in draft.excluded -> "- $tag" to Red
                 else -> tag to MaterialTheme.colorScheme.surfaceVariant
             }

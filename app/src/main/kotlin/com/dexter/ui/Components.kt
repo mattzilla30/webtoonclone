@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.dexter.R
 import com.dexter.data.SeriesSummary
-import com.dexter.ui.theme.Green
 
 fun compact(n: Int): String = when {
     n >= 1_000_000 -> "%.1fM".format(n / 1_000_000.0)
@@ -74,7 +73,8 @@ private val genreColors = mapOf(
     "wuxia" to Color(0xFFC0A060),
 )
 
-fun genreColor(genre: String?): Color = genreColors[genre?.lowercase()] ?: Green
+/** The colour for a genre label, or null for a genre with no colour of its own. */
+fun genreColor(genre: String?): Color? = genreColors[genre?.lowercase()]
 
 @Composable
 fun Cover(url: String?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit, thumb: Boolean = false) {
@@ -92,16 +92,16 @@ fun thumbnailUrl(url: String?): String? = url?.replace(".512.jpg", ".256.jpg")
 @Composable
 fun GenreLabel(genre: String?) {
     if (genre == null) return
-    Text(genre, color = genreColor(genre), fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    Text(genre, color = genreColor(genre) ?: MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
 }
 
 @Composable
 fun HeartCount(count: Int?) {
     if (count == null) return
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.Favorite, contentDescription = null, tint = Green, modifier = Modifier.size(12.dp))
+        Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(3.dp))
-        Text(compact(count), fontSize = 11.sp, color = Green)
+        Text(compact(count), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -136,7 +136,7 @@ fun PickTile(
                 Icon(
                     Icons.Default.Notifications,
                     contentDescription = stringResource(R.string.subscribed),
-                    tint = Green,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(6.dp)
@@ -186,7 +186,7 @@ fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
         color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) Green else MaterialTheme.colorScheme.surfaceVariant)
+            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     )

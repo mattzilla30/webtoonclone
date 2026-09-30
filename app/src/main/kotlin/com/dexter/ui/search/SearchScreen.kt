@@ -68,7 +68,6 @@ import com.dexter.ui.LoadView
 import com.dexter.ui.OfflineBanner
 import com.dexter.ui.PickTile
 import com.dexter.ui.adaptiveColumns
-import com.dexter.ui.theme.Green
 import com.dexter.ui.windowWidthDp
 
 @Composable
@@ -146,7 +145,7 @@ fun SearchScreen(
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = { showFilters = true }) {
-                Text(if (filters.isEmpty) "Filters" else "Filters (${filters.activeCount})", color = Green)
+                Text(if (filters.isEmpty) "Filters" else "Filters (${filters.activeCount})", color = MaterialTheme.colorScheme.primary)
             }
             if (results != null) {
                 TextButton(onClick = { text = ""; viewModel.onTyping(""); viewModel.clear() }) { Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -181,7 +180,7 @@ fun SearchScreen(
                 Text(
                     "Save this search",
                     fontSize = 12.sp,
-                    color = Green,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).clickable { saveName = text.ifBlank { "" } },
                 )

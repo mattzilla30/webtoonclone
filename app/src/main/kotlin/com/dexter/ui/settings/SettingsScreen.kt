@@ -51,7 +51,6 @@ import com.dexter.data.Themes
 import com.dexter.data.formatBytes
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.iconTap
-import com.dexter.ui.theme.Green
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
@@ -195,7 +194,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             if (settings.hiddenSeries.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("${settings.hiddenSeries.size} hidden series", fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.show_all_again), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.update { it.copy(hiddenSeries = emptySet()) } })
+                    Text(stringResource(R.string.show_all_again), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.update { it.copy(hiddenSeries = emptySet()) } })
                 }
             }
 
@@ -226,7 +225,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(stringResource(R.string.clear_cache), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
+                Text(stringResource(R.string.clear_cache), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
             }
 
             SwitchRow("Save on Wi-Fi only", "Downloads wait for an unmetered connection.", settings.downloadWifiOnly) { on ->
@@ -249,8 +248,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text(stringResource(R.string.save_backup), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { exportLauncher.launch("dexter-backup.json") })
-                Text(stringResource(R.string.restore_backup), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
+                Text(stringResource(R.string.save_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { exportLauncher.launch("dexter-backup.json") })
+                Text(stringResource(R.string.restore_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -261,7 +260,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(stringResource(R.string.choose), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { folderLauncher.launch(null) })
+                Text(stringResource(R.string.choose), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { folderLauncher.launch(null) })
                 if (settings.autoBackupFolder != null) {
                     Text(stringResource(R.string.turn_off), fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setAutoBackupFolder(null) })
                 }
@@ -274,7 +273,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text.uppercase(), color = Green, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp).semantics { heading() })
+    Text(text.uppercase(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp).semantics { heading() })
 }
 
 @Composable
@@ -307,9 +306,9 @@ private fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, selecte
 private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Text("-", fontSize = 20.sp, color = Green, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 23) % 24) }.padding(horizontal = 16.dp))
+        Text("-", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 23) % 24) }.padding(horizontal = 16.dp))
         Text("%02d:00".format(hour), fontSize = 14.sp)
-        Text("+", fontSize = 20.sp, color = Green, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 1) % 24) }.padding(horizontal = 16.dp))
+        Text("+", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 1) % 24) }.padding(horizontal = 16.dp))
     }
 }
 

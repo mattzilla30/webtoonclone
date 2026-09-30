@@ -66,6 +66,12 @@ class LibraryStore(private val context: Context) {
         )
     }
 
+    /** Undoes a removal by merging the earlier list back in. See [mergeRestore]. */
+    suspend fun restore(subscribed: Boolean, snapshot: List<SavedSeries>) = update { lib ->
+        if (subscribed) lib.copy(subscribed = mergeRestore(lib.subscribed, snapshot))
+        else lib.copy(recent = mergeRestore(lib.recent, snapshot))
+    }
+
     suspend fun removeSubscribed(ids: Set<String>) = update { lib ->
         lib.copy(subscribed = lib.subscribed.filterNot { it.id in ids })
     }

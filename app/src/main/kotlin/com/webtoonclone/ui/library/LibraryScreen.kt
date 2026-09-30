@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Checkbox
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +37,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.data.SavedSeries
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.theme.Green
 
@@ -50,6 +55,9 @@ fun LibraryScreen(
     val alphabetical = library.sortAlphabetical
     val items = sortSaved(if (subscribedTab) library.subscribed else library.recent, alphabetical)
 
+    var undo by remember { mutableStateOf<UndoState?>(null) }
+
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("My Series", fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -76,10 +84,12 @@ fun LibraryScreen(
                     modifier = Modifier.clickable { viewModel.setSortAlphabetical(!alphabetical) },
                 )
                 Text("Delete", fontSize = 12.sp, modifier = Modifier.clickable(enabled = selected.isNotEmpty()) {
+                    undo = UndoState(subscribedTab, if (subscribedTab) library.subscribed else library.recent, selected.size)
                     viewModel.delete(subscribedTab, selected.toSet())
                     selected.clear()
                 })
                 Text("Delete All", fontSize = 12.sp, modifier = Modifier.clickable(enabled = items.isNotEmpty()) {
+                    undo = UndoState(subscribedTab, if (subscribedTab) library.subscribed else library.recent, items.size)
                     viewModel.delete(subscribedTab, items.map { it.id }.toSet())
                     selected.clear()
                 })
@@ -116,7 +126,41 @@ fun LibraryScreen(
             }
         }
     }
+
+    // Offer an undo for a few seconds after a removal.
+    undo?.let { state ->
+        LaunchedEffect(state) {
+            delay(6.seconds)
+            undo = null
+        }
+        Row(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Removed ${state.count} series", fontSize = 13.sp)
+            Text(
+                "Undo",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = Green,
+                modifier = Modifier.clickable {
+                    viewModel.restore(state.subscribed, state.snapshot)
+                    undo = null
+                },
+            )
+        }
+    }
+    }
 }
+
+/** What an undo needs: which tab, the list as it was, and how many series were removed. */
+private data class UndoState(val subscribed: Boolean, val snapshot: List<SavedSeries>, val count: Int)
 
 @Composable
 private fun Tab(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {

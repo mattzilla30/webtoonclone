@@ -73,6 +73,8 @@ data class LibraryData(
     val sortAlphabetical: Boolean = false,
     /** The last search sort chosen, as an [Order] name. */
     val searchOrder: String = "Popular",
+    /** True once the first-launch tip on the home screen has been dismissed. */
+    val hintDismissed: Boolean = false,
 ) {
     /** A saved copy of this series, if you have read or subscribed to it before. */
     fun knownSeries(id: String): SavedSeries? = (recent + subscribed).firstOrNull { it.id == id }

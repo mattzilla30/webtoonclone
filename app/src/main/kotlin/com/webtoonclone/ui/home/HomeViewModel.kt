@@ -29,6 +29,15 @@ class HomeViewModel(
     private val _state = MutableStateFlow<Load<HomeContent>>(Load.Loading)
     val state: StateFlow<Load<HomeContent>> = _state
 
+    /** True until the first-launch tip is dismissed. Starts false so it never flashes before storage loads. */
+    val showHint: StateFlow<Boolean> = libraryStore.data
+        .map { !it.hintDismissed }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun dismissHint() {
+        viewModelScope.launch { libraryStore.dismissHint() }
+    }
+
     /** When the shown content is a saved copy because the network failed, the time it was saved. */
     private val _offlineSavedAt = MutableStateFlow<Long?>(null)
     val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt

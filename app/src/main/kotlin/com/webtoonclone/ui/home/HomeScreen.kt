@@ -49,6 +49,7 @@ import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
 import com.webtoonclone.ui.SectionHeader
 import com.webtoonclone.ui.genreColor
+import com.webtoonclone.ui.theme.Green
 import com.webtoonclone.ui.timeAgo
 import java.time.Instant
 
@@ -63,6 +64,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val recent by viewModel.recent.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
+    val showHint by viewModel.showHint.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // A new app open reloads with fresh random picks. Returning from a series page does not.
@@ -95,6 +97,33 @@ fun HomeScreen(
                 }
             }
             home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
+
+            if (showHint) {
+                item {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                            .padding(16.dp),
+                    ) {
+                        Text("Never miss a chapter", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(
+                            "Tap Subscribe on a series page. The app checks every 30 minutes and notifies you when a new chapter comes out.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 6.dp),
+                        )
+                        Text(
+                            "Got it",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = Green,
+                            modifier = Modifier.clickable { viewModel.dismissHint() },
+                        )
+                    }
+                }
+            }
 
             if (recent.isNotEmpty()) {
                 item { SectionHeader("Continue Reading") }

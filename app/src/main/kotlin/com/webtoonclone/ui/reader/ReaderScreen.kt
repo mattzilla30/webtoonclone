@@ -63,6 +63,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
@@ -73,6 +74,7 @@ import coil3.SingletonImageLoader
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
 import coil3.request.ImageRequest
+import com.webtoonclone.R
 import com.webtoonclone.data.Chapter
 import com.webtoonclone.data.ReaderBackground
 import com.webtoonclone.data.ReadingMode
@@ -81,6 +83,7 @@ import com.webtoonclone.data.TapAction
 import com.webtoonclone.data.tapAction
 import com.webtoonclone.ui.ChoiceChip
 import com.webtoonclone.ui.LoadView
+import com.webtoonclone.ui.iconTap
 import com.webtoonclone.ui.theme.Green
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -345,17 +348,17 @@ private fun ReaderContent(
                 Modifier.fillMaxWidth().background(Bar).padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.clickable(onClick = onBack))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = Color.White, modifier = Modifier.iconTap(onBack))
                 Text("Ep. ${page.chapter.number}", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).padding(start = 16.dp))
                 Icon(
                     Icons.Default.Settings,
-                    contentDescription = "Reader options",
+                    contentDescription = stringResource(R.string.reader_options),
                     tint = Color.White,
                     modifier = Modifier.padding(end = 16.dp).clickable(onClick = onOpenOptions),
                 )
                 Icon(
                     Icons.Default.Share,
-                    contentDescription = "Share",
+                    contentDescription = stringResource(R.string.share),
                     tint = Color.White,
                     modifier = Modifier.clickable {
                         val send = Intent(Intent.ACTION_SEND).apply {
@@ -387,7 +390,7 @@ private fun ReaderContent(
                     Text("${position + 1} / $count", color = Color.White, fontSize = 12.sp)
                     Icon(
                         Icons.AutoMirrored.Filled.List,
-                        contentDescription = "Chapters",
+                        contentDescription = stringResource(R.string.chapters),
                         tint = Color.White,
                         modifier = Modifier.clickable { showChapters = true },
                     )
@@ -395,13 +398,13 @@ private fun ReaderContent(
                     Row {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Previous episode",
+                            contentDescription = stringResource(R.string.previous_episode),
                             tint = if (page.prevId != null) Color.White else Color.DarkGray,
                             modifier = Modifier.clickable(enabled = page.prevId != null) { onOpenChapter(page.prevId!!) },
                         )
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next episode",
+                            contentDescription = stringResource(R.string.next_episode),
                             tint = if (page.nextId != null) Color.White else Color.DarkGray,
                             modifier = Modifier.padding(start = 16.dp).clickable(enabled = page.nextId != null) { onOpenChapter(page.nextId!!) },
                         )
@@ -479,7 +482,7 @@ private fun ChapterPicker(chapters: List<Chapter>, currentId: String, onSelect: 
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = chapters.indexOfFirst { it.id == currentId }.coerceAtLeast(0))
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(vertical = 12.dp)) {
-            Text("Chapters", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            Text(stringResource(R.string.chapters), fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             LazyColumn(Modifier.heightIn(max = 420.dp), state = listState) {
                 itemsIndexed(chapters, key = { _, c -> c.id }) { _, chapter ->
                     val current = chapter.id == currentId
@@ -519,14 +522,14 @@ private fun ReaderOptions(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(20.dp)) {
-            Text("Reader options", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(stringResource(R.string.reader_options), fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
-            Text("Reading mode for this series", fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            Text(stringResource(R.string.reading_mode_for_this_series), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 modeLabels.forEach { (value, label) -> ChoiceChip(label, chosenMode == value) { onMode(value) } }
             }
 
-            Text("Dimming", fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            Text(stringResource(R.string.dimming), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
             Slider(
                 value = settings.readerDim.toFloat(),
                 onValueChange = { value -> onChange { it.copy(readerDim = value.roundToInt()) } },
@@ -534,7 +537,7 @@ private fun ReaderOptions(
                 colors = SliderDefaults.colors(thumbColor = Green, activeTrackColor = Green),
             )
 
-            Text("Background", fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+            Text(stringResource(R.string.background), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReaderBackground.entries.forEach { choice ->
                     ChoiceChip(choice.name, settings.readerBackground == choice) { onChange { it.copy(readerBackground = choice) } }
@@ -542,7 +545,7 @@ private fun ReaderOptions(
             }
 
             if (mode == ReadingMode.Vertical) {
-                Text("Auto-scroll", fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+                Text(stringResource(R.string.auto_scroll), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     (0..5).forEach { speed ->
                         ChoiceChip(if (speed == 0) "Off" else speed.toString(), settings.autoScrollLevel == speed) {

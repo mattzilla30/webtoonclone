@@ -21,10 +21,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.webtoonclone.R
 import com.webtoonclone.ui.theme.Green
 
 private val steps = listOf(
@@ -44,7 +46,7 @@ fun WelcomeDialog(onFinish: () -> Unit) {
             Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
             Text(body, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Skip", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable(onClick = onFinish).padding(8.dp))
+                Text(stringResource(R.string.skip), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable(onClick = onFinish).padding(8.dp))
                 Text(
                     if (step == steps.lastIndex) "Done" else "Next",
                     fontSize = 14.sp,
@@ -63,8 +65,8 @@ fun CrashReportDialog(report: String, onDone: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDone,
-        title = { Text("The app closed unexpectedly") },
-        text = { Text("Share the crash report? It holds the error, the app version, and your device model, and nothing else.") },
+        title = { Text(stringResource(R.string.the_app_closed_unexpectedly)) },
+        text = { Text(stringResource(R.string.share_the_crash_report_it_holds_the_erro)) },
         confirmButton = {
             TextButton(onClick = {
                 val send = Intent(Intent.ACTION_SEND).apply {
@@ -74,8 +76,8 @@ fun CrashReportDialog(report: String, onDone: () -> Unit) {
                 }
                 context.startActivity(Intent.createChooser(send, null))
                 onDone()
-            }) { Text("Share") }
+            }) { Text(stringResource(R.string.share)) }
         },
-        dismissButton = { TextButton(onClick = onDone) { Text("No thanks") } },
+        dismissButton = { TextButton(onClick = onDone) { Text(stringResource(R.string.no_thanks)) } },
     )
 }

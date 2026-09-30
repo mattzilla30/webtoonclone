@@ -24,11 +24,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.R
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
+import com.webtoonclone.ui.adaptiveColumns
+import com.webtoonclone.ui.iconTap
 
 @Composable
 fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, onOpenSeries: (String) -> Unit) {
@@ -36,14 +41,15 @@ fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, o
     val loadingMore by viewModel.loadingMore.collectAsState()
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.clickable(onClick = onBack))
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
             Text(name.ifBlank { "Author" }, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
         }
         LoadView(state, onRetry = viewModel::load) { series ->
             if (series.isEmpty()) {
-                Text("No series found.", modifier = Modifier.padding(16.dp))
+                Text(stringResource(R.string.no_series_found), modifier = Modifier.padding(16.dp))
             } else {
-                val rows = remember(series) { series.chunked(2) }
+                val columns = adaptiveColumns(LocalConfiguration.current.screenWidthDp.toFloat())
+                val rows = remember(series, columns) { series.chunked(columns) }
                 val listState = rememberLazyListState()
                 LaunchedEffect(listState, rows.size) {
                     snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
@@ -54,7 +60,7 @@ fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, o
                         Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             val pair = rows[row]
                             pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
-                            if (pair.size == 1) Box(Modifier.weight(1f))
+                            repeat(columns - pair.size) { Box(Modifier.weight(1f)) }
                         }
                     }
                     if (loadingMore) {

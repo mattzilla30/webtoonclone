@@ -26,12 +26,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.webtoonclone.R
 import com.webtoonclone.data.ContentTags
 import com.webtoonclone.data.DemographicOptions
 import com.webtoonclone.data.Formats
@@ -54,13 +56,13 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Text("Filters", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                TextButton(onClick = { draft = SearchFilters() }) { Text("Reset", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Text(stringResource(R.string.filters), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                TextButton(onClick = { draft = SearchFilters() }) { Text(stringResource(R.string.reset), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 TextButton(onClick = {
                     onApply(draft)
                     onDismiss()
-                }) { Text("Apply", color = Green, fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.apply), color = Green, fontWeight = FontWeight.Bold) }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                 Heading("Status")
@@ -91,12 +93,12 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
                 OutlinedTextField(
                     value = draft.year?.toString().orEmpty(),
                     onValueChange = { text -> draft = draft.copy(year = text.filter(Char::isDigit).take(4).toIntOrNull()) },
-                    placeholder = { Text("Any year") },
+                    placeholder = { Text(stringResource(R.string.any_year)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 Heading("Tags")
-                Text("Tap once to include, twice to exclude, three times to clear.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.tap_once_to_include_twice_to_exclude_thr), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ChoiceChip("Match all", draft.matchAll) { draft = draft.copy(matchAll = true) }
                     ChoiceChip("Match any", !draft.matchAll) { draft = draft.copy(matchAll = false) }

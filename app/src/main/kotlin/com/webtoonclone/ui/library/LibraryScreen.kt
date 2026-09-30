@@ -37,15 +37,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.R
 import com.webtoonclone.data.LibraryData
 import com.webtoonclone.data.LibraryList
 import com.webtoonclone.data.ReadingStatus
 import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.ui.ChoiceChip
 import com.webtoonclone.ui.Cover
+import com.webtoonclone.ui.iconTap
 import com.webtoonclone.ui.series.hasUnreadChapters
 import com.webtoonclone.ui.theme.Green
 import kotlinx.coroutines.delay
@@ -76,7 +79,7 @@ fun LibraryScreen(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("My Series", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(stringResource(R.string.my_series), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         if (library.notificationsEnabled) "Notifications: On" else "Notifications: Off",
@@ -84,8 +87,8 @@ fun LibraryScreen(
                         color = if (library.notificationsEnabled) Green else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.clickable { viewModel.setNotifications(!library.notificationsEnabled) },
                     )
-                    Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.clickable(onClick = onOpenSearch))
-                    Icon(Icons.Default.Settings, contentDescription = "Settings", modifier = Modifier.clickable(onClick = onOpenSettings))
+                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search), modifier = Modifier.iconTap(onOpenSearch))
+                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings), modifier = Modifier.iconTap(onOpenSettings))
                 }
             }
             Row(Modifier.fillMaxWidth()) {
@@ -152,7 +155,7 @@ fun LibraryScreen(
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
                                 if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {
-                                    Text("NEW", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green)
+                                    Text(stringResource(R.string.new_label), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green)
                                 }
                                 Text(series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                 if (tab == LibraryList.Lists) {

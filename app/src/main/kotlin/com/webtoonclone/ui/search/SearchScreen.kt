@@ -44,10 +44,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.R
 import com.webtoonclone.data.ContentTags
 import com.webtoonclone.data.Formats
 import com.webtoonclone.data.Genres
@@ -60,6 +63,7 @@ import com.webtoonclone.ui.GenreLabel
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.OfflineBanner
 import com.webtoonclone.ui.PickTile
+import com.webtoonclone.ui.adaptiveColumns
 import com.webtoonclone.ui.theme.Green
 
 @Composable
@@ -97,12 +101,12 @@ fun SearchScreen(
                     text = it
                     viewModel.onTyping(it)
                 },
-                placeholder = { Text("Search series") },
+                placeholder = { Text(stringResource(R.string.search_series)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 trailingIcon = {
                     if (text.isNotEmpty()) {
                         Icon(
-                            Icons.Default.Clear, contentDescription = "Clear",
+                            Icons.Default.Clear, contentDescription = stringResource(R.string.clear),
                             modifier = Modifier.size(18.dp).clickable {
                                 text = ""
                                 viewModel.onTyping("")
@@ -127,7 +131,7 @@ fun SearchScreen(
                 Text(if (filters.isEmpty) "Filters" else "Filters (${filters.activeCount})", color = Green)
             }
             if (results != null) {
-                TextButton(onClick = { text = ""; viewModel.onTyping(""); viewModel.clear() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                TextButton(onClick = { text = ""; viewModel.onTyping(""); viewModel.clear() }) { Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
 
@@ -156,9 +160,10 @@ fun SearchScreen(
             SortRow(sort, viewModel::setSort)
             LoadView(current, onRetry = { viewModel.search(text) }) { series ->
                 if (series.isEmpty()) {
-                    Text("No series found.", modifier = Modifier.padding(16.dp))
+                    Text(stringResource(R.string.no_series_found), modifier = Modifier.padding(16.dp))
                 } else {
-                    val rows = remember(series) { series.chunked(2) }
+                    val columns = adaptiveColumns(LocalConfiguration.current.screenWidthDp.toFloat())
+                    val rows = remember(series, columns) { series.chunked(columns) }
                     val listState = rememberLazyListState()
 
                     // Load the next page once the last two rows are on screen.
@@ -172,7 +177,7 @@ fun SearchScreen(
                             Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 val pair = rows[row]
                                 pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
-                                if (pair.size == 1) Box(Modifier.weight(1f))
+                                repeat(columns - pair.size) { Box(Modifier.weight(1f)) }
                             }
                         }
                         if (loadingMore) {
@@ -220,8 +225,8 @@ private fun Idle(
         if (recent.isNotEmpty()) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Recent Searches", fontWeight = FontWeight.Bold)
-                    Text("Delete all", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.clearSearches() })
+                    Text(stringResource(R.string.recent_searches), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.delete_all), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.clearSearches() })
                 }
                 FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     recent.sortedBy { it.lowercase() }.forEach { term ->
@@ -230,7 +235,7 @@ private fun Idle(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(term, fontSize = 12.sp)
-                            Icon(Icons.Default.Clear, contentDescription = "Remove", modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.removeSearch(term) })
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.removeSearch(term) })
                         }
                     }
                 }

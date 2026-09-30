@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,10 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.webtoonclone.R
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.theme.Green
 
@@ -128,7 +132,7 @@ fun PickTile(
             if (subscribed) {
                 Icon(
                     Icons.Default.Notifications,
-                    contentDescription = "Subscribed",
+                    contentDescription = stringResource(R.string.subscribed),
                     tint = Green,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -180,7 +184,7 @@ fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
             .background(if (selected) Green else MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     )
 }

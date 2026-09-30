@@ -7,10 +7,17 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -24,6 +31,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -52,6 +63,7 @@ import com.webtoonclone.notify.EXTRA_SERIES_ID
 import com.webtoonclone.notify.MangaDexLink
 import com.webtoonclone.notify.openRoutes
 import com.webtoonclone.notify.parseMangaDexLink
+import com.webtoonclone.ui.RAIL_MIN_WIDTH_DP
 import com.webtoonclone.ui.author.AuthorScreen
 import com.webtoonclone.ui.author.AuthorViewModel
 import com.webtoonclone.ui.home.HomeScreen
@@ -175,85 +187,97 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
         val rootBackground = if (onReader) readerBackgroundColor(settings.readerBackground) else MaterialTheme.colorScheme.background
         // One inset pad for the whole app keeps every screen between the status and navigation bars.
         Box(Modifier.fillMaxSize().background(rootBackground).systemBarsPadding()) {
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = MaterialTheme.colorScheme.background,
-                contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                bottomBar = { if (onTab) BottomBar(nav, route?.substringBefore('?')) },
-            ) { padding ->
-                NavHost(nav, startDestination = "home", modifier = Modifier.padding(padding)) {
-                    composable("home") {
-                        val vm = viewModel { HomeViewModel(app.repository, app.libraryStore, app.settingsStore, app.crashLog) }
-                        Box(Modifier.fillMaxSize()) {
-                            HomeScreen(
+            val wide = LocalConfiguration.current.screenWidthDp >= RAIL_MIN_WIDTH_DP
+            Row(Modifier.fillMaxSize()) {
+                if (wide && onTab) SideRail(nav, route?.substringBefore('?'))
+                Scaffold(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    bottomBar = { if (onTab && !wide) BottomBar(nav, route?.substringBefore('?')) },
+                ) { padding ->
+                    NavHost(
+                        nav,
+                        startDestination = "home",
+                        modifier = Modifier.padding(padding),
+                        enterTransition = { fadeIn(tween(200)) + slideInHorizontally(tween(250)) { it / 12 } },
+                        exitTransition = { fadeOut(tween(150)) },
+                        popEnterTransition = { fadeIn(tween(200)) },
+                        popExitTransition = { fadeOut(tween(150)) + slideOutHorizontally(tween(250)) { it / 12 } },
+                    ) {
+                        composable("home") {
+                            val vm = viewModel { HomeViewModel(app.repository, app.libraryStore, app.settingsStore, app.crashLog) }
+                            Box(Modifier.fillMaxSize()) {
+                                HomeScreen(
+                                    vm,
+                                    onOpenSeries = { nav.navigate("series/$it") },
+                                    onOpenSearch = { nav.navigateTab("search") },
+                                    onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                    openCount = openCount,
+                                )
+                            }
+                        }
+                        composable("search?genre={genre}") { entry ->
+                            val vm = viewModel { SearchViewModel(app.repository, app.libraryStore, app.offlineStore) }
+                            Box(Modifier.fillMaxSize()) {
+                                SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
+                            }
+                        }
+                        composable("updates") {
+                            val vm = viewModel { UpdatesViewModel(app.repository, app.offlineStore) }
+                            Box(Modifier.fillMaxSize()) {
+                                UpdatesScreen(vm, onOpenSeries = { nav.navigate("series/$it") })
+                            }
+                        }
+                        composable("library") {
+                            val vm = viewModel { LibraryViewModel(app.libraryStore) }
+                            Box(Modifier.fillMaxSize()) {
+                                LibraryScreen(
+                                    vm,
+                                    onOpenSeries = { nav.navigate("series/$it") },
+                                    onOpenSearch = { nav.navigateTab("search") },
+                                    onOpenSettings = { nav.navigate("settings") },
+                                )
+                            }
+                        }
+                        composable("settings") {
+                            val vm = viewModel { SettingsViewModel(app) }
+                            SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenAbout = { nav.navigate("about") })
+                        }
+                        composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
+                        composable("series/{seriesId}") { entry ->
+                            val seriesId = entry.arguments!!.getString("seriesId")!!
+                            val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore, app.seriesCache, app.settingsStore) }
+                            SeriesScreen(
                                 vm,
+                                onOpenChapter = { nav.navigate("series/$seriesId/$it") },
+                                onHome = { nav.navigateTab("home") },
+                                onOpenTag = { tag -> nav.navigate("search?genre=${android.net.Uri.encode(tag)}") },
                                 onOpenSeries = { nav.navigate("series/$it") },
-                                onOpenSearch = { nav.navigateTab("search") },
-                                onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                                openCount = openCount,
+                                onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${android.net.Uri.encode(name)}") },
                             )
                         }
-                    }
-                    composable("search?genre={genre}") { entry ->
-                        val vm = viewModel { SearchViewModel(app.repository, app.libraryStore, app.offlineStore) }
-                        Box(Modifier.fillMaxSize()) {
-                            SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
+                        composable("author/{authorId}?name={name}") { entry ->
+                            val authorId = entry.arguments!!.getString("authorId")!!
+                            val name = entry.arguments?.getString("name").orEmpty()
+                            val vm = viewModel(key = authorId) { AuthorViewModel(authorId, app.repository) }
+                            AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
                         }
-                    }
-                    composable("updates") {
-                        val vm = viewModel { UpdatesViewModel(app.repository, app.offlineStore) }
-                        Box(Modifier.fillMaxSize()) {
-                            UpdatesScreen(vm, onOpenSeries = { nav.navigate("series/$it") })
-                        }
-                    }
-                    composable("library") {
-                        val vm = viewModel { LibraryViewModel(app.libraryStore) }
-                        Box(Modifier.fillMaxSize()) {
-                            LibraryScreen(
-                                vm,
-                                onOpenSeries = { nav.navigate("series/$it") },
-                                onOpenSearch = { nav.navigateTab("search") },
-                                onOpenSettings = { nav.navigate("settings") },
-                            )
-                        }
-                    }
-                    composable("settings") {
-                        val vm = viewModel { SettingsViewModel(app) }
-                        SettingsScreen(vm, onBack = { nav.popBackStack() }, onOpenAbout = { nav.navigate("about") })
-                    }
-                    composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
-                    composable("series/{seriesId}") { entry ->
-                        val seriesId = entry.arguments!!.getString("seriesId")!!
-                        val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore, app.seriesCache, app.settingsStore) }
-                        SeriesScreen(
-                            vm,
-                            onOpenChapter = { nav.navigate("series/$seriesId/$it") },
-                            onHome = { nav.navigateTab("home") },
-                            onOpenTag = { tag -> nav.navigate("search?genre=${android.net.Uri.encode(tag)}") },
-                            onOpenSeries = { nav.navigate("series/$it") },
-                            onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${android.net.Uri.encode(name)}") },
-                        )
-                    }
-                    composable("author/{authorId}?name={name}") { entry ->
-                        val authorId = entry.arguments!!.getString("authorId")!!
-                        val name = entry.arguments?.getString("name").orEmpty()
-                        val vm = viewModel(key = authorId) { AuthorViewModel(authorId, app.repository) }
-                        AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
-                    }
-                    composable("series/{seriesId}/{chapterId}") { entry ->
-                        val seriesId = entry.arguments!!.getString("seriesId")!!
-                        val chapterId = entry.arguments!!.getString("chapterId")!!
-                        val vm = viewModel(key = chapterId) {
-                            ReaderViewModel(seriesId, chapterId, app.repository, app.progressStore, app.libraryStore, app.settingsStore, app.seriesCache)
-                        }
-                        // The reader stays dark in a light app, so its bars and text keep their contrast.
-                        DarkTheme {
-                            ReaderScreen(
-                                vm,
-                                seriesId,
-                                onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}") } },
-                                onBack = { nav.popBackStack("series/{seriesId}", inclusive = false) },
-                            )
+                        composable("series/{seriesId}/{chapterId}") { entry ->
+                            val seriesId = entry.arguments!!.getString("seriesId")!!
+                            val chapterId = entry.arguments!!.getString("chapterId")!!
+                            val vm = viewModel(key = chapterId) {
+                                ReaderViewModel(seriesId, chapterId, app.repository, app.progressStore, app.libraryStore, app.settingsStore, app.seriesCache)
+                            }
+                            // The reader stays dark in a light app, so its bars and text keep their contrast.
+                            DarkTheme {
+                                ReaderScreen(
+                                    vm,
+                                    seriesId,
+                                    onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}") } },
+                                    onBack = { nav.popBackStack("series/{seriesId}", inclusive = false) },
+                                )
+                            }
                         }
                     }
                 }
@@ -267,6 +291,27 @@ private fun NavHostController.navigateTab(route: String) {
         popUpTo("home") { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+@Composable
+private fun SideRail(nav: NavHostController, current: String?) {
+    NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+        tabs.forEach { tab ->
+            NavigationRailItem(
+                selected = current == tab.route,
+                onClick = { nav.navigateTab(tab.route) },
+                icon = { Icon(tab.icon, contentDescription = null) },
+                label = { Text(tab.label) },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = Green,
+                    selectedTextColor = Green,
+                    indicatorColor = Color.Transparent,
+                    unselectedIconColor = Color(0xFF8A8A8A),
+                    unselectedTextColor = Color(0xFF8A8A8A),
+                ),
+            )
+        }
     }
 }
 

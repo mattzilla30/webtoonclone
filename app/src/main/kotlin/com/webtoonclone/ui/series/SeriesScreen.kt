@@ -61,12 +61,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
+import com.webtoonclone.R
 import com.webtoonclone.data.Chapter
 import com.webtoonclone.data.ChapterListItem
 import com.webtoonclone.data.ReadingStatus
@@ -80,6 +82,7 @@ import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
 import com.webtoonclone.ui.compact
 import com.webtoonclone.ui.formatChapterDate
+import com.webtoonclone.ui.iconTap
 import com.webtoonclone.ui.theme.Green
 import com.webtoonclone.ui.timeAgo
 import java.util.Locale
@@ -167,7 +170,7 @@ fun SeriesScreen(
                             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Default.Home, contentDescription = "Home", tint = Color.White, modifier = Modifier.clickable(onClick = onHome))
+                            Icon(Icons.Default.Home, contentDescription = stringResource(R.string.home), tint = Color.White, modifier = Modifier.iconTap(onHome))
                             Spacer(Modifier.weight(1f))
                             Text(
                                 if (subscribed) "Subscribed" else "+ Subscribe",
@@ -207,7 +210,7 @@ fun SeriesScreen(
                                     }
                                     if (status != null) {
                                         DropdownMenuItem(
-                                            text = { Text("Remove from lists") },
+                                            text = { Text(stringResource(R.string.remove_from_lists)) },
                                             onClick = {
                                                 viewModel.setStatus(page.detail, null)
                                                 statusMenu = false
@@ -224,10 +227,10 @@ fun SeriesScreen(
                                     modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setNotify(!notifyEnabled) },
                                 )
                             }
-                            Icon(Icons.Default.Info, contentDescription = "Info", tint = Color.White, modifier = Modifier.padding(start = 16.dp).clickable { showInfo = true })
+                            Icon(Icons.Default.Info, contentDescription = stringResource(R.string.info), tint = Color.White, modifier = Modifier.padding(start = 8.dp).iconTap { showInfo = true })
                             Icon(
                                 Icons.Default.Share,
-                                contentDescription = "Share",
+                                contentDescription = stringResource(R.string.share),
                                 tint = Color.White,
                                 modifier = Modifier.padding(start = 16.dp).clickable {
                                     val send = Intent(Intent.ACTION_SEND).apply {
@@ -273,7 +276,7 @@ fun SeriesScreen(
                 }
                 if (similar.isNotEmpty()) {
                     item {
-                        Text("Similar series", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
+                        Text(stringResource(R.string.similar_series), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(similar, key = { it.id }) { other ->
                                 PickTile(other, { onOpenSeries(other.id) }, Modifier.width(110.dp))
@@ -437,10 +440,10 @@ private fun EpisodeRow(
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             if (onMarkRead != null) {
-                DropdownMenuItem(text = { Text("Mark read up to here") }, onClick = { menu = false; onMarkRead() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.mark_read_up_to_here)) }, onClick = { menu = false; onMarkRead() })
             }
             if (onMarkUnread != null) {
-                DropdownMenuItem(text = { Text("Mark unread from here") }, onClick = { menu = false; onMarkUnread() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.mark_unread_from_here)) }, onClick = { menu = false; onMarkUnread() })
             }
             chapter.group?.let { group ->
                 if (group == preferredGroup) {
@@ -493,15 +496,15 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onDis
             }
             Text(detail.summary.description, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
             if (!detail.summary.author.isNullOrBlank()) {
-                Text("Written by", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.written_by), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Text(detail.summary.author, fontSize = 13.sp)
             }
             if (detail.altTitles.isNotEmpty()) {
-                Text("Also known as", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.also_known_as), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
                 detail.altTitles.forEach { Text(it, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
             }
             if (detail.links.isNotEmpty()) {
-                Text("Links", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.links), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
                 detail.links.forEach { link ->
                     Text(link.label, fontSize = 13.sp, color = Green, modifier = Modifier.clickable { onOpenLink(link.url) }.padding(vertical = 4.dp))
                 }

@@ -24,9 +24,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.webtoonclone.R
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -49,7 +51,7 @@ fun <T> LoadView(state: Load<T>, onRetry: () -> Unit, content: @Composable (T) -
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(state.message)
-            Button(onClick = onRetry, modifier = Modifier.padding(top = 12.dp)) { Text("Retry") }
+            Button(onClick = onRetry, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.retry)) }
         }
 
         is Load.Ready -> content(state.value)
@@ -81,8 +83,9 @@ fun SkeletonList(rows: Int = 8) {
     )
     val block = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
     val shape = RoundedCornerShape(4.dp)
+    val loadingLabel = stringResource(R.string.loading)
     Column(
-        Modifier.fillMaxSize().padding(16.dp).semantics { contentDescription = "Loading" },
+        Modifier.fillMaxSize().padding(16.dp).semantics { contentDescription = loadingLabel },
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         repeat(rows) {

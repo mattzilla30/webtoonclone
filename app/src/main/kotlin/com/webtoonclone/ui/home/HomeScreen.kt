@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.webtoonclone.R
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.GenreLabel
@@ -129,7 +131,7 @@ fun HomeScreen(
                                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                                 .padding(16.dp),
                         ) {
-                            Text("Never miss a chapter", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(stringResource(R.string.never_miss_a_chapter), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Text(
                                 "Tap Subscribe on a series page. The app checks every 30 minutes and notifies you when a new chapter comes out.",
                                 fontSize = 12.sp,
@@ -224,7 +226,7 @@ private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onClick: () -> Uni
         )
         Icon(
             Icons.Default.Search,
-            contentDescription = "Search",
+            contentDescription = stringResource(R.string.search),
             tint = Color.White,
             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(26.dp).clickable(onClick = onSearch),
         )

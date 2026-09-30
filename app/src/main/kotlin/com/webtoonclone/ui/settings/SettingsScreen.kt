@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -28,14 +29,20 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.R
 import com.webtoonclone.data.Languages
 import com.webtoonclone.data.ReaderBackground
 import com.webtoonclone.data.ThemeMode
 import com.webtoonclone.data.formatBytes
 import com.webtoonclone.ui.ChoiceChip
+import com.webtoonclone.ui.iconTap
 import com.webtoonclone.ui.theme.Green
 
 @Composable
@@ -55,29 +62,29 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
     pending?.let { backup ->
         AlertDialog(
             onDismissRequest = viewModel::cancelRestore,
-            title = { Text("Restore this backup?") },
+            title = { Text(stringResource(R.string.restore_this_backup)) },
             text = {
                 Text(
                     "It has ${backup.library.subscribed.size} subscriptions, ${backup.library.lists.size} listed series, and ${backup.library.recent.size} recent reads. " +
                         "Your current library and settings will be replaced.",
                 )
             },
-            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text("Restore") } },
-            dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text(stringResource(R.string.restore)) } },
+            dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.cancel)) } },
         )
     }
     message?.let { text ->
         AlertDialog(
             onDismissRequest = viewModel::clearMessage,
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = viewModel::clearMessage) { Text("OK") } },
+            confirmButton = { TextButton(onClick = viewModel::clearMessage) { Text(stringResource(R.string.ok)) } },
         )
     }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.clickable(onClick = onBack))
-            Text("Settings", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
+            Text(stringResource(R.string.settings), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             SectionTitle("Appearance")
@@ -146,14 +153,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
             SectionTitle("Storage")
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Cache", fontSize = 14.sp)
+                    Text(stringResource(R.string.cache), fontSize = 14.sp)
                     Text(
                         cacheBytes?.let(::formatBytes) ?: "Measuring...",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text("Clear cache", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
+                Text(stringResource(R.string.clear_cache), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
             }
 
             SectionTitle("Backup")
@@ -163,8 +170,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text("Save backup", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { exportLauncher.launch("webtoonclone-backup.json") })
-                Text("Restore backup", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
+                Text(stringResource(R.string.save_backup), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { exportLauncher.launch("webtoonclone-backup.json") })
+                Text(stringResource(R.string.restore_backup), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
             }
 
             SectionTitle("Privacy")
@@ -179,7 +186,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
                 Modifier.fillMaxWidth().clickable(onClick = onOpenAbout).padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Credits and licenses", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.credits_and_licenses), fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
             Text("", modifier = Modifier.padding(bottom = 24.dp))
@@ -189,17 +196,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text.uppercase(), color = Green, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp))
+    Text(text.uppercase(), color = Green, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp).semantics { heading() })
 }
 
 @Composable
 private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(title, fontSize = 14.sp)
             Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

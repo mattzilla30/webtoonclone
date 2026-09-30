@@ -27,6 +27,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
@@ -40,7 +41,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -214,30 +217,37 @@ fun LibraryScreen(
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     items(items, key = { it.id }) { series ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { onOpenSeries(series.id) }.padding(horizontal = 16.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            onClick = { onOpenSeries(series.id) },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                         ) {
-                            Cover(series.coverUrl, series.title, Modifier.width(40.dp).aspectRatio(2f / 3f), thumb = true)
-                            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                                val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
-                                if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {
-                                    Text(stringResource(R.string.new_label), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Row(
+                                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Cover(series.coverUrl, series.title, Modifier.width(44.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true)
+                                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                                    val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
+                                    if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {
+                                        Text(stringResource(R.string.new_label), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
+                                    if (tab == LibraryList.Lists) {
+                                        series.status?.let { Text(it.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
+                                    }
+                                    series.chapterNumber?.let {
+                                        val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(java.time.Instant.ofEpochMilli(series.at)) else ""
+                                        Text("Ep. $it$readAt", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
-                                Text(series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                if (tab == LibraryList.Lists) {
-                                    series.status?.let { Text(it.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
-                                }
-                                series.chapterNumber?.let {
-                                    val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(java.time.Instant.ofEpochMilli(series.at)) else ""
-                                    Text("Ep. $it$readAt", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                                Checkbox(
+                                    checked = series.id in selected,
+                                    onCheckedChange = { if (it) selected.add(series.id) else selected.remove(series.id) },
+                                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
+                                )
                             }
-                            Checkbox(
-                                checked = series.id in selected,
-                                onCheckedChange = { if (it) selected.add(series.id) else selected.remove(series.id) },
-                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
-                            )
                         }
                     }
                 }

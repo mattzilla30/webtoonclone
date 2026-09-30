@@ -83,6 +83,7 @@ import com.dexter.data.TapAction
 import com.dexter.data.tapAction
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.LoadView
+import com.dexter.ui.SyncedSlider
 import com.dexter.ui.iconTap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -375,11 +376,10 @@ private fun ReaderContent(
                 if (count > 1) {
                     // Right-to-left reading puts the first page on the right, so the slider runs that way too.
                     CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LocalLayoutDirection.current) {
-                        Slider(
+                        SyncedSlider(
                             value = position.toFloat(),
                             onValueChange = { scope.launch { goToPage(it.roundToInt()) } },
                             valueRange = 0f..lastIndex.toFloat(),
-                            colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
                     }
@@ -551,11 +551,10 @@ private fun ReaderOptions(
             }
 
             Text(stringResource(R.string.dimming), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
-            Slider(
+            SyncedSlider(
                 value = settings.readerDim.toFloat(),
                 onValueChange = { value -> onChange { it.copy(readerDim = value.roundToInt()) } },
                 valueRange = 0f..70f,
-                colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary),
             )
 
             Text(stringResource(R.string.background), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))

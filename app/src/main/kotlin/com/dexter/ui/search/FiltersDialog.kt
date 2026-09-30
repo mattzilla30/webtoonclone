@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -44,6 +45,7 @@ import com.dexter.data.StatusOptions
 import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
 import com.dexter.data.languageName
+import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 
 private val Red = Color(0xFFE5484D)
@@ -55,15 +57,20 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
     var draft by remember { mutableStateOf(initial) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Text(stringResource(R.string.filters), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                TextButton(onClick = { draft = SearchFilters() }) { Text(stringResource(R.string.reset), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                TextButton(onClick = {
-                    onApply(draft)
-                    onDismiss()
-                }) { Text(stringResource(R.string.apply), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-            }
+            AppTopBar(
+                stringResource(R.string.filters),
+                onBack = onDismiss,
+                actions = {
+                    TextButton(onClick = { draft = SearchFilters() }) { Text(stringResource(R.string.reset)) }
+                    Button(
+                        onClick = {
+                            onApply(draft)
+                            onDismiss()
+                        },
+                        modifier = Modifier.padding(end = 8.dp),
+                    ) { Text(stringResource(R.string.apply)) }
+                },
+            )
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                 Heading("Status")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

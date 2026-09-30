@@ -241,3 +241,11 @@ fun AppTopBar(
         colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
     )
 }
+
+/** A slider that follows [value] from outside and reports changes, built on the state-based Slider. */
+@Composable
+fun SyncedSlider(value: Float, onValueChange: (Float) -> Unit, valueRange: ClosedFloatingPointRange<Float>, modifier: Modifier = Modifier) {
+    val state = androidx.compose.runtime.remember { androidx.compose.material3.SliderState(value, 0, valueRange) }
+    androidx.compose.runtime.LaunchedEffect(value) { if (state.value != value) state.value = value }
+    androidx.compose.material3.Slider(state = state, onValueChange = onValueChange, modifier = modifier)
+}

@@ -53,6 +53,7 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
@@ -71,6 +72,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -155,7 +157,7 @@ fun SeriesScreen(
 
             covers?.let { state ->
                 Dialog(onDismissRequest = viewModel::closeCovers) {
-                    Column(Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp)) {
+                    Column(Modifier.clip(MaterialTheme.shapes.extraLarge).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(20.dp)) {
                         Text(stringResource(R.string.covers), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                         when (state) {
                             is Load.Ready -> LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -537,30 +539,37 @@ private fun EpisodeRow(
 ) {
     var menu by remember { mutableStateOf(false) }
     Box {
-        Row(
-            Modifier
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = if (read) MaterialTheme.colorScheme.surfaceContainerLowest else MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier
                 .fillMaxWidth()
-                .alpha(if (read) 0.5f else 1f)
-                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty() || chapter.externalUrl == null) ({ menu = true }) else null)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 16.dp, vertical = 3.dp)
+                .alpha(if (read) 0.55f else 1f)
+                .clip(MaterialTheme.shapes.medium)
+                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty() || chapter.externalUrl == null) ({ menu = true }) else null),
         ) {
-            Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f), thumb = true)
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(
-                    buildString {
-                        append("Ep. ${chapter.number}")
-                        if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
-                        if (chapter.externalUrl != null) append("  ↗")
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    listOfNotNull(formatChapterDate(chapter.publishedAt), chapter.group, if (saved) "Saved" else if (saving) "Saving..." else null).joinToString(" · "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Row(
+                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.extraSmall), contentScale = ContentScale.Crop, thumb = true)
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(
+                        buildString {
+                            append("Ep. ${chapter.number}")
+                            if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
+                            if (chapter.externalUrl != null) append("  ↗")
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        listOfNotNull(formatChapterDate(chapter.publishedAt), chapter.group, if (saved) "Saved" else if (saving) "Saving..." else null).joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -613,8 +622,8 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {

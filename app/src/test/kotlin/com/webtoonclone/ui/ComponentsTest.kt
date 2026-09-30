@@ -17,6 +17,11 @@ class ComponentsTest {
     }
 
     @Test
+    fun timeAgoAcceptsAnInstantForSavedContent() {
+        assertEquals("3 h ago", timeAgo(Instant.parse("2026-09-30T09:00:00Z"), now))
+    }
+
+    @Test
     fun compactShortensLargeCounts() {
         assertEquals("999", compact(999))
         assertEquals("1.2K", compact(1_234))

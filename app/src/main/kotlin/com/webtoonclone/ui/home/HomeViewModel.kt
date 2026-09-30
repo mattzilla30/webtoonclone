@@ -29,6 +29,10 @@ class HomeViewModel(
     private val _state = MutableStateFlow<Load<HomeContent>>(Load.Loading)
     val state: StateFlow<Load<HomeContent>> = _state
 
+    /** When the shown content is a saved copy because the network failed, the time it was saved. */
+    private val _offlineSavedAt = MutableStateFlow<Long?>(null)
+    val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt
+
     private var seenOpen = 0
     private var busy = false
 
@@ -64,13 +68,19 @@ class HomeViewModel(
             try {
                 val content = repository.home()
                 _state.value = Load.Ready(content)
+                _offlineSavedAt.value = null
                 runCatching { libraryStore.saveHome(content) }
             } catch (e: Exception) {
                 // A silent refresh keeps the old content when the network fails. A first load falls
                 // back to the last saved home, and shows the error only when nothing is saved.
                 if (_state.value !is Load.Ready) {
                     val saved = runCatching { libraryStore.loadHome() }.getOrNull()
-                    _state.value = if (saved != null) Load.Ready(saved) else Load.Error(friendlyError(e, "Could not load series"))
+                    if (saved != null) {
+                        _offlineSavedAt.value = saved.savedAt
+                        _state.value = Load.Ready(saved.content)
+                    } else {
+                        _state.value = Load.Error(friendlyError(e, "Could not load series"))
+                    }
                 }
             } finally {
                 busy = false

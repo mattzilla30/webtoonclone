@@ -2,6 +2,7 @@ package com.webtoonclone.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -12,6 +13,7 @@ import kotlinx.serialization.json.Json
 private val Context.libraryDataStore by preferencesDataStore(name = "library")
 private val LIBRARY = stringPreferencesKey("library")
 private val HOME_CACHE = stringPreferencesKey("home_cache")
+private val HOME_CACHE_AT = longPreferencesKey("home_cache_at")
 private const val MAX_RECENT = 50
 private const val MAX_SEARCHES = 10
 
@@ -27,12 +29,17 @@ class LibraryStore(private val context: Context) {
 
     /** Keeps the last home content so the home screen can open offline. */
     suspend fun saveHome(content: HomeContent) {
-        context.libraryDataStore.edit { it[HOME_CACHE] = json.encodeToString(HomeContent.serializer(), content) }
+        context.libraryDataStore.edit {
+            it[HOME_CACHE] = json.encodeToString(HomeContent.serializer(), content)
+            it[HOME_CACHE_AT] = System.currentTimeMillis()
+        }
     }
 
-    suspend fun loadHome(): HomeContent? {
-        val raw = context.libraryDataStore.data.first()[HOME_CACHE] ?: return null
-        return runCatching { json.decodeFromString<HomeContent>(raw) }.getOrNull()
+    suspend fun loadHome(): CachedHome? {
+        val prefs = context.libraryDataStore.data.first()
+        val raw = prefs[HOME_CACHE] ?: return null
+        val content = runCatching { json.decodeFromString<HomeContent>(raw) }.getOrNull() ?: return null
+        return CachedHome(content, prefs[HOME_CACHE_AT] ?: 0L)
     }
 
     suspend fun recordRecent(series: SavedSeries) = update { lib ->

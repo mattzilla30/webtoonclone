@@ -49,6 +49,8 @@ import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
 import com.webtoonclone.ui.SectionHeader
 import com.webtoonclone.ui.genreColor
+import com.webtoonclone.ui.timeAgo
+import java.time.Instant
 
 @Composable
 fun HomeScreen(
@@ -60,6 +62,7 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val recent by viewModel.recent.collectAsState()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     // A new app open reloads with fresh random picks. Returning from a series page does not.
@@ -77,6 +80,20 @@ fun HomeScreen(
 
     LoadView(state, onRetry = viewModel::retry) { home ->
         LazyColumn(Modifier.fillMaxSize()) {
+            offlineSavedAt?.let { savedAt ->
+                item {
+                    Text(
+                        "Offline. Showing home saved ${timeAgo(Instant.ofEpochMilli(savedAt))}. Tap to retry.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { viewModel.retry() }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
             home.hero?.let { hero -> item { Hero(hero, onOpenSearch) { onOpenSeries(hero.id) } } }
 
             if (recent.isNotEmpty()) {

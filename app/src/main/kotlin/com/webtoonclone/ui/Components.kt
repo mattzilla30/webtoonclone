@@ -124,6 +124,10 @@ fun PickTile(series: SeriesSummary, onClick: () -> Unit, modifier: Modifier = Mo
 /** "5 min ago", "3 h ago", "2 d ago", or a date for anything older than a month. */
 fun timeAgo(iso: String, now: java.time.Instant = java.time.Instant.now()): String {
     val time = runCatching { java.time.OffsetDateTime.parse(iso).toInstant() }.getOrNull() ?: return ""
+    return timeAgo(time, now)
+}
+
+fun timeAgo(time: java.time.Instant, now: java.time.Instant = java.time.Instant.now()): String {
     val minutes = java.time.Duration.between(time, now).toMinutes().coerceAtLeast(0)
     return when {
         minutes < 1 -> "just now"

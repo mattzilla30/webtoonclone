@@ -39,6 +39,9 @@ data class ReadingProgress(
     val page: Int,
 )
 
+/** Home content saved on the device, with the time it was saved. */
+data class CachedHome(val content: HomeContent, val savedAt: Long)
+
 @Serializable
 data class HomeContent(
     val hero: SeriesSummary?,

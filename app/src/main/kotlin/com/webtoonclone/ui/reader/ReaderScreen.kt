@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -107,7 +105,7 @@ fun ReaderScreen(
 
             if (barsVisible) {
                 Row(
-                    Modifier.fillMaxWidth().background(Bar).statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter),
+                    Modifier.fillMaxWidth().background(Bar).padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.clickable(onClick = onBack))
@@ -126,7 +124,7 @@ fun ReaderScreen(
                     )
                 }
                 Row(
-                    Modifier.fillMaxWidth().background(Bar).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).align(Alignment.BottomCenter),
+                    Modifier.fillMaxWidth().background(Bar).padding(horizontal = 16.dp, vertical = 10.dp).align(Alignment.BottomCenter),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {

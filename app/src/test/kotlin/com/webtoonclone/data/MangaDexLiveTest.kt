@@ -41,5 +41,11 @@ class MangaDexLiveTest {
 
         assertTrue(repository.browse(genre = "Romance", limit = 3).isNotEmpty())
         assertTrue(repository.browse(title = "tower", limit = 3).isNotEmpty())
+
+        // Search paging: page 1 must add series that page 0 did not have.
+        val first = repository.browse(title = "love", page = 0)
+        val second = repository.browse(title = "love", page = 1)
+        assertTrue("page 1 is empty", second.isNotEmpty())
+        assertTrue("page 1 repeats page 0", second.none { s -> first.any { it.id == s.id } })
     }
 }

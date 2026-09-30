@@ -3,11 +3,14 @@ package com.webtoonclone
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -47,7 +50,11 @@ import com.webtoonclone.ui.theme.WebtoonTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The app draws inside the system bars. Transparent bars with light icons suit the dark theme.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         setContent { WebtoonNav() }
     }
 }
@@ -70,15 +77,18 @@ private fun WebtoonNav() {
     val onTab = route?.substringBefore('?') in tabs.map { it.route }
 
     WebtoonTheme {
+      // One inset pad for the whole app keeps every screen between the status and navigation bars.
+      Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).systemBarsPadding()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = { if (onTab) BottomBar(nav, route?.substringBefore('?')) },
         ) { padding ->
             NavHost(
                 nav,
                 startDestination = "home",
-                modifier = Modifier.padding(if (onTab) padding else androidx.compose.foundation.layout.PaddingValues()),
+                modifier = Modifier.padding(padding),
             ) {
                 composable("home") {
                     val vm = viewModel { HomeViewModel(app.repository) }
@@ -93,13 +103,13 @@ private fun WebtoonNav() {
                 }
                 composable("search?genre={genre}") { entry ->
                     val vm = viewModel { SearchViewModel(app.repository, app.libraryStore) }
-                    Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                    Box(Modifier.fillMaxSize()) {
                         SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
                     }
                 }
                 composable("library") {
                     val vm = viewModel { LibraryViewModel(app.libraryStore) }
-                    Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                    Box(Modifier.fillMaxSize()) {
                         LibraryScreen(vm, onOpenSeries = { nav.navigate("series/$it") }, onOpenSearch = { nav.navigateTab("search") })
                     }
                 }
@@ -127,6 +137,7 @@ private fun WebtoonNav() {
                 }
             }
         }
+      }
     }
 }
 

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -20,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,11 +29,14 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,9 +55,10 @@ fun SearchScreen(
 ) {
     val results by viewModel.results.collectAsState()
     val recent by viewModel.recentSearches.collectAsState()
+    val loadingMore by viewModel.loadingMore.collectAsState()
     var text by rememberSaveable { mutableStateOf(viewModel.query) }
 
-    androidx.compose.runtime.LaunchedEffect(initialGenre) {
+    LaunchedEffect(initialGenre) {
         if (initialGenre != null) {
             text = initialGenre
             viewModel.openGenre(initialGenre)
@@ -102,12 +108,28 @@ fun SearchScreen(
                 if (series.isEmpty()) {
                     Text("No series found.", modifier = Modifier.padding(16.dp))
                 } else {
-                    LazyColumn(Modifier.fillMaxSize()) {
-                        items(series.chunked(2).size) { row ->
+                    val rows = remember(series) { series.chunked(2) }
+                    val listState = rememberLazyListState()
+
+                    // Load the next page once the last two rows are on screen.
+                    LaunchedEffect(listState, rows.size) {
+                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+                            .collect { last -> if (last >= rows.size - 2) viewModel.loadMore() }
+                    }
+
+                    LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                        items(rows.size) { row ->
                             Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val pair = series.chunked(2)[row]
+                                val pair = rows[row]
                                 pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
                                 if (pair.size == 1) Box(Modifier.weight(1f))
+                            }
+                        }
+                        if (loadingMore) {
+                            item {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(Modifier.size(24.dp))
+                                }
                             }
                         }
                     }

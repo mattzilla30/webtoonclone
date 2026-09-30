@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
@@ -66,6 +67,7 @@ import com.dexter.data.Formats
 import com.dexter.data.Genres
 import com.dexter.data.Order
 import com.dexter.data.SavedSearch
+import com.dexter.data.SearchFilters
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
@@ -189,7 +191,20 @@ fun SearchScreen(
             }
             LoadView(current, onRetry = { viewModel.search(text) }) { series ->
                 if (series.isEmpty()) {
-                    Text(stringResource(R.string.no_series_found), modifier = Modifier.padding(16.dp))
+                    Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(R.string.no_series_found), style = MaterialTheme.typography.titleMediumEmphasized)
+                        Text(
+                            if (filters.isEmpty) "Try a different spelling or fewer words." else "Your filters may be too narrow.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        if (!filters.isEmpty) {
+                            FilledTonalButton(onClick = { viewModel.setFilters(SearchFilters()) }, modifier = Modifier.padding(top = 16.dp)) {
+                                Text("Clear filters")
+                            }
+                        }
+                    }
                 } else {
                     val columns = adaptiveColumns(windowWidthDp())
                     val rows = remember(series, columns) { series.chunked(columns) }

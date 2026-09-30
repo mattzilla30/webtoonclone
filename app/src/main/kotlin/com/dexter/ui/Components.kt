@@ -191,7 +191,7 @@ fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1, softWrap = false) },
         modifier = Modifier.semantics { role = Role.RadioButton },
     )
 }

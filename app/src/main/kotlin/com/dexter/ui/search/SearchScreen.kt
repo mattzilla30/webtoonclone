@@ -2,6 +2,7 @@ package com.dexter.ui.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -183,13 +185,7 @@ fun SearchScreen(
             offlineSavedAt?.let { OfflineBanner(it, "results", onRetry = viewModel::retry) }
             SortRow(sort, viewModel::setSort)
             if (viewModel.canSave) {
-                Text(
-                    "Save this search",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).clickable { saveName = text.ifBlank { "" } },
-                )
+                TextButton(onClick = { saveName = text.ifBlank { "" } }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Save this search") }
             }
             LoadView(current, onRetry = { viewModel.search(text) }) { series ->
                 if (series.isEmpty()) {
@@ -332,7 +328,7 @@ private fun LazyListScope.tagSection(title: String, tags: List<String>, onTag: (
 private val sortLabels = listOf(
     Order.Popular to "Popular",
     Order.Newest to "Newest",
-    Order.Updated to "Recently updated",
+    Order.Updated to "Updated",
     Order.TopRated to "Top rated",
 )
 
@@ -342,7 +338,10 @@ private val BrowseOptions = listOf("Random", "Recently added", "Top rated")
 /** Chips that choose how search results are ordered. */
 @Composable
 private fun SortRow(selected: Order, onSelect: (Order) -> Unit) {
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         sortLabels.forEach { (order, label) -> ChoiceChip(label, order == selected) { onSelect(order) } }
     }
 }

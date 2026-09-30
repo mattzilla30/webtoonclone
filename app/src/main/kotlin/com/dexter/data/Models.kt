@@ -135,6 +135,8 @@ data class LibraryData(
     val notificationsEnabled: Boolean = true,
     /** My Series sorts A-Z when true, newest first when false. Kept between launches. */
     val sortAlphabetical: Boolean = false,
+    /** My Series puts series with unread chapters first when true. Wins over [sortAlphabetical]. */
+    val sortUnreadFirst: Boolean = false,
     /** The last search sort chosen, as an [Order] name. */
     val searchOrder: String = "Popular",
     /** Series you put in reading lists, each with its status. */

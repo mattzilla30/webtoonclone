@@ -211,6 +211,9 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     suspend fun setSortAlphabetical(alphabetical: Boolean) = updateScalars { it.copy(sortAlphabetical = alphabetical) }
 
+    /** Sets both sort flags at once, so each of the three sort modes is one saved state. */
+    suspend fun setSort(alphabetical: Boolean, unreadFirst: Boolean) = updateScalars { it.copy(sortAlphabetical = alphabetical, sortUnreadFirst = unreadFirst) }
+
     suspend fun setNotifications(enabled: Boolean) = updateScalars { it.copy(notificationsEnabled = enabled) }
 
     /** Replaces everything in the library with [data], for restoring a backup. */

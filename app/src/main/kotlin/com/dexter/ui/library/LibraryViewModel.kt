@@ -19,8 +19,8 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
         viewModelScope.launch { store.restore(list, snapshot) }
     }
 
-    fun setSortAlphabetical(alphabetical: Boolean) {
-        viewModelScope.launch { store.setSortAlphabetical(alphabetical) }
+    fun setSort(mode: LibrarySort) {
+        viewModelScope.launch { store.setSort(alphabetical = mode == LibrarySort.Alphabetical, unreadFirst = mode == LibrarySort.UnreadFirst) }
     }
 
     fun setNotifications(enabled: Boolean) {

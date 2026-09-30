@@ -83,7 +83,7 @@ fun LibraryScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var unreadOnly by rememberSaveable { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<String>() }
-    val alphabetical = library.sortAlphabetical
+    val sortMode = sortModeOf(library.sortAlphabetical, library.sortUnreadFirst)
     val collection = collectionFilter?.takeIf { tab == LibraryList.Lists && it in library.collections }
     val tabItems = when {
         collection != null -> library.collections.getValue(collection)
@@ -97,7 +97,8 @@ fun LibraryScreen(
             query,
             unreadOnly && subscribedTab,
         ) { hasUnreadChapters(it.knownChapterNumber, lastReadNumber(it)) },
-        alphabetical,
+        sortMode,
+        hasUnread = { hasUnreadChapters(it.knownChapterNumber, lastReadNumber(it)) },
     )
 
     var undo by remember { mutableStateOf<UndoState?>(null) }
@@ -183,7 +184,7 @@ fun LibraryScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("${items.size} series", style = MaterialTheme.typography.labelLargeEmphasized, color = MaterialTheme.colorScheme.primary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { viewModel.setSortAlphabetical(!alphabetical) }) { Text(if (alphabetical) "Sort: A-Z" else "Sort: Recent") }
+                    TextButton(onClick = { viewModel.setSort(sortMode.next()) }) { Text(sortMode.label) }
                     TextButton(
                         enabled = selected.isNotEmpty(),
                         onClick = {

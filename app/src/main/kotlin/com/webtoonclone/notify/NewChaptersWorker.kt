@@ -32,7 +32,8 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     override suspend fun doWork(): Result {
         val app = applicationContext as WebtoonApp
-        val subscribed = app.libraryStore.data.first().subscribed
+        val library = app.libraryStore.data.first()
+        val subscribed = library.subscribed
         var failed = false
 
         for (series in subscribed) {
@@ -43,10 +44,11 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
                 continue
             }
             val known = series.knownChapterId
-            if (latest != null && known != null && latest.id != known) {
+            if (latest != null && known != null && latest.id != known && library.notificationsEnabled) {
                 notify(series, latest.number)
             }
-            // First sighting only records the chapter, so old chapters never notify.
+            // First sighting only records the chapter, so old chapters never notify. With
+            // notifications off the chapter is still recorded, so turning them on stays quiet.
             if (latest != null && latest.id != known) app.libraryStore.markKnown(series.id, latest.id)
             delay(300) // stay well under MangaDex's request limit
         }

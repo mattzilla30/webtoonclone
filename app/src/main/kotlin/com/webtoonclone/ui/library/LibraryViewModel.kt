@@ -14,6 +14,10 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
     val library: StateFlow<LibraryData> = store.data
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryData())
 
+    fun setNotifications(enabled: Boolean) {
+        viewModelScope.launch { store.setNotifications(enabled) }
+    }
+
     fun delete(subscribedTab: Boolean, ids: Set<String>) {
         viewModelScope.launch {
             if (subscribedTab) store.removeSubscribed(ids) else store.removeRecent(ids)

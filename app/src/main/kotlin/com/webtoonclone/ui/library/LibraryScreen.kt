@@ -53,7 +53,15 @@ fun LibraryScreen(
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("My Series", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.clickable(onClick = onOpenSearch))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (library.notificationsEnabled) "Notifications: On" else "Notifications: Off",
+                    fontSize = 12.sp,
+                    color = if (library.notificationsEnabled) Green else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clickable { viewModel.setNotifications(!library.notificationsEnabled) },
+                )
+                Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.clickable(onClick = onOpenSearch))
+            }
         }
         Row(Modifier.fillMaxWidth()) {
             Tab("RECENT", !subscribedTab, Modifier.weight(1f)) { subscribedTab = false; selected.clear() }

@@ -62,4 +62,6 @@ data class LibraryData(
     val recent: List<SavedSeries> = emptyList(),
     val subscribed: List<SavedSeries> = emptyList(),
     val searches: List<String> = emptyList(),
+    /** When off, the background check still tracks new chapters but posts no notification. */
+    val notificationsEnabled: Boolean = true,
 )

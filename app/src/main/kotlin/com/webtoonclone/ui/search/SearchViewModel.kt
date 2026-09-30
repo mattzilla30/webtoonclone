@@ -29,6 +29,19 @@ class SearchViewModel(
     private val _results = MutableStateFlow<Load<List<SeriesSummary>>?>(null)
     val results: StateFlow<Load<List<SeriesSummary>>?> = _results
 
+    private val _genres = MutableStateFlow(SearchGenres.shuffled())
+
+    /** The genre grid in a random order. Reshuffled on each app open. */
+    val genres: StateFlow<List<Pair<String, String>>> = _genres
+
+    private var seenOpen = 0
+
+    fun reshuffleIfNewOpen(openCount: Int) {
+        if (openCount == seenOpen) return
+        seenOpen = openCount
+        _genres.value = SearchGenres.shuffled()
+    }
+
     private val _loadingMore = MutableStateFlow(false)
     val loadingMore: StateFlow<Boolean> = _loadingMore
 

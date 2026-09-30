@@ -137,7 +137,7 @@ private fun WebtoonNav(openCount: Int, openSeries: String?, onOpened: () -> Unit
                 composable("search?genre={genre}") { entry ->
                     val vm = viewModel { SearchViewModel(app.repository, app.libraryStore) }
                     Box(Modifier.fillMaxSize()) {
-                        SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
+                        SearchScreen(vm, entry.arguments?.getString("genre"), openCount, onOpenSeries = { nav.navigate("series/$it") })
                     }
                 }
                 composable("updates") {

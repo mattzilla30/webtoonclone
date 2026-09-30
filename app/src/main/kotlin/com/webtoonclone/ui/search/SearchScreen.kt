@@ -51,8 +51,11 @@ import com.webtoonclone.ui.PickTile
 fun SearchScreen(
     viewModel: SearchViewModel,
     initialGenre: String?,
+    openCount: Int,
     onOpenSeries: (String) -> Unit,
 ) {
+    val genres by viewModel.genres.collectAsState()
+    LaunchedEffect(openCount) { viewModel.reshuffleIfNewOpen(openCount) }
     val results by viewModel.results.collectAsState()
     val recent by viewModel.recentSearches.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
@@ -99,7 +102,7 @@ fun SearchScreen(
 
         val current = results
         if (current == null) {
-            Idle(recent, viewModel) { genre ->
+            Idle(recent, genres, viewModel) { genre ->
                 text = genre
                 viewModel.openGenre(genre)
             }
@@ -143,6 +146,7 @@ fun SearchScreen(
 @Composable
 private fun Idle(
     recent: List<String>,
+    genres: List<Pair<String, String>>,
     viewModel: SearchViewModel,
     onGenre: (String) -> Unit,
 ) {
@@ -167,9 +171,9 @@ private fun Idle(
             }
         }
         item { Text("Favorite Genres", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 10.dp)) }
-        items(SearchGenres.chunked(4).size) { row ->
+        items(genres.chunked(4).size) { row ->
             Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                val cells = SearchGenres.chunked(4)[row]
+                val cells = genres.chunked(4)[row]
                 cells.forEach { (name, icon) ->
                     Column(Modifier.weight(1f).clickable { onGenre(name) }, horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {

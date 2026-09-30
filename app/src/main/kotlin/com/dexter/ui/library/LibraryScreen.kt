@@ -18,14 +18,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,6 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +53,7 @@ import com.dexter.data.LibraryData
 import com.dexter.data.LibraryList
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
+import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.iconTap
@@ -91,22 +98,43 @@ fun LibraryScreen(
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.my_series), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (library.notificationsEnabled) "Notifications: On" else "Notifications: Off",
-                        fontSize = 12.sp,
-                        color = if (library.notificationsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clickable { viewModel.setNotifications(!library.notificationsEnabled) },
-                    )
-                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search), modifier = Modifier.iconTap(onOpenSearch))
+            AppTopBar(
+                stringResource(R.string.my_series),
+                actions = {
+                    androidx.compose.material3.FilledTonalIconToggleButton(
+                        checked = library.notificationsEnabled,
+                        onCheckedChange = { viewModel.setNotifications(it) },
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = if (library.notificationsEnabled) "Notifications on" else "Notifications off",
+                        )
+                    }
+                    androidx.compose.material3.IconButton(onClick = onOpenSearch) {
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                    }
+                },
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+            ) {
+                val options = listOf("Recent" to LibraryList.Recent, "Subscribed" to LibraryList.Subscribed, "Lists" to LibraryList.Lists)
+                options.forEachIndexed { index, (label, list) ->
+                    ToggleButton(
+                        checked = tab == list,
+                        onCheckedChange = {
+                            tabKey = list.key
+                            selected.clear()
+                        },
+                        modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
+                        shapes = when (index) {
+                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                            options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                        },
+                    ) { Text(label) }
                 }
-            }
-            Row(Modifier.fillMaxWidth()) {
-                Tab("RECENT", tab == LibraryList.Recent, Modifier.weight(1f)) { tabKey = LibraryList.Recent.key; selected.clear() }
-                Tab("SUBSCRIBED", subscribedTab, Modifier.weight(1f)) { tabKey = LibraryList.Subscribed.key; selected.clear() }
-                Tab("LISTS", tab == LibraryList.Lists, Modifier.weight(1f)) { tabKey = LibraryList.Lists.key; selected.clear() }
             }
             if (tab == LibraryList.Lists) {
                 Row(
@@ -256,13 +284,3 @@ private fun listFor(library: LibraryData, tab: LibraryList): List<SavedSeries> =
 
 /** What an undo needs: which tab, the list as it was, and how many series were removed. */
 private data class UndoState(val list: LibraryList, val snapshot: List<SavedSeries>, val count: Int, val collection: String? = null)
-
-@Composable
-private fun Tab(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.height(40.dp).background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}

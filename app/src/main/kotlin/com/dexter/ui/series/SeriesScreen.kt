@@ -43,12 +43,16 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -218,105 +222,29 @@ fun SeriesScreen(
                                 ),
                             ),
                         )
-                        // Top bar: home, subscribe, info, share.
+                        // Top bar: home, info, share.
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Default.Home, contentDescription = stringResource(R.string.home), tint = Color.White, modifier = Modifier.iconTap(onHome))
+                            FilledTonalIconButton(onClick = onHome) {
+                                Icon(Icons.Default.Home, contentDescription = stringResource(R.string.home))
+                            }
                             Spacer(Modifier.weight(1f))
-                            Text(
-                                if (subscribed) "Subscribed" else "+ Subscribe",
-                                color = if (subscribed) Color.Black else MaterialTheme.colorScheme.primary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .then(if (subscribed) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier.border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)))
-                                    .clickable {
-                                        if (!subscribed) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        viewModel.toggleSubscribed(page.detail)
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 5.dp),
-                            )
-                            Box(Modifier.padding(start = 10.dp)) {
-                                Text(
-                                    status?.label ?: "+ List",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .border(1.dp, Color.White, RoundedCornerShape(14.dp))
-                                        .clickable { statusMenu = true }
-                                        .padding(horizontal = 12.dp, vertical = 5.dp),
-                                )
-                                DropdownMenu(expanded = statusMenu, onDismissRequest = { statusMenu = false }) {
-                                    ReadingStatus.entries.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(option.label) },
-                                            onClick = {
-                                                viewModel.setStatus(page.detail, option)
-                                                statusMenu = false
-                                            },
-                                        )
-                                    }
-                                    if (status != null) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.remove_from_lists)) },
-                                            onClick = {
-                                                viewModel.setStatus(page.detail, null)
-                                                statusMenu = false
-                                            },
-                                        )
-                                    }
-                                }
+                            FilledTonalIconButton(onClick = { showInfo = true }) {
+                                Icon(Icons.Default.Info, contentDescription = stringResource(R.string.info))
                             }
-                            Box(Modifier.padding(start = 10.dp)) {
-                                Text(
-                                    "Save",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .border(1.dp, Color.White, RoundedCornerShape(14.dp))
-                                        .clickable { downloadMenu = true }
-                                        .padding(horizontal = 12.dp, vertical = 5.dp),
-                                )
-                                DropdownMenu(expanded = downloadMenu, onDismissRequest = { downloadMenu = false }) {
-                                    listOf("Next 5 unread" to 5, "Next 10 unread" to 10, "All unread" to null).forEach { (label, count) ->
-                                        DropdownMenuItem(
-                                            text = { Text(label) },
-                                            onClick = {
-                                                viewModel.downloadUnread(page.detail, count)
-                                                downloadMenu = false
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                            if (subscribed) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = if (notifyEnabled) "Notifications on for this series" else "Notifications off for this series",
-                                    tint = if (notifyEnabled) MaterialTheme.colorScheme.primary else Color(0xFF777777),
-                                    modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setNotify(!notifyEnabled) },
-                                )
-                            }
-                            Icon(Icons.Default.Info, contentDescription = stringResource(R.string.info), tint = Color.White, modifier = Modifier.padding(start = 8.dp).iconTap { showInfo = true })
-                            Icon(
-                                Icons.Default.Share,
-                                contentDescription = stringResource(R.string.share),
-                                tint = Color.White,
-                                modifier = Modifier.padding(start = 16.dp).clickable {
+                            FilledTonalIconButton(
+                                onClick = {
                                     val send = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, "https://mangadex.org/title/${summary.id}")
                                     }
                                     context.startActivity(Intent.createChooser(send, null))
                                 },
-                            )
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
+                            }
                         }
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
                             GenreLabel(summary.genre)
@@ -340,6 +268,89 @@ fun SeriesScreen(
                                 page.detail.rating?.let {
                                     Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
                                     Text(" %.2f".format(Locale.US, it), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    FlowRow(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ToggleButton(
+                            checked = subscribed,
+                            onCheckedChange = {
+                                if (!subscribed) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                viewModel.toggleSubscribed(page.detail)
+                            },
+                        ) { Text(if (subscribed) "Subscribed" else "Subscribe") }
+                        if (subscribed) {
+                            FilledTonalIconToggleButton(checked = notifyEnabled, onCheckedChange = { viewModel.setNotify(it) }) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = if (notifyEnabled) "Notifications on for this series" else "Notifications off for this series",
+                                )
+                            }
+                        }
+                        Box {
+                            OutlinedButton(onClick = { statusMenu = true }) { Text(status?.label ?: "Add to list") }
+                            DropdownMenu(expanded = statusMenu, onDismissRequest = { statusMenu = false }) {
+                                ReadingStatus.entries.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option.label) },
+                                        onClick = {
+                                            viewModel.setStatus(page.detail, option)
+                                            statusMenu = false
+                                        },
+                                    )
+                                }
+                                collections.forEach { (name, inIt) ->
+                                    DropdownMenuItem(
+                                        text = { Text(if (inIt) "✓ $name" else name) },
+                                        onClick = {
+                                            viewModel.toggleCollection(page.detail, name)
+                                            statusMenu = false
+                                        },
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("New collection…") },
+                                    onClick = {
+                                        statusMenu = false
+                                        newCollection = ""
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Hide from lists and search") },
+                                    onClick = {
+                                        viewModel.hideSeries()
+                                        statusMenu = false
+                                    },
+                                )
+                                if (status != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.remove_from_lists)) },
+                                        onClick = {
+                                            viewModel.setStatus(page.detail, null)
+                                            statusMenu = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        Box {
+                            OutlinedButton(onClick = { downloadMenu = true }) { Text("Save") }
+                            DropdownMenu(expanded = downloadMenu, onDismissRequest = { downloadMenu = false }) {
+                                listOf("Next 5 unread" to 5, "Next 10 unread" to 10, "All unread" to null).forEach { (label, count) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            viewModel.downloadUnread(page.detail, count)
+                                            downloadMenu = false
+                                        },
+                                    )
                                 }
                             }
                         }

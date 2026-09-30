@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
+import com.webtoonclone.data.Order
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.Load
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,14 @@ class SearchViewModel(
     private val _loadingMore = MutableStateFlow(false)
     val loadingMore: StateFlow<Boolean> = _loadingMore
 
+    private val _sort = MutableStateFlow(Order.Popular)
+    val sort: StateFlow<Order> = _sort
+
+    /** What the current results came from, so a new sort can rerun it. */
+    private var request: Request? = null
+
+    private class Request(val title: String?, val tag: String?)
+
     /** Fetches one page of the current search or genre. Null when nothing is showing. */
     private var source: (suspend (page: Int) -> List<SeriesSummary>)? = null
     private var page = 0
@@ -42,19 +51,28 @@ class SearchViewModel(
         val term = query
         viewModelScope.launch {
             library.addSearch(term)
-            start { repository.browse(title = term, page = it) }
+            start(Request(title = term, tag = null))
         }
     }
 
     /** Lists series with a MangaDex tag: a genre, theme, format, or content tag. */
     fun openTag(name: String) {
         query = name
-        viewModelScope.launch { start { repository.browse(tag = name, page = it, withStats = true) } }
+        viewModelScope.launch { start(Request(title = null, tag = name)) }
+    }
+
+    /** Reruns the current results in a new order. */
+    fun setSort(order: Order) {
+        if (order == _sort.value) return
+        _sort.value = order
+        val current = request ?: return
+        viewModelScope.launch { start(current) }
     }
 
     fun clear() {
         query = ""
         source = null
+        request = null
         _results.value = null
     }
 
@@ -90,7 +108,12 @@ class SearchViewModel(
         viewModelScope.launch { library.clearSearches() }
     }
 
-    private suspend fun start(fetch: suspend (page: Int) -> List<SeriesSummary>) {
+    private suspend fun start(req: Request) {
+        val order = _sort.value
+        val fetch: suspend (page: Int) -> List<SeriesSummary> = { p ->
+            repository.browse(title = req.title, tag = req.tag, page = p, order = order, withStats = req.tag != null)
+        }
+        request = req
         source = fetch
         page = 0
         endReached = false

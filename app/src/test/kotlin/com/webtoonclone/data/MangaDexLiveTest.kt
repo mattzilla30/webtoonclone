@@ -87,6 +87,11 @@ class MangaDexLiveTest {
         assertTrue("no Vampires results", vampires.isNotEmpty())
         assertTrue("theme filter had no effect", vampires.map { it.id } != repository.browse(limit = 5).map { it.id })
 
+        // Sorting: newest-first must differ from most-followed for the same search.
+        val popular = repository.browse(title = "love", order = Order.Popular, limit = 5).map { it.id }
+        val newest = repository.browse(title = "love", order = Order.Newest, limit = 5).map { it.id }
+        assertTrue("sort had no effect", popular.isNotEmpty() && popular != newest)
+
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)
         val second = repository.browse(title = "love", page = 1)

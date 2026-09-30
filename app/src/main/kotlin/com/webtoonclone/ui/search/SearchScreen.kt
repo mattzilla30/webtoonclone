@@ -40,16 +40,19 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.webtoonclone.data.ContentTags
 import com.webtoonclone.data.Formats
+import com.webtoonclone.data.Order
 import com.webtoonclone.data.Genres
 import com.webtoonclone.data.Themes
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
+import com.webtoonclone.ui.theme.Green
 
 @Composable
 fun SearchScreen(
@@ -60,6 +63,7 @@ fun SearchScreen(
     val results by viewModel.results.collectAsState()
     val recent by viewModel.recentSearches.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
+    val sort by viewModel.sort.collectAsState()
     var text by rememberSaveable { mutableStateOf(viewModel.query) }
 
     LaunchedEffect(initialGenre) {
@@ -108,6 +112,7 @@ fun SearchScreen(
                 viewModel.openTag(tag)
             }
         } else {
+            SortRow(sort, viewModel::setSort)
             LoadView(current, onRetry = { viewModel.search(text) }) { series ->
                 if (series.isEmpty()) {
                     Text("No series found.", modifier = Modifier.padding(16.dp))
@@ -196,6 +201,33 @@ private fun LazyListScope.tagSection(title: String, tags: List<String>, onTag: (
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
+        }
+    }
+}
+
+private val sortLabels = listOf(
+    Order.Popular to "Popular",
+    Order.Newest to "Newest",
+    Order.Updated to "Recently updated",
+)
+
+/** Chips that choose how search results are ordered. */
+@Composable
+private fun SortRow(selected: Order, onSelect: (Order) -> Unit) {
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        sortLabels.forEach { (order, label) ->
+            val active = order == selected
+            Text(
+                label,
+                fontSize = 12.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                color = if (active) Color.Black else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (active) Green else MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable { onSelect(order) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
         }
     }
 }

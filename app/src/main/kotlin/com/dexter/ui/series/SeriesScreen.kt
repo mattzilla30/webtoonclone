@@ -417,7 +417,10 @@ fun SeriesScreen(
                         ) {
                             Text(
                                 when {
-                                    resumeId != null -> "Continue Ep. ${lastRead?.chapterNumber}"
+                                    resumeId != null -> {
+                                        val unread = unreadChapterCount(page.chapters, lastRead?.chapterNumber)
+                                        "Continue Ep. ${lastRead?.chapterNumber}" + if (unread > 0) " \u00b7 $unread new" else ""
+                                    }
                                     page.hasMore -> "Latest Ep. ${startAt!!.number}"
                                     else -> "Episode ${startAt!!.number}"
                                 },

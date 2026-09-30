@@ -27,3 +27,12 @@ fun hasUnreadChapters(knownNumber: String?, lastReadNumber: String?): Boolean {
  */
 fun previousReadable(chapters: List<com.dexter.data.Chapter>, chapter: com.dexter.data.Chapter): com.dexter.data.Chapter? =
     chapters.dropWhile { it.id != chapter.id }.drop(1).firstOrNull { it.externalUrl == null }
+
+/**
+ * How many readable chapters come after the last one you read. The list is newest first, so the
+ * unread ones are always among the chapters loaded first. Zero when nothing has been read yet.
+ */
+fun unreadChapterCount(chapters: List<com.dexter.data.Chapter>, lastReadNumber: String?): Int {
+    val last = lastReadNumber?.toDoubleOrNull() ?: return 0
+    return chapters.count { it.externalUrl == null && (it.number.toDoubleOrNull() ?: return@count false) > last }
+}

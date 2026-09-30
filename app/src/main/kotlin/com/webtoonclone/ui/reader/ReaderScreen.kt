@@ -40,13 +40,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.SingletonImageLoader
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
+import coil3.request.ImageRequest
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.theme.Green
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 private val Bar = Color(0xE6181818)
+private const val PRELOAD_AHEAD = 4
 
 @Composable
 fun ReaderScreen(
@@ -69,6 +72,20 @@ fun ReaderScreen(
                 snapshotFlow { listState.firstVisibleItemIndex }
                     .distinctUntilChanged()
                     .collect { viewModel.saveProgress(it) }
+            }
+
+            // Fetch the next few pages ahead of the scroll so they are ready when you arrive.
+            LaunchedEffect(listState, page.pages) {
+                val loader = SingletonImageLoader.get(context)
+                snapshotFlow { listState.firstVisibleItemIndex }
+                    .distinctUntilChanged()
+                    .collect { first ->
+                        for (next in first + 1..first + PRELOAD_AHEAD) {
+                            page.pages.getOrNull(next)?.let { url ->
+                                loader.enqueue(ImageRequest.Builder(context).data(url).build())
+                            }
+                        }
+                    }
             }
 
             LazyColumn(

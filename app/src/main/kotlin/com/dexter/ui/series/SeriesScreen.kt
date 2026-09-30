@@ -162,7 +162,7 @@ fun SeriesScreen(
                                 items(state.value, key = { it.url }) { cover ->
                                     Column(Modifier.width(150.dp)) {
                                         Cover(cover.url, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-                                        Text(cover.volume?.let { "Volume $it" } ?: "No volume", fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                                        Text(cover.volume?.let { "Volume $it" } ?: "No volume", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
                                     }
                                 }
                             }
@@ -205,7 +205,7 @@ fun SeriesScreen(
                     item {
                         Text(
                             "Offline. Showing a copy saved ${timeAgo(java.time.Instant.ofEpochMilli(savedAt))}. Tap to retry.",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -251,11 +251,11 @@ fun SeriesScreen(
                         }
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
                             GenreLabel(summary.genre)
-                            Text(summary.title, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            Text(summary.title, style = MaterialTheme.typography.headlineLargeEmphasized, color = Color.White)
                             val authorId = summary.authorId
                             Text(
                                 summary.author.orEmpty(),
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = if (authorId != null && !summary.author.isNullOrBlank()) {
                                     Modifier.clickable { onOpenAuthor(authorId, summary.author.orEmpty()) }
@@ -266,11 +266,11 @@ fun SeriesScreen(
                             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 summary.follows?.let {
                                     Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
-                                    Text(" ${compact(it)}   ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(" ${compact(it)}   ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 page.detail.rating?.let {
                                     Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
-                                    Text(" %.2f".format(Locale.US, it), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(" %.2f".format(Locale.US, it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -371,7 +371,7 @@ fun SeriesScreen(
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(related, key = { it.second.id }) { (kind, other) ->
                                 Column(Modifier.width(110.dp)) {
-                                    Text(kind, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 4.dp))
+                                    Text(kind, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 4.dp))
                                     PickTile(other, { onOpenSeries(other.id) }, Modifier.fillMaxWidth())
                                 }
                             }
@@ -392,7 +392,7 @@ fun SeriesScreen(
                     item {
                         Text(
                             "No chapters in ${languageName(viewModel.language)} yet. Change the language in Settings.",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp),
                         )
@@ -404,7 +404,7 @@ fun SeriesScreen(
                     if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
                         Text(
                             "This series is hosted by its publisher. Episodes open in your browser.",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp),
                         )
@@ -431,7 +431,7 @@ fun SeriesScreen(
                     when (item) {
                         is ChapterListItem.VolumeHeader -> Text(
                             item.label,
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
@@ -499,7 +499,7 @@ private fun Description(text: String) {
     ) {
         Text(
             text,
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodyMedium,
             maxLines = if (expanded) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
@@ -508,7 +508,7 @@ private fun Description(text: String) {
         if (cutOff || expanded) {
             Text(
                 if (expanded) "Show less" else "Read more",
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 6.dp),
@@ -553,12 +553,12 @@ private fun EpisodeRow(
                         if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
                         if (chapter.externalUrl != null) append("  ↗")
                     },
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
                     listOfNotNull(formatChapterDate(chapter.publishedAt), chapter.group, if (saved) "Saved" else if (saving) "Saving..." else null).joinToString(" · "),
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -618,46 +618,46 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
-            Text(detail.status.uppercase(), color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(detail.status.uppercase(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLargeEmphasized)
             val facts = listOfNotNull(
                 detail.year?.toString(),
                 detail.demographic,
                 languageName(detail.originalLanguage).takeIf { it.isNotEmpty() },
             )
             if (facts.isNotEmpty()) {
-                Text(facts.joinToString(" · "), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             }
-            Text(detail.summary.description, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
+            Text(detail.summary.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 12.dp))
             if (!detail.summary.author.isNullOrBlank()) {
-                Text(stringResource(R.string.written_by), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(detail.summary.author, fontSize = 13.sp)
+                Text(stringResource(R.string.written_by), style = MaterialTheme.typography.labelLargeEmphasized)
+                Text(detail.summary.author, style = MaterialTheme.typography.bodyMedium)
             }
             if (detail.altTitles.isNotEmpty()) {
-                Text(stringResource(R.string.also_known_as), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
-                detail.altTitles.forEach { Text(it, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
+                Text(stringResource(R.string.also_known_as), style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(top = 12.dp))
+                detail.altTitles.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp)) }
             }
             if (detail.ratingDistribution.isNotEmpty()) {
-                Text(stringResource(R.string.ratings), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.ratings), style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(top = 12.dp))
                 val most = detail.ratingDistribution.values.max().coerceAtLeast(1)
                 detail.ratingDistribution.forEach { (score, count) ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                        Text("$score", fontSize = 11.sp, modifier = Modifier.width(20.dp))
+                        Text("$score", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(20.dp))
                         Box(Modifier.height(8.dp).fillMaxWidth(count.toFloat() / most * 0.6f).background(MaterialTheme.colorScheme.primary))
-                        Text(" $count", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(" $count", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            Text(stringResource(R.string.covers), fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
+            Text(stringResource(R.string.covers), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
             Text(
                 "Open on MangaDex",
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickable { onOpenLink("https://mangadex.org/title/${detail.summary.id}") }.padding(vertical = 4.dp),
             )
             if (detail.links.isNotEmpty()) {
-                Text(stringResource(R.string.links), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.links), style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(top = 12.dp))
                 detail.links.forEach { link ->
-                    Text(link.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onOpenLink(link.url) }.padding(vertical = 4.dp))
+                    Text(link.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onOpenLink(link.url) }.padding(vertical = 4.dp))
                 }
             }
         }

@@ -105,7 +105,7 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 Heading("Tags")
-                Text(stringResource(R.string.tap_once_to_include_twice_to_exclude_thr), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.tap_once_to_include_twice_to_exclude_thr), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ChoiceChip("Match all", draft.matchAll) { draft = draft.copy(matchAll = true) }
                     ChoiceChip("Match any", !draft.matchAll) { draft = draft.copy(matchAll = false) }
@@ -129,7 +129,7 @@ private fun Heading(text: String) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TagGroup(title: String, tags: List<String>, draft: SearchFilters, onCycle: (String) -> Unit) {
-    Text(title, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+    Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         tags.sortedBy { it.lowercase() }.forEach { tag ->
             val (label, background) = when (tag) {
@@ -139,7 +139,7 @@ private fun TagGroup(title: String, tags: List<String>, draft: SearchFilters, on
             }
             Text(
                 label,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = if (tag in draft.included || tag in draft.excluded) Color.White else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(background).clickable { onCycle(tag) }.padding(horizontal = 12.dp, vertical = 6.dp),
             )

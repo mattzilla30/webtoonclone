@@ -155,7 +155,7 @@ fun LibraryScreen(
                 if (collection != null) {
                     Text(
                         "Delete this collection",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp).clickable {
                             viewModel.deleteCollection(collection)
@@ -177,15 +177,15 @@ fun LibraryScreen(
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${items.size} SERIES", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text("${items.size} SERIES", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
                         if (alphabetical) "Sort: A-Z" else "Sort: Recent",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.clickable { viewModel.setSortAlphabetical(!alphabetical) },
                     )
                     Text(
-                        "Delete", fontSize = 12.sp,
+                        "Delete", style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.clickable(enabled = selected.isNotEmpty()) {
                             undo = UndoState(tab, tabItems, selected.size, collection)
                             if (collection != null) viewModel.removeFromCollection(collection, selected.toSet()) else viewModel.delete(tab, selected.toSet())
@@ -193,7 +193,7 @@ fun LibraryScreen(
                         },
                     )
                     Text(
-                        "Delete All", fontSize = 12.sp,
+                        "Delete All", style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.clickable(enabled = items.isNotEmpty()) {
                             undo = UndoState(tab, tabItems, items.size, collection)
                             val ids = items.map { it.id }.toSet()
@@ -231,15 +231,15 @@ fun LibraryScreen(
                                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                     val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
                                     if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {
-                                        Text(stringResource(R.string.new_label), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text(stringResource(R.string.new_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                     }
                                     Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
                                     if (tab == LibraryList.Lists) {
-                                        series.status?.let { Text(it.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }
+                                        series.status?.let { Text(it.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
                                     }
                                     series.chapterNumber?.let {
                                         val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(java.time.Instant.ofEpochMilli(series.at)) else ""
-                                        Text("Ep. $it$readAt", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Ep. $it$readAt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                                 Checkbox(
@@ -270,11 +270,11 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Removed ${state.count} series", fontSize = 13.sp)
+                Text("Removed ${state.count} series", style = MaterialTheme.typography.bodyMedium)
                 Text(
                     "Undo",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable {
                         if (state.collection != null) viewModel.restoreCollection(state.collection, state.snapshot) else viewModel.restore(state.list, state.snapshot)

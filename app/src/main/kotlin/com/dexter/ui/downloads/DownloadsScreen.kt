@@ -63,10 +63,10 @@ fun DownloadsScreen(
                     item(key = "series-${group.seriesId}") {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(group.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("${group.chapters.size} chapters, ${formatBytes(group.bytes)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(group.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text("${group.chapters.size} chapters, ${formatBytes(group.bytes)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text(stringResource(R.string.remove), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.deleteSeries(group.seriesId) })
+                            Text(stringResource(R.string.remove), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.deleteSeries(group.seriesId) })
                         }
                     }
                     items(group.chapters, key = { it.chapterId }) { chapter ->
@@ -80,11 +80,11 @@ fun DownloadsScreen(
                                     append("Ep. ${chapter.number}")
                                     if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
                                 },
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(formatBytes(chapter.bytes), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp))
-                            Text(stringResource(R.string.remove), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.delete(chapter.chapterId) })
+                            Text(formatBytes(chapter.bytes), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp))
+                            Text(stringResource(R.string.remove), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.delete(chapter.chapterId) })
                         }
                     }
                 }

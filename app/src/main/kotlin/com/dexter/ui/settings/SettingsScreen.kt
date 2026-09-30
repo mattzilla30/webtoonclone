@@ -152,12 +152,12 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             ) { code -> viewModel.update { it.copy(language = code) } }
             Text(
                 "Chapters, titles, and descriptions use this language when MangaDex has it.",
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Column(Modifier.padding(vertical = 8.dp)) {
-                Text(stringResource(R.string.content_ratings), fontSize = 14.sp)
+                Text(stringResource(R.string.content_ratings), style = MaterialTheme.typography.bodyMedium)
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ContentRatings.forEach { rating ->
                         val on = rating in settings.contentRatings
@@ -172,14 +172,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 }
                 Text(
                     "Choose which MangaDex ratings appear in lists and search. Erotica and pornographic are on by default here.",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
 
             SectionTitle("Blocking")
-            Text(stringResource(R.string.blocked_tags_stay_out_of_lists_and_searc), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.blocked_tags_stay_out_of_lists_and_searc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 settings.blockedTags.sorted().forEach { tag ->
                     ChoiceChip("$tag  ×", true) { viewModel.update { it.copy(blockedTags = it.blockedTags - tag) } }
@@ -187,7 +187,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 ChoiceChip("+ Block a tag", false) { pickTag = true }
             }
             if (settings.blockedGroups.isNotEmpty()) {
-                Text(stringResource(R.string.blocked_scanlation_groups_tap_to_unblock), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.blocked_scanlation_groups_tap_to_unblock), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     settings.blockedGroups.sorted().forEach { group ->
                         ChoiceChip("$group  ×", true) { viewModel.update { it.copy(blockedGroups = it.blockedGroups - group) } }
@@ -196,8 +196,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             }
             if (settings.hiddenSeries.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${settings.hiddenSeries.size} hidden series", fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.show_all_again), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.update { it.copy(hiddenSeries = emptySet()) } })
+                    Text("${settings.hiddenSeries.size} hidden series", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.show_all_again), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { viewModel.update { it.copy(hiddenSeries = emptySet()) } })
                 }
             }
 
@@ -221,51 +221,51 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             SectionTitle("Storage")
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.cache), fontSize = 14.sp)
+                    Text(stringResource(R.string.cache), style = MaterialTheme.typography.bodyMedium)
                     Text(
                         cacheBytes?.let(::formatBytes) ?: "Measuring...",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(stringResource(R.string.clear_cache), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.clearCache() })
+                Text(stringResource(R.string.clear_cache), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { viewModel.clearCache() })
             }
 
             SwitchRow("Save on Wi-Fi only", "Downloads wait for an unmetered connection.", settings.downloadWifiOnly) { on ->
                 viewModel.update { it.copy(downloadWifiOnly = on) }
             }
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpenDownloads).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.downloaded_chapters), fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.downloaded_chapters), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
 
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpenStats).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.reading_stats), fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.reading_stats), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
 
             SectionTitle("Backup")
             Text(
                 "Save your library, lists, reading positions, and settings to a file. Restoring replaces what is on this device.",
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text(stringResource(R.string.save_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { exportLauncher.launch("dexter-backup.json") })
-                Text(stringResource(R.string.restore_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
+                Text(stringResource(R.string.save_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { exportLauncher.launch("dexter-backup.json") })
+                Text(stringResource(R.string.restore_backup), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.daily_backup_folder), fontSize = 14.sp)
+                    Text(stringResource(R.string.daily_backup_folder), style = MaterialTheme.typography.bodyMedium)
                     Text(
                         if (settings.autoBackupFolder == null) "Off" else "On. Writes dexter-backup.json once a day.",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(stringResource(R.string.choose), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { folderLauncher.launch(null) })
+                Text(stringResource(R.string.choose), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clickable { folderLauncher.launch(null) })
                 if (settings.autoBackupFolder != null) {
-                    Text(stringResource(R.string.turn_off), fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setAutoBackupFolder(null) })
+                    Text(stringResource(R.string.turn_off), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setAutoBackupFolder(null) })
                 }
             }
 
@@ -328,9 +328,9 @@ private fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, selecte
 @Composable
 private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text("-", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 23) % 24) }.padding(horizontal = 16.dp))
-        Text("%02d:00".format(hour), fontSize = 14.sp)
+        Text("%02d:00".format(hour), style = MaterialTheme.typography.bodyMedium)
         Text("+", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onChange((hour + 1) % 24) }.padding(horizontal = 16.dp))
     }
 }

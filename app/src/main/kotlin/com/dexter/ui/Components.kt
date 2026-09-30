@@ -98,7 +98,7 @@ fun thumbnailUrl(url: String?): String? = url?.replace(".512.jpg", ".256.jpg")
 @Composable
 fun GenreLabel(genre: String?) {
     if (genre == null) return
-    Text(genre, color = genreColor(genre) ?: MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    Text(genre, color = genreColor(genre) ?: MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
 }
 
 @Composable
@@ -107,7 +107,7 @@ fun HeartCount(count: Int?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(3.dp))
-        Text(compact(count), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+        Text(compact(count), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
     }
 }
 

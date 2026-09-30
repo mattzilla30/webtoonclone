@@ -180,7 +180,7 @@ fun SearchScreen(
             if (viewModel.canSave) {
                 Text(
                     "Save this search",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).clickable { saveName = text.ifBlank { "" } },
@@ -236,7 +236,7 @@ private fun Idle(
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         if (message != null) {
-            item { Text(message, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp)) }
+            item { Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp)) }
         }
         // Titles that match what is being typed, before the browse lists.
         items(suggestions, key = { it.id }) { series ->
@@ -247,7 +247,7 @@ private fun Idle(
                 Cover(series.coverUrl, series.title, Modifier.width(36.dp).aspectRatio(2f / 3f), thumb = true)
                 Column(Modifier.padding(start = 12.dp)) {
                     GenreLabel(series.genre)
-                    Text(series.title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
                 }
             }
         }
@@ -260,7 +260,7 @@ private fun Idle(
                             Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { viewModel.openSaved(search) }.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(search.name, fontSize = 12.sp)
+                            Text(search.name, style = MaterialTheme.typography.bodySmall)
                             Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.deleteSaved(search.name) })
                         }
                     }
@@ -271,7 +271,7 @@ private fun Idle(
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.recent_searches), fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.delete_all), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.clearSearches() })
+                    Text(stringResource(R.string.delete_all), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.clearSearches() })
                 }
                 FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     recent.sortedBy { it.lowercase() }.forEach { term ->
@@ -279,7 +279,7 @@ private fun Idle(
                             Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { viewModel.search(term) }.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(term, fontSize = 12.sp)
+                            Text(term, style = MaterialTheme.typography.bodySmall)
                             Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.removeSearch(term) })
                         }
                     }
@@ -306,7 +306,7 @@ private fun LazyListScope.tagSection(title: String, tags: List<String>, onTag: (
             tags.sortedBy { it.lowercase() }.forEach { tag ->
                 Text(
                     tag,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)

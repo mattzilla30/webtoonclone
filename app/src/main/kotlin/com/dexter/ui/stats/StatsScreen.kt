@@ -51,14 +51,14 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
                     Text(stringResource(R.string.most_read), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
                     current.topSeries.forEach { (title, count) ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(title, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                            Text("$count", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            Text("$count", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
                 Text(
                     "Counts start from when this feature was added. Older reads are not included.",
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 24.dp),
                 )
@@ -71,7 +71,7 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
 private fun Figure(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -82,9 +82,9 @@ private fun DayBars(stats: ReadingStats) {
     Row(Modifier.fillMaxWidth().height(110.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
         stats.perDay.forEach { (day, count) ->
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("$count", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$count", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.fillMaxWidth().height((70 * count / max).coerceAtLeast(2).dp).background(if (count > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)) {}
-                Text(day.dayOfWeek.getDisplayName(TextStyle.SHORT, LocalConfiguration.current.locales[0]), fontSize = 10.sp)
+                Text(day.dayOfWeek.getDisplayName(TextStyle.SHORT, LocalConfiguration.current.locales[0]), style = MaterialTheme.typography.labelSmall)
             }
         }
     }

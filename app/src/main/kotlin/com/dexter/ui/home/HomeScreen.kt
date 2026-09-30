@@ -132,7 +132,7 @@ fun HomeScreen(
                     item {
                         Text(
                             "Offline. Showing home saved ${timeAgo(Instant.ofEpochMilli(savedAt))}. Tap to retry.",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -213,7 +213,7 @@ fun HomeScreen(
             }
             Text(
                 message,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(16.dp)

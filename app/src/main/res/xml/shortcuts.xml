@@ -24,4 +24,16 @@
             <extra android:name="route" android:value="library" />
         </intent>
     </shortcut>
+    <shortcut
+        android:shortcutId="downloads"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_downloads">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.dexter.MainActivity"
+            android:targetPackage="com.dexter">
+            <extra android:name="route" android:value="downloads" />
+        </intent>
+    </shortcut>
 </shortcuts>

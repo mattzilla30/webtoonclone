@@ -180,6 +180,8 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
         if (open != null) {
             if (open.route in tabs.map { it.route }) {
                 nav.navigateTab(open.route!!)
+            } else if (open.route == "downloads") {
+                nav.navigate("downloads")
             } else {
                 // A chapter link names only the chapter, so ask MangaDex which series it belongs to.
                 val seriesId = open.seriesId ?: open.chapterId?.let { runCatching { app.repository.seriesIdForChapter(it) }.getOrNull() }

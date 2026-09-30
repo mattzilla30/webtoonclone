@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -66,13 +68,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import com.webtoonclone.data.Chapter
+import com.webtoonclone.data.ChapterListItem
 import com.webtoonclone.data.ReadingStatus
 import com.webtoonclone.data.SeriesDetail
+import com.webtoonclone.data.groupByVolume
 import com.webtoonclone.data.languageName
 import com.webtoonclone.ui.ChoiceChip
 import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.GenreLabel
 import com.webtoonclone.ui.LoadView
+import com.webtoonclone.ui.PickTile
 import com.webtoonclone.ui.compact
 import com.webtoonclone.ui.formatChapterDate
 import com.webtoonclone.ui.theme.Green
@@ -85,7 +90,11 @@ fun SeriesScreen(
     onOpenChapter: (chapterId: String) -> Unit,
     onHome: () -> Unit,
     onOpenTag: (String) -> Unit,
+    onOpenSeries: (String) -> Unit,
+    onOpenAuthor: (id: String, name: String) -> Unit,
 ) {
+    val similar by viewModel.similar.collectAsState()
+    val preferredGroup by viewModel.preferredGroup.collectAsState()
     val state by viewModel.state.collectAsState()
     val notifyEnabled by viewModel.notifyEnabled.collectAsState()
     val lastRead by viewModel.lastRead.collectAsState()
@@ -232,7 +241,17 @@ fun SeriesScreen(
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
                             GenreLabel(summary.genre)
                             Text(summary.title, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                            Text(summary.author.orEmpty(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val authorId = summary.authorId
+                            Text(
+                                summary.author.orEmpty(),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = if (authorId != null && !summary.author.isNullOrBlank()) {
+                                    Modifier.clickable { onOpenAuthor(authorId, summary.author.orEmpty()) }
+                                } else {
+                                    Modifier
+                                },
+                            )
                             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 summary.follows?.let {
                                     Icon(Icons.Default.Favorite, contentDescription = null, tint = Green, modifier = Modifier.size(12.dp))
@@ -251,6 +270,26 @@ fun SeriesScreen(
                 }
                 if (page.detail.tags.isNotEmpty()) {
                     item { TagChips(page.detail.tags, onOpenTag) }
+                }
+                if (similar.isNotEmpty()) {
+                    item {
+                        Text("Similar series", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
+                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(similar, key = { it.id }) { other ->
+                                PickTile(other, { onOpenSeries(other.id) }, Modifier.width(110.dp))
+                            }
+                        }
+                    }
+                }
+                if (page.chapters.isEmpty() && !page.hasMore) {
+                    item {
+                        Text(
+                            "No chapters in ${languageName(viewModel.language)} yet. Change the language in Settings.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
                 }
                 item {
                     if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
@@ -281,19 +320,35 @@ fun SeriesScreen(
                         }
                     }
                 }
-                items(page.chapters, key = { it.id }) { chapter ->
-                    val readable = chapter.externalUrl == null
-                    val previous = previousReadable(page.chapters, chapter)
-                    EpisodeRow(
-                        chapter,
-                        summary.coverUrl,
-                        read = isChapterRead(chapter.number, lastRead?.chapterNumber),
-                        onClick = { open(chapter) },
-                        // Read marks apply to chapters that open in the reader.
-                        onMarkRead = if (readable) ({ viewModel.markReadUpTo(chapter, page.detail) }) else null,
-                        // Marking unread needs an earlier chapter to fall back to, or the full list.
-                        onMarkUnread = if (readable && (previous != null || !page.hasMore)) ({ viewModel.markUnreadFrom(previous, page.detail) }) else null,
-                    )
+                val listItems = groupByVolume(page.chapters)
+                items(listItems, key = { item -> if (item is ChapterListItem.Entry) item.chapter.id else "volume-${(item as ChapterListItem.VolumeHeader).label}" }) { item ->
+                    when (item) {
+                        is ChapterListItem.VolumeHeader -> Text(
+                            item.label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Green,
+                            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
+                        )
+                        is ChapterListItem.Entry -> {
+                            val chapter = item.chapter
+                            val readable = chapter.externalUrl == null
+                            val previous = previousReadable(page.chapters, chapter)
+                            EpisodeRow(
+                                chapter,
+                                summary.coverUrl,
+                                read = isChapterRead(chapter.number, lastRead?.chapterNumber),
+                                preferredGroup = preferredGroup,
+                                onClick = { open(chapter) },
+                                // Read marks apply to chapters that open in the reader.
+                                onMarkRead = if (readable) ({ viewModel.markReadUpTo(chapter, page.detail) }) else null,
+                                // Marking unread needs an earlier chapter to fall back to, or the full list.
+                                onMarkUnread = if (readable && (previous != null || !page.hasMore)) ({ viewModel.markUnreadFrom(previous, page.detail) }) else null,
+                                onPreferGroup = viewModel::setPreferredGroup,
+                                onOpenUpload = { upload -> open(upload) },
+                            )
+                        }
+                    }
                 }
                 if (loadingMore) {
                     item {
@@ -348,6 +403,9 @@ private fun EpisodeRow(
     onClick: () -> Unit,
     onMarkRead: (() -> Unit)?,
     onMarkUnread: (() -> Unit)?,
+    preferredGroup: String?,
+    onPreferGroup: (String?) -> Unit,
+    onOpenUpload: (Chapter) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -355,7 +413,7 @@ private fun EpisodeRow(
             Modifier
                 .fillMaxWidth()
                 .alpha(if (read) 0.5f else 1f)
-                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null) ({ menu = true }) else null)
+                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty()) ({ menu = true }) else null)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -370,7 +428,11 @@ private fun EpisodeRow(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                 )
-                Text(formatChapterDate(chapter.publishedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    listOfNotNull(formatChapterDate(chapter.publishedAt), chapter.group).joinToString(" · "),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -379,6 +441,19 @@ private fun EpisodeRow(
             }
             if (onMarkUnread != null) {
                 DropdownMenuItem(text = { Text("Mark unread from here") }, onClick = { menu = false; onMarkUnread() })
+            }
+            chapter.group?.let { group ->
+                if (group == preferredGroup) {
+                    DropdownMenuItem(text = { Text("Stop preferring $group") }, onClick = { menu = false; onPreferGroup(null) })
+                } else {
+                    DropdownMenuItem(text = { Text("Prefer $group") }, onClick = { menu = false; onPreferGroup(group) })
+                }
+            }
+            chapter.alternates.forEach { upload ->
+                DropdownMenuItem(
+                    text = { Text("Read ${upload.group ?: "other upload"}") },
+                    onClick = { menu = false; onOpenUpload(upload) },
+                )
             }
         }
     }

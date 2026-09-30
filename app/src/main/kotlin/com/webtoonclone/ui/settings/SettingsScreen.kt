@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.data.Languages
 import com.webtoonclone.data.ReaderBackground
 import com.webtoonclone.data.ThemeMode
 import com.webtoonclone.data.formatBytes
@@ -116,6 +117,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenAbout
             SwitchRow("Original titles", "Show the romanized original title instead of the English one.", settings.originalTitles) { on ->
                 viewModel.update { it.copy(originalTitles = on) }
             }
+
+            ChoiceRow(
+                "Language",
+                Languages.map { it.code to it.name },
+                settings.language,
+            ) { code -> viewModel.update { it.copy(language = code) } }
+            Text(
+                "Chapters, titles, and descriptions use this language when MangaDex has it.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             SectionTitle("Notifications")
             SwitchRow(

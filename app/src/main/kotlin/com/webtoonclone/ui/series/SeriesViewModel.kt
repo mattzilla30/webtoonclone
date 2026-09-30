@@ -11,6 +11,8 @@ import com.webtoonclone.data.ReadingStatus
 import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.SeriesDetail
+import com.webtoonclone.data.SeriesSummary
+import com.webtoonclone.data.SettingsStore
 import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.async
@@ -18,6 +20,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -34,6 +39,7 @@ class SeriesViewModel(
     private val repository: MangaDexRepository,
     private val libraryStore: LibraryStore,
     private val seriesCache: SeriesCacheStore,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
     private val _state = MutableStateFlow<Load<SeriesPage>>(Load.Loading)
     val state: StateFlow<Load<SeriesPage>> = _state
@@ -90,7 +96,32 @@ class SeriesViewModel(
         }
     }
 
-    init { load() }
+    /** Series with the same leading tags, loaded once the series page is ready. Empty until then. */
+    private val _similar = MutableStateFlow<List<SeriesSummary>>(emptyList())
+    val similar: StateFlow<List<SeriesSummary>> = _similar
+
+    /** The group whose uploads this series prefers, or null when none is chosen. */
+    val preferredGroup: StateFlow<String?> = settingsStore.settings
+        .map { it.preferredGroups[seriesId] }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Saves [group] as the preferred uploader for this series, or clears it when null, then reloads the list. */
+    fun setPreferredGroup(group: String?) {
+        viewModelScope.launch {
+            settingsStore.update { settings ->
+                settings.copy(preferredGroups = if (group == null) settings.preferredGroups - seriesId else settings.preferredGroups + (seriesId to group))
+            }
+            load()
+        }
+    }
+
+    val language: String get() = repository.language
+
+    init {
+        load()
+        // A new content language changes the titles and chapters, so the page loads again.
+        viewModelScope.launch { repository.contentVersion.drop(1).collect { load() } }
+    }
 
     fun toggleSubscribed(detail: SeriesDetail) {
         viewModelScope.launch {
@@ -118,15 +149,17 @@ class SeriesViewModel(
         seen.clear()
         viewModelScope.launch {
             try {
+                val group = settingsStore.current().preferredGroups[seriesId]
                 val ready = coroutineScope {
                     val detail = async { repository.series(seriesId) }
-                    val first = async { repository.chapterPage(seriesId, 0, seen) }
+                    val first = async { repository.chapterPage(seriesId, 0, seen, group) }
                     val page = first.await()
                     nextOffset = page.nextOffset
                     SeriesPage(detail.await(), page.chapters, page.nextOffset != null)
                 }
                 _offlineSavedAt.value = null
                 _state.value = Load.Ready(ready)
+                loadSimilar(ready.detail)
                 val saved = CachedSeries(ready.detail, ready.chapters.take(MAX_CACHED_CHAPTERS), System.currentTimeMillis(), repository.language)
                 runCatching { seriesCache.save(saved) }
             } catch (e: Exception) {
@@ -143,6 +176,13 @@ class SeriesViewModel(
         }
     }
 
+    private fun loadSimilar(detail: SeriesDetail) {
+        _similar.value = emptyList()
+        viewModelScope.launch {
+            _similar.value = runCatching { repository.similar(seriesId, detail.tags) }.getOrDefault(emptyList())
+        }
+    }
+
     /** Appends the next page of older chapters. Called when the list scrolls near its end. */
     fun loadMore() {
         val offset = nextOffset ?: return
@@ -151,7 +191,7 @@ class SeriesViewModel(
         _loadingMore.value = true
         viewModelScope.launch {
             try {
-                val page = repository.chapterPage(seriesId, offset, seen)
+                val page = repository.chapterPage(seriesId, offset, seen, settingsStore.current().preferredGroups[seriesId])
                 nextOffset = page.nextOffset
                 _state.value = Load.Ready(
                     current.copy(chapters = current.chapters + page.chapters, hasMore = page.nextOffset != null),

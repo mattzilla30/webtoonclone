@@ -9,6 +9,7 @@ import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 class UpdatesViewModel(
@@ -27,7 +28,11 @@ class UpdatesViewModel(
 
     private var page = 0
 
-    init { load() }
+    init {
+        load()
+        // A new content language changes which chapters are listed.
+        viewModelScope.launch { repository.contentVersion.drop(1).collect { load() } }
+    }
 
     fun load() {
         _state.value = Load.Loading

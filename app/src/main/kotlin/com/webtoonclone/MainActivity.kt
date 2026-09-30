@@ -52,6 +52,8 @@ import com.webtoonclone.notify.EXTRA_SERIES_ID
 import com.webtoonclone.notify.MangaDexLink
 import com.webtoonclone.notify.openRoutes
 import com.webtoonclone.notify.parseMangaDexLink
+import com.webtoonclone.ui.author.AuthorScreen
+import com.webtoonclone.ui.author.AuthorViewModel
 import com.webtoonclone.ui.home.HomeScreen
 import com.webtoonclone.ui.home.HomeViewModel
 import com.webtoonclone.ui.library.LibraryScreen
@@ -222,13 +224,21 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
                     composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
                     composable("series/{seriesId}") { entry ->
                         val seriesId = entry.arguments!!.getString("seriesId")!!
-                        val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore, app.seriesCache) }
+                        val vm = viewModel { SeriesViewModel(seriesId, app.repository, app.libraryStore, app.seriesCache, app.settingsStore) }
                         SeriesScreen(
                             vm,
                             onOpenChapter = { nav.navigate("series/$seriesId/$it") },
                             onHome = { nav.navigateTab("home") },
                             onOpenTag = { tag -> nav.navigate("search?genre=${android.net.Uri.encode(tag)}") },
+                            onOpenSeries = { nav.navigate("series/$it") },
+                            onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${android.net.Uri.encode(name)}") },
                         )
+                    }
+                    composable("author/{authorId}?name={name}") { entry ->
+                        val authorId = entry.arguments!!.getString("authorId")!!
+                        val name = entry.arguments?.getString("name").orEmpty()
+                        val vm = viewModel(key = authorId) { AuthorViewModel(authorId, app.repository) }
+                        AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
                     }
                     composable("series/{seriesId}/{chapterId}") { entry ->
                         val seriesId = entry.arguments!!.getString("seriesId")!!

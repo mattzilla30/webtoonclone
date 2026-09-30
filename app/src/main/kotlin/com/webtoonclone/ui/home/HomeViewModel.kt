@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -102,6 +103,11 @@ class HomeViewModel(
     /** When the shown content is a saved copy because the network failed, the time it was saved. */
     private val _offlineSavedAt = MutableStateFlow<Long?>(null)
     val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt
+
+    init {
+        // A new content language changes every title and cover, so the home screen loads again.
+        viewModelScope.launch { repository.contentVersion.drop(1).collect { load(showSpinner = true) } }
+    }
 
     private var seenOpen = 0
     private var busy = false

@@ -57,6 +57,12 @@ class MangaDexLiveTest {
         assertTrue("page 2 repeats page 1", b.chapters.none { c -> a.chapters.any { it.number == c.number } })
         println("chapter pages: ${a.chapters.size} then ${b.chapters.size}, first=${a.chapters.first().number}")
 
+        // Updates: newest readable chapters, one row per series.
+        val updates = repository.latestUpdates(0)
+        assertTrue("updates are empty", updates.isNotEmpty())
+        assertTrue("a series repeats within one page", updates.map { it.series.id }.toSet().size == updates.size)
+        println("updates=${updates.size} newest=${updates.first().series.title} ep ${updates.first().chapterNumber}")
+
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)
         val second = repository.browse(title = "love", page = 1)

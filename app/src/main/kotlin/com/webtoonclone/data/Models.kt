@@ -19,6 +19,9 @@ data class SeriesDetail(
     val rating: Double?,
 )
 
+/** A series with its newest chapter, for the Updates tab. */
+data class UpdateEntry(val series: SeriesSummary, val chapterNumber: String, val publishedAt: String)
+
 data class ChapterPage(val chapters: List<Chapter>, val nextOffset: Int?)
 
 data class Chapter(

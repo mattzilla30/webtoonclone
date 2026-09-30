@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,8 @@ import com.webtoonclone.ui.search.SearchViewModel
 import com.webtoonclone.ui.series.SeriesScreen
 import com.webtoonclone.ui.series.SeriesViewModel
 import com.webtoonclone.ui.theme.Green
+import com.webtoonclone.ui.updates.UpdatesScreen
+import com.webtoonclone.ui.updates.UpdatesViewModel
 import com.webtoonclone.ui.theme.WebtoonTheme
 
 class MainActivity : ComponentActivity() {
@@ -74,6 +77,7 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 private val tabs = listOf(
     Tab("home", "Home", Icons.Default.Home),
     Tab("search", "Search", Icons.Default.Search),
+    Tab("updates", "Updates", Icons.Default.Refresh),
     Tab("library", "My Series", Icons.Default.Favorite),
 )
 
@@ -116,6 +120,12 @@ private fun WebtoonNav(openCount: Int) {
                     val vm = viewModel { SearchViewModel(app.repository, app.libraryStore) }
                     Box(Modifier.fillMaxSize()) {
                         SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
+                    }
+                }
+                composable("updates") {
+                    val vm = viewModel { UpdatesViewModel(app.repository) }
+                    Box(Modifier.fillMaxSize()) {
+                        UpdatesScreen(vm, onOpenSeries = { nav.navigate("series/$it") })
                     }
                 }
                 composable("library") {

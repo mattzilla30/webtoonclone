@@ -16,6 +16,7 @@ private const val PAGE_SIZE = 24
 private const val LANG = "en"
 private const val CHAPTER_PAGE = 500
 private const val MAX_ATTEMPTS = 3
+private const val UPDATES_PAGE = 50
 
 private val GENRE_TAGLINES = mapOf(
     "Romance" to "Love, crushes, and second chances",
@@ -93,6 +94,32 @@ class MangaDexRepository(private val client: OkHttpClient) {
             GenreBand(genre, tagline, series)
         }
         return HomeContent(hero, newSeries, picks, bands)
+    }
+
+    /** One page of series ordered by their newest readable chapter. Repeats across pages are possible. */
+    suspend fun latestUpdates(page: Int): List<UpdateEntry> {
+        val url = "$API/chapter".toHttpUrl().newBuilder()
+            .addQueryParameter("limit", UPDATES_PAGE.toString())
+            .addQueryParameter("offset", (page * UPDATES_PAGE).toString())
+            .addQueryParameter("includeExternalUrl", "0")
+            .addQueryParameter("translatedLanguage[]", LANG)
+            .addQueryParameter("order[readableAt]", "desc")
+            .addQueryParameter("contentRating[]", "safe")
+            .addQueryParameter("contentRating[]", "suggestive")
+            .build()
+        val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
+        // Keep the newest chapter per series, in feed order.
+        val newest = LinkedHashMap<String, ChapterDto>()
+        for (chapter in feed) {
+            val id = chapter.relationships.firstOrNull { it.type == "manga" }?.id ?: continue
+            newest.putIfAbsent(id, chapter)
+        }
+        if (newest.isEmpty()) return emptyList()
+        val byId = browse(ids = newest.keys.toList(), limit = newest.size).associateBy { it.id }
+        return newest.mapNotNull { (id, chapter) ->
+            val series = byId[id] ?: return@mapNotNull null
+            UpdateEntry(series, chapter.attributes.chapter ?: "Oneshot", chapter.attributes.publishAt)
+        }
     }
 
     /**

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.webtoonclone.data.ContentTags
 import com.webtoonclone.data.Formats
+import com.webtoonclone.data.Genres
 import com.webtoonclone.data.Themes
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
@@ -55,11 +55,8 @@ import com.webtoonclone.ui.PickTile
 fun SearchScreen(
     viewModel: SearchViewModel,
     initialGenre: String?,
-    openCount: Int,
     onOpenSeries: (String) -> Unit,
 ) {
-    val genres by viewModel.genres.collectAsState()
-    LaunchedEffect(openCount) { viewModel.reshuffleIfNewOpen(openCount) }
     val results by viewModel.results.collectAsState()
     val recent by viewModel.recentSearches.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
@@ -106,7 +103,7 @@ fun SearchScreen(
 
         val current = results
         if (current == null) {
-            Idle(recent, genres, viewModel) { tag ->
+            Idle(recent, viewModel) { tag ->
                 text = tag
                 viewModel.openTag(tag)
             }
@@ -150,7 +147,6 @@ fun SearchScreen(
 @Composable
 private fun Idle(
     recent: List<String>,
-    genres: List<Pair<String, String>>,
     viewModel: SearchViewModel,
     onTag: (String) -> Unit,
 ) {
@@ -162,7 +158,7 @@ private fun Idle(
                     Text("Delete all", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.clearSearches() })
                 }
                 FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    recent.forEach { term ->
+                    recent.sortedBy { it.lowercase() }.forEach { term ->
                         Row(
                             Modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { viewModel.search(term) }.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -174,24 +170,11 @@ private fun Idle(
                 }
             }
         }
-        item { Text("Favorite Genres", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 10.dp)) }
-        items(genres.chunked(4).size) { row ->
-            Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                val cells = genres.chunked(4)[row]
-                cells.forEach { (name, icon) ->
-                    Column(Modifier.weight(1f).clickable { onTag(name) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                            Text(icon, fontSize = 22.sp)
-                        }
-                        Text(name, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
-                    }
-                }
-                repeat(4 - cells.size) { Box(Modifier.weight(1f)) }
-            }
-        }
-        tagSection("Themes", Themes, onTag)
-        tagSection("Formats", Formats, onTag)
+        // Sections and their tags are in alphabetical order.
         tagSection("Content", ContentTags, onTag)
+        tagSection("Formats", Formats, onTag)
+        tagSection("Genres", Genres.map { it.name }, onTag)
+        tagSection("Themes", Themes, onTag)
         item { Box(Modifier.padding(bottom = 24.dp)) }
     }
 }
@@ -202,7 +185,7 @@ private fun LazyListScope.tagSection(title: String, tags: List<String>, onTag: (
     item {
         Text(title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 10.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            tags.forEach { tag ->
+            tags.sortedBy { it.lowercase() }.forEach { tag ->
                 Text(
                     tag,
                     fontSize = 12.sp,

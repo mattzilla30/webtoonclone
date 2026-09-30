@@ -2,7 +2,6 @@ package com.webtoonclone.ui.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.webtoonclone.data.Genres
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SeriesSummary
@@ -14,8 +13,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-val SearchGenres = Genres.map { it.name to it.emoji }
-
 class SearchViewModel(
     private val repository: MangaDexRepository,
     private val library: LibraryStore,
@@ -24,19 +21,6 @@ class SearchViewModel(
     /** Null while the user has not searched yet. */
     private val _results = MutableStateFlow<Load<List<SeriesSummary>>?>(null)
     val results: StateFlow<Load<List<SeriesSummary>>?> = _results
-
-    private val _genres = MutableStateFlow(SearchGenres.shuffled())
-
-    /** The genre grid in a random order. Reshuffled on each app open. */
-    val genres: StateFlow<List<Pair<String, String>>> = _genres
-
-    private var seenOpen = 0
-
-    fun reshuffleIfNewOpen(openCount: Int) {
-        if (openCount == seenOpen) return
-        seenOpen = openCount
-        _genres.value = SearchGenres.shuffled()
-    }
 
     private val _loadingMore = MutableStateFlow(false)
     val loadingMore: StateFlow<Boolean> = _loadingMore

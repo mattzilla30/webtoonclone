@@ -72,7 +72,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val pool = readablePicks(7)
         val hero = pool.firstOrNull()
         val picks = pool.drop(1)
-        val bands = Genres.shuffled().take(2).map { (genre, _, tagline) ->
+        val bands = Genres.shuffled().take(2).map { (genre, tagline) ->
             // Skip a random number of top series so the same covers do not lead every time.
             val page = Random.nextInt(0, 6)
             val series = browse(tag = genre, page = page, limit = 5).ifEmpty { browse(tag = genre, limit = 5) }

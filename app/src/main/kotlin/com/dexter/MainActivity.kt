@@ -284,6 +284,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                 vm,
                                 onBack = { nav.popBackStack() },
                                 onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                onOpenSeries = { nav.navigate("series/$it") },
                             )
                         }
                         composable("author/{authorId}?name={name}") { entry ->

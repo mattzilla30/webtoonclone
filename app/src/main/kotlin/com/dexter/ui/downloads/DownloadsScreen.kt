@@ -36,6 +36,7 @@ fun DownloadsScreen(
     viewModel: DownloadsViewModel,
     onBack: () -> Unit,
     onOpenChapter: (seriesId: String, chapterId: String) -> Unit,
+    onOpenSeries: (seriesId: String) -> Unit,
 ) {
     val groups by viewModel.groups.collectAsState()
     val total = groups.orEmpty().sumOf { it.bytes }
@@ -63,9 +64,12 @@ fun DownloadsScreen(
             LazyColumn(Modifier.fillMaxSize()) {
                 list.forEach { group ->
                     item(key = "series-${group.seriesId}") {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onOpenSeries(group.seriesId) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Column(Modifier.weight(1f)) {
-                                Text(group.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text(group.title, style = MaterialTheme.typography.titleSmallEmphasized)
                                 Text("${group.chapters.size} chapters, ${formatBytes(group.bytes)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             TextButton(onClick = { viewModel.deleteSeries(group.seriesId) }) { Text(stringResource(R.string.remove)) }

@@ -149,7 +149,7 @@ fun SeriesScreen(
             covers?.let { state ->
                 Dialog(onDismissRequest = viewModel::closeCovers) {
                     Column(Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp)) {
-                        Text("Covers", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                        Text(stringResource(R.string.covers), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                         when (state) {
                             is Load.Ready -> LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(state.value, key = { it.url }) { cover ->
@@ -160,7 +160,7 @@ fun SeriesScreen(
                                 }
                             }
                             is Load.Error -> Text(state.message)
-                            Load.Loading -> Text("Loading...")
+                            Load.Loading -> Text(stringResource(R.string.loading_2))
                         }
                     }
                 }
@@ -168,9 +168,9 @@ fun SeriesScreen(
             newCollection?.let { name ->
                 AlertDialog(
                     onDismissRequest = { newCollection = null },
-                    title = { Text("New collection") },
+                    title = { Text(stringResource(R.string.new_collection)) },
                     text = {
-                        OutlinedTextField(value = name, onValueChange = { newCollection = it }, singleLine = true, placeholder = { Text("Name") })
+                        OutlinedTextField(value = name, onValueChange = { newCollection = it }, singleLine = true, placeholder = { Text(stringResource(R.string.name)) })
                     },
                     confirmButton = {
                         TextButton(
@@ -179,9 +179,9 @@ fun SeriesScreen(
                                 viewModel.toggleCollection(page.detail, name.trim())
                                 newCollection = null
                             },
-                        ) { Text("Add") }
+                        ) { Text(stringResource(R.string.add)) }
                     },
-                    dismissButton = { TextButton(onClick = { newCollection = null }) { Text("Cancel") } },
+                    dismissButton = { TextButton(onClick = { newCollection = null }) { Text(stringResource(R.string.cancel)) } },
                 )
             }
             if (showInfo) {
@@ -353,7 +353,7 @@ fun SeriesScreen(
                 }
                 if (related.isNotEmpty()) {
                     item {
-                        Text("Related", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
+                        Text(stringResource(R.string.related), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(related, key = { it.second.id }) { (kind, other) ->
                                 Column(Modifier.width(110.dp)) {
@@ -561,9 +561,9 @@ private fun EpisodeRow(
             }
             if (chapter.externalUrl == null) {
                 if (saved) {
-                    DropdownMenuItem(text = { Text("Remove download") }, onClick = { menu = false; onRemoveDownload() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.remove_download)) }, onClick = { menu = false; onRemoveDownload() })
                 } else if (!saving) {
-                    DropdownMenuItem(text = { Text("Download") }, onClick = { menu = false; onDownload() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.download)) }, onClick = { menu = false; onDownload() })
                 }
             }
             chapter.group?.let { group ->
@@ -626,7 +626,7 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
                 detail.altTitles.forEach { Text(it, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
             }
             if (detail.ratingDistribution.isNotEmpty()) {
-                Text("Ratings", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.ratings), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
                 val most = detail.ratingDistribution.values.max().coerceAtLeast(1)
                 detail.ratingDistribution.forEach { (score, count) ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
@@ -636,7 +636,7 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
                     }
                 }
             }
-            Text("Covers", fontSize = 13.sp, color = Green, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
+            Text(stringResource(R.string.covers), fontSize = 13.sp, color = Green, modifier = Modifier.clickable(onClick = onOpenCovers).padding(top = 12.dp, bottom = 4.dp))
             Text(
                 "Open on MangaDex",
                 fontSize = 13.sp,

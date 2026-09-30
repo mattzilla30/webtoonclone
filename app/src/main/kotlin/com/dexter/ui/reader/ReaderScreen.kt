@@ -578,7 +578,7 @@ private fun ReaderOptions(
             }
 
             if (mode == ReadingMode.Vertical) {
-                Text("Space between pages", fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+                Text(stringResource(R.string.space_between_pages), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(0 to "None", 8 to "Small", 24 to "Large").forEach { (gap, label) ->
                         ChoiceChip(label, settings.pageGap == gap) { onChange { it.copy(pageGap = gap) } }
@@ -586,7 +586,7 @@ private fun ReaderOptions(
                 }
             }
 
-            Text("Load next chapter ahead", fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+            Text(stringResource(R.string.load_next_chapter_ahead), fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(0 to "Off", 3 to "First pages", 100 to "Whole chapter").forEach { (count, label) ->
                     ChoiceChip(label, settings.prefetchPages == count) { onChange { it.copy(prefetchPages = count) } }
@@ -594,7 +594,7 @@ private fun ReaderOptions(
             }
 
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Keep screen on", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.keep_screen_on), fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Switch(checked = settings.keepScreenOn, onCheckedChange = { on -> onChange { it.copy(keepScreenOn = on) } })
             }
 

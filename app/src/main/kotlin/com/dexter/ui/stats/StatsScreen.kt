@@ -20,9 +20,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dexter.R
 import com.dexter.data.ReadingStats
 import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
@@ -34,8 +36,8 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
     val stats by viewModel.stats.collectAsState()
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.iconTap(onBack))
-            Text("Reading stats", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
+            Text(stringResource(R.string.reading_stats), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
         }
         val current = stats
         if (current != null) {
@@ -46,10 +48,10 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
                     Figure("Last 30 days", current.last30Days.toString())
                     Figure("Day streak", current.streakDays.toString())
                 }
-                Text("This week", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                Text(stringResource(R.string.this_week), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
                 DayBars(current)
                 if (current.topSeries.isNotEmpty()) {
-                    Text("Most read", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+                    Text(stringResource(R.string.most_read), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
                     current.topSeries.forEach { (title, count) ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(title, fontSize = 14.sp, modifier = Modifier.weight(1f))

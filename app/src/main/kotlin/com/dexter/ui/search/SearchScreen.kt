@@ -90,12 +90,12 @@ fun SearchScreen(
     saveName?.let { name ->
         AlertDialog(
             onDismissRequest = { saveName = null },
-            title = { Text("Save this search") },
-            text = { OutlinedTextField(value = name, onValueChange = { saveName = it }, singleLine = true, placeholder = { Text("Name") }) },
+            title = { Text(stringResource(R.string.save_this_search)) },
+            text = { OutlinedTextField(value = name, onValueChange = { saveName = it }, singleLine = true, placeholder = { Text(stringResource(R.string.name)) }) },
             confirmButton = {
-                TextButton(enabled = name.isNotBlank(), onClick = { viewModel.saveCurrent(name); saveName = null }) { Text("Save") }
+                TextButton(enabled = name.isNotBlank(), onClick = { viewModel.saveCurrent(name); saveName = null }) { Text(stringResource(R.string.save)) }
             },
-            dismissButton = { TextButton(onClick = { saveName = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { saveName = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     if (showFilters) {
@@ -251,7 +251,7 @@ private fun Idle(
         }
         if (saved.isNotEmpty()) {
             item {
-                Text("Saved searches", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                Text(stringResource(R.string.saved_searches), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     saved.forEach { search ->
                         Row(
@@ -259,7 +259,7 @@ private fun Idle(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(search.name, fontSize = 12.sp)
-                            Icon(Icons.Default.Clear, contentDescription = "Remove", modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.deleteSaved(search.name) })
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.remove), modifier = Modifier.padding(start = 6.dp).size(12.dp).clickable { viewModel.deleteSaved(search.name) })
                         }
                     }
                 }

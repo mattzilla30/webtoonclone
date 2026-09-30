@@ -139,7 +139,7 @@ fun LibraryScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Filter by title") },
+                placeholder = { Text(stringResource(R.string.filter_by_title)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             )

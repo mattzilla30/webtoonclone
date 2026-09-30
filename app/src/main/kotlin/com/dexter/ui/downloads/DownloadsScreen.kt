@@ -20,9 +20,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dexter.R
 import com.dexter.data.formatBytes
 import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
@@ -37,13 +39,13 @@ fun DownloadsScreen(
     val total = groups.orEmpty().sumOf { it.bytes }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.iconTap(onBack))
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.iconTap(onBack))
             Column(Modifier.weight(1f).padding(start = 16.dp)) {
-                Text("Downloads", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(stringResource(R.string.downloads), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Text(formatBytes(total), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (total > 0) {
-                Text("Remove all", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.deleteAll() })
+                Text(stringResource(R.string.remove_all), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.deleteAll() })
             }
         }
         val list = groups
@@ -64,7 +66,7 @@ fun DownloadsScreen(
                                 Text(group.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text("${group.chapters.size} chapters, ${formatBytes(group.bytes)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text("Remove", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.deleteSeries(group.seriesId) })
+                            Text(stringResource(R.string.remove), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.deleteSeries(group.seriesId) })
                         }
                     }
                     items(group.chapters, key = { it.chapterId }) { chapter ->
@@ -82,7 +84,7 @@ fun DownloadsScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             Text(formatBytes(chapter.bytes), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp))
-                            Text("Remove", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.delete(chapter.chapterId) })
+                            Text(stringResource(R.string.remove), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { viewModel.delete(chapter.chapterId) })
                         }
                     }
                 }

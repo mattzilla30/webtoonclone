@@ -52,4 +52,36 @@
     <string name="clear_cache">Clear cache</string>
     <string name="save_backup">Save backup</string>
     <string name="restore_backup">Restore backup</string>
+
+    <string name="covers">Covers</string>
+    <string name="loading_2">Loading...</string>
+    <string name="new_collection">New collection</string>
+    <string name="name">Name</string>
+    <string name="add">Add</string>
+    <string name="related">Related</string>
+    <string name="remove_download">Remove download</string>
+    <string name="download">Download</string>
+    <string name="ratings">Ratings</string>
+    <string name="reading_stats">Reading stats</string>
+    <string name="this_week">This week</string>
+    <string name="most_read">Most read</string>
+    <string name="downloads">Downloads</string>
+    <string name="remove_all">Remove all</string>
+    <string name="filter_by_title">Filter by title</string>
+    <string name="save_this_search">Save this search</string>
+    <string name="save">Save</string>
+    <string name="saved_searches">Saved searches</string>
+    <string name="space_between_pages">Space between pages</string>
+    <string name="load_next_chapter_ahead">Load next chapter ahead</string>
+    <string name="keep_screen_on">Keep screen on</string>
+    <string name="content_ratings">Content ratings</string>
+    <string name="blocked_tags_stay_out_of_lists_and_searc">Blocked tags stay out of lists and search. Searching a blocked tag still shows it.</string>
+    <string name="blocked_scanlation_groups_tap_to_unblock">Blocked scanlation groups. Tap to unblock.</string>
+    <string name="show_all_again">Show all again</string>
+    <string name="downloaded_chapters">Downloaded chapters</string>
+    <string name="daily_backup_folder">Daily backup folder</string>
+    <string name="choose">Choose</string>
+    <string name="turn_off">Turn off</string>
+    <string name="block_tags">Block tags</string>
+    <string name="done">Done</string>
 </resources>

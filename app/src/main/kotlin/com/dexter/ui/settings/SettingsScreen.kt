@@ -156,7 +156,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
             )
 
             Column(Modifier.padding(vertical = 8.dp)) {
-                Text("Content ratings", fontSize = 14.sp)
+                Text(stringResource(R.string.content_ratings), fontSize = 14.sp)
                 FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ContentRatings.forEach { rating ->
                         val on = rating in settings.contentRatings
@@ -178,7 +178,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
             }
 
             SectionTitle("Blocking")
-            Text("Blocked tags stay out of lists and search. Searching a blocked tag still shows it.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.blocked_tags_stay_out_of_lists_and_searc), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 settings.blockedTags.sorted().forEach { tag ->
                     ChoiceChip("$tag  ×", true) { viewModel.update { it.copy(blockedTags = it.blockedTags - tag) } }
@@ -186,7 +186,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
                 ChoiceChip("+ Block a tag", false) { pickTag = true }
             }
             if (settings.blockedGroups.isNotEmpty()) {
-                Text("Blocked scanlation groups. Tap to unblock.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.blocked_scanlation_groups_tap_to_unblock), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     settings.blockedGroups.sorted().forEach { group ->
                         ChoiceChip("$group  ×", true) { viewModel.update { it.copy(blockedGroups = it.blockedGroups - group) } }
@@ -196,7 +196,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
             if (settings.hiddenSeries.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("${settings.hiddenSeries.size} hidden series", fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    Text("Show all again", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.update { it.copy(hiddenSeries = emptySet()) } })
+                    Text(stringResource(R.string.show_all_again), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { viewModel.update { it.copy(hiddenSeries = emptySet()) } })
                 }
             }
 
@@ -234,12 +234,12 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
                 viewModel.update { it.copy(downloadWifiOnly = on) }
             }
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpenDownloads).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Downloaded chapters", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.downloaded_chapters), fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
 
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpenStats).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Reading stats", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.reading_stats), fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
 
@@ -255,16 +255,16 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onOpenDownl
             }
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Daily backup folder", fontSize = 14.sp)
+                    Text(stringResource(R.string.daily_backup_folder), fontSize = 14.sp)
                     Text(
                         if (settings.autoBackupFolder == null) "Off" else "On. Writes dexter-backup.json once a day.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text("Choose", color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { folderLauncher.launch(null) })
+                Text(stringResource(R.string.choose), color = Green, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.clickable { folderLauncher.launch(null) })
                 if (settings.autoBackupFolder != null) {
-                    Text("Turn off", fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setAutoBackupFolder(null) })
+                    Text(stringResource(R.string.turn_off), fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp).clickable { viewModel.setAutoBackupFolder(null) })
                 }
             }
 
@@ -319,7 +319,7 @@ private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
 private fun TagPickerDialog(blocked: Set<String>, onToggle: (String) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Block tags") },
+        title = { Text(stringResource(R.string.block_tags)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -329,6 +329,6 @@ private fun TagPickerDialog(blocked: Set<String>, onToggle: (String) -> Unit, on
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) } },
     )
 }

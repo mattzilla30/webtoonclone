@@ -6,8 +6,10 @@ import com.dexter.data.LibraryData
 import com.dexter.data.LibraryList
 import com.dexter.data.LibraryStore
 import com.dexter.data.SavedSeries
+import com.dexter.ui.series.hasUnreadChapters
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -47,5 +49,18 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
 
     fun deleteCollection(name: String) {
         viewModelScope.launch { store.deleteCollection(name) }
+    }
+
+    /** Marks every subscribed series with new chapters as read up to its newest known chapter. */
+    fun markAllRead() {
+        viewModelScope.launch {
+            val library = store.data.first()
+            val lastRead = library.recent.associate { it.id to it.chapterNumber }
+            library.subscribed
+                .filter { it.knownChapterId != null && hasUnreadChapters(it.knownChapterNumber, lastRead[it.id]) }
+                .forEach { series ->
+                    store.recordRecent(SavedSeries(series.id, series.title, series.coverUrl, series.knownChapterId, series.knownChapterNumber))
+                }
+        }
     }
 }

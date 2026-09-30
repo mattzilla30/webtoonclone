@@ -180,6 +180,9 @@ fun LibraryScreen(
             if (subscribedTab) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ChoiceChip("Unread only", unreadOnly) { unreadOnly = !unreadOnly }
+                    if (unreadSeriesCount(library) > 0) {
+                        TextButton(onClick = viewModel::markAllRead) { Text("Mark all read") }
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

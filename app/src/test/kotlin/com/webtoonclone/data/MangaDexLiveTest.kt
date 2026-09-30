@@ -39,7 +39,7 @@ class MangaDexLiveTest {
         assertTrue("no pages", pages.isNotEmpty())
         println("chapters=${chapters.size} pages=${pages.size} first=${pages.first()}")
 
-        assertTrue(repository.browse(genre = "Romance", limit = 3).isNotEmpty())
+        assertTrue(repository.browse(tag = "Romance", limit = 3).isNotEmpty())
         assertTrue(repository.browse(title = "tower", limit = 3).isNotEmpty())
 
         // English titles come from altTitles. Romanized names would be lowercase-ASCII-heavy
@@ -68,11 +68,25 @@ class MangaDexLiveTest {
         assertTrue("no latest chapter", latest != null && latest.externalUrl == null)
         assertTrue("latest chapter is missing from the full list", chapters.any { it.id == latest!!.id })
 
-        // Every genre in the app must exist on MangaDex, or its filter would silently do nothing.
-        val tagIds = repository.genreTagIds()
-        val missing = Genres.map { it.name }.filter { it.lowercase() !in tagIds }
-        assertTrue("genres missing on MangaDex: $missing", missing.isEmpty())
-        assertTrue("MangaDex has genres the app lacks: ${tagIds.keys - Genres.map { it.name.lowercase() }.toSet()}", tagIds.size == Genres.size)
+        // Every tag list in the app must match MangaDex's group exactly, or a filter would
+        // silently do nothing (missing) or the app would lack a tag MangaDex has (extra).
+        val byGroup = repository.tagIndex().namesByGroup
+        val ours = mapOf(
+            "genre" to Genres.map { it.name },
+            "theme" to Themes,
+            "format" to Formats,
+            "content" to ContentTags,
+        )
+        for ((group, names) in ours) {
+            val live = byGroup[group].orEmpty()
+            assertTrue("$group missing on MangaDex: ${names - live.toSet()}", (names - live.toSet()).isEmpty())
+            assertTrue("$group has tags the app lacks: ${live - names.toSet()}", (live - names.toSet()).isEmpty())
+        }
+
+        // A theme filter must narrow results: tagged results differ from the untagged top list.
+        val vampires = repository.browse(tag = "Vampires", limit = 5)
+        assertTrue("no Vampires results", vampires.isNotEmpty())
+        assertTrue("theme filter had no effect", vampires.map { it.id } != repository.browse(limit = 5).map { it.id })
 
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)

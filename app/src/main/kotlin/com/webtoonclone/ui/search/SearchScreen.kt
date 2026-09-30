@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +45,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.data.ContentTags
+import com.webtoonclone.data.Formats
+import com.webtoonclone.data.Themes
 import com.webtoonclone.ui.LoadView
 import com.webtoonclone.ui.PickTile
 
@@ -64,7 +68,7 @@ fun SearchScreen(
     LaunchedEffect(initialGenre) {
         if (initialGenre != null) {
             text = initialGenre
-            viewModel.openGenre(initialGenre)
+            viewModel.openTag(initialGenre)
         }
     }
 
@@ -102,9 +106,9 @@ fun SearchScreen(
 
         val current = results
         if (current == null) {
-            Idle(recent, genres, viewModel) { genre ->
-                text = genre
-                viewModel.openGenre(genre)
+            Idle(recent, genres, viewModel) { tag ->
+                text = tag
+                viewModel.openTag(tag)
             }
         } else {
             LoadView(current, onRetry = { viewModel.search(text) }) { series ->
@@ -148,7 +152,7 @@ private fun Idle(
     recent: List<String>,
     genres: List<Pair<String, String>>,
     viewModel: SearchViewModel,
-    onGenre: (String) -> Unit,
+    onTag: (String) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         if (recent.isNotEmpty()) {
@@ -175,7 +179,7 @@ private fun Idle(
             Row(Modifier.fillMaxWidth().padding(bottom = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 val cells = genres.chunked(4)[row]
                 cells.forEach { (name, icon) ->
-                    Column(Modifier.weight(1f).clickable { onGenre(name) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.weight(1f).clickable { onTag(name) }, horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                             Text(icon, fontSize = 22.sp)
                         }
@@ -183,6 +187,31 @@ private fun Idle(
                     }
                 }
                 repeat(4 - cells.size) { Box(Modifier.weight(1f)) }
+            }
+        }
+        tagSection("Themes", Themes, onTag)
+        tagSection("Formats", Formats, onTag)
+        tagSection("Content", ContentTags, onTag)
+        item { Box(Modifier.padding(bottom = 24.dp)) }
+    }
+}
+
+/** A titled group of tappable tag chips. */
+@OptIn(ExperimentalLayoutApi::class)
+private fun LazyListScope.tagSection(title: String, tags: List<String>, onTag: (String) -> Unit) {
+    item {
+        Text(title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 10.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tags.forEach { tag ->
+                Text(
+                    tag,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onTag(tag) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
             }
         }
     }

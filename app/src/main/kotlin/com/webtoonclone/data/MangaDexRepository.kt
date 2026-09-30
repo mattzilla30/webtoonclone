@@ -27,18 +27,18 @@ enum class Order(val param: String) {
 class MangaDexRepository(private val client: OkHttpClient) {
 
     private val json = Json { ignoreUnknownKeys = true }
-    private var genreIds: Map<String, String>? = null
+    private var tagIndex: TagIndex? = null
 
     suspend fun browse(
         page: Int = 0,
         order: Order = Order.Popular,
         title: String? = null,
-        genre: String? = null,
+        tag: String? = null,
         ids: List<String>? = null,
         limit: Int = PAGE_SIZE,
         withStats: Boolean = false,
     ): List<SeriesSummary> {
-        val tagId = genre?.let { genreId(it) }
+        val tagId = tag?.let { tagIndex().ids[it.lowercase()] }
         val url = "$API/manga".toHttpUrl().newBuilder()
             .addQueryParameter("limit", limit.toString())
             .addQueryParameter("offset", (page * limit).toString())
@@ -75,7 +75,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val bands = Genres.shuffled().take(2).map { (genre, _, tagline) ->
             // Skip a random number of top series so the same covers do not lead every time.
             val page = Random.nextInt(0, 6)
-            val series = browse(genre = genre, page = page, limit = 5).ifEmpty { browse(genre = genre, limit = 5) }
+            val series = browse(tag = genre, page = page, limit = 5).ifEmpty { browse(tag = genre, limit = 5) }
             GenreBand(genre, tagline, series)
         }
         return HomeContent(hero, newSeries, picks, bands)
@@ -209,16 +209,21 @@ class MangaDexRepository(private val client: OkHttpClient) {
         return home.chapter.data.map { "${home.baseUrl}/data/${home.chapter.hash}/$it" }
     }
 
-    private suspend fun genreId(name: String): String? = genreTagIds()[name.lowercase()]
+    class TagIndex(
+        /** Tag ids by lowercase name, across every group. */
+        val ids: Map<String, String>,
+        /** Tag names by group: genre, theme, format, or content. */
+        val namesByGroup: Map<String, List<String>>,
+    )
 
-    /** MangaDex genre tag ids by lowercase name. Loaded once. */
-    suspend fun genreTagIds(): Map<String, String> {
-        return genreIds ?: run {
-            val tags = json.decodeFromString<TagListDto>(fetch("$API/manga/tag".toHttpUrl())).data
-            tags.filter { it.attributes.group == "genre" }
-                .associate { it.attributes.name.pick().lowercase() to it.id }
-                .also { genreIds = it }
-        }
+    /** Every MangaDex tag. Loaded once. */
+    suspend fun tagIndex(): TagIndex {
+        tagIndex?.let { return it }
+        val tags = json.decodeFromString<TagListDto>(fetch("$API/manga/tag".toHttpUrl())).data
+        return TagIndex(
+            ids = tags.associate { it.attributes.name.pick().lowercase() to it.id },
+            namesByGroup = tags.groupBy({ it.attributes.group }, { it.attributes.name.pick() }),
+        ).also { tagIndex = it }
     }
 
     private suspend fun stats(ids: List<String>): Map<String, StatDto> = try {

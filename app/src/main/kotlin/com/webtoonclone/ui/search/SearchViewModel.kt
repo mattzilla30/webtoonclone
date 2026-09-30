@@ -62,9 +62,10 @@ class SearchViewModel(
         }
     }
 
-    fun openGenre(genre: String) {
-        query = genre
-        viewModelScope.launch { start { repository.browse(genre = genre, page = it, withStats = true) } }
+    /** Lists series with a MangaDex tag: a genre, theme, format, or content tag. */
+    fun openTag(name: String) {
+        query = name
+        viewModelScope.launch { start { repository.browse(tag = name, page = it, withStats = true) } }
     }
 
     fun clear() {

@@ -40,6 +40,7 @@ import com.dexter.ui.PickTile
 import com.dexter.ui.adaptiveColumns
 import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
+import com.dexter.ui.windowWidthDp
 
 @Composable
 fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, onOpenSeries: (String) -> Unit) {
@@ -66,7 +67,7 @@ fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, o
             if (series.isEmpty()) {
                 Text(stringResource(R.string.no_series_found), modifier = Modifier.padding(16.dp))
             } else {
-                val columns = adaptiveColumns(LocalConfiguration.current.screenWidthDp.toFloat())
+                val columns = adaptiveColumns(windowWidthDp())
                 val rows = remember(series, columns) { series.chunked(columns) }
                 val listState = rememberLazyListState()
                 LaunchedEffect(listState, rows.size) {

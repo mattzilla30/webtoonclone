@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,7 +30,6 @@ import com.dexter.data.ReadingStats
 import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
 import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
@@ -87,7 +87,7 @@ private fun DayBars(stats: ReadingStats) {
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("$count", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.fillMaxWidth().height((70 * count / max).coerceAtLeast(2).dp).background(if (count > 0) Green else MaterialTheme.colorScheme.surfaceVariant)) {}
-                Text(day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()), fontSize = 10.sp)
+                Text(day.dayOfWeek.getDisplayName(TextStyle.SHORT, LocalConfiguration.current.locales[0]), fontSize = 10.sp)
             }
         }
     }

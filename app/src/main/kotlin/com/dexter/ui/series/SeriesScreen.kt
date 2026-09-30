@@ -92,6 +92,7 @@ import com.dexter.ui.formatChapterDate
 import com.dexter.ui.iconTap
 import com.dexter.ui.theme.Green
 import com.dexter.ui.timeAgo
+import com.dexter.ui.windowWidthDp
 import java.util.Locale
 
 @Composable
@@ -460,7 +461,7 @@ fun SeriesScreen(
                 item { Spacer(Modifier.height(32.dp)) }
             }
             // On a wide screen the description sits beside the chapter list, so both scroll on their own.
-            if (LocalConfiguration.current.screenWidthDp >= RAIL_MIN_WIDTH_DP) {
+            if (windowWidthDp() >= RAIL_MIN_WIDTH_DP) {
                 Row(Modifier.fillMaxSize()) {
                     LazyColumn(Modifier.weight(0.42f).fillMaxSize(), content = headerContent)
                     LazyColumn(Modifier.weight(0.58f).fillMaxSize(), state = listState, content = chapterContent)

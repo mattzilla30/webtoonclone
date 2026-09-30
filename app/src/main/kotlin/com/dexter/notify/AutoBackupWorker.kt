@@ -1,7 +1,7 @@
 package com.dexter.notify
 
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -23,7 +23,7 @@ class AutoBackupWorker(context: Context, params: WorkerParameters) : CoroutineWo
     override suspend fun doWork(): Result {
         val folder = settings.current().autoBackupFolder ?: return Result.success()
         return try {
-            backups.writeToFolder(Uri.parse(folder))
+            backups.writeToFolder(folder.toUri())
             Result.success()
         } catch (e: Exception) {
             Result.retry()

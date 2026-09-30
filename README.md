@@ -30,6 +30,16 @@ This is a personal app. The release build is signed with the debug key, so `./gr
 - Side navigation rail and wider cover grids on tablets. Screen transitions.
 - Koin for dependency injection, a hand-written baseline profile, and a CI workflow (style, lint, unit tests, release build).
 
+## Added in the last round
+
+- Chapter downloads with a Downloads screen, Wi-Fi-only saving, and offline reading.
+- Collections with your own names, a title filter and unread filter in My Series, reading history with dates, and reading stats.
+- Author follow with notifications for new series, grouped or combined chapter notifications, and a Mark read button.
+- A daily backup to a folder you choose.
+- Saved searches, blocked tags and scanlation groups, hidden series, a "Because you read" row, related series, a cover gallery, and a rating breakdown.
+- Reader: keep-screen-on setting, page gap, next-chapter loading choices, and quiet retries for failed pages.
+- A two-pane series page on wide screens, 256 px covers for small tiles, and a one-week cache for the tag list.
+
 ## Settings
 
 My Series has a gear icon that opens Settings:

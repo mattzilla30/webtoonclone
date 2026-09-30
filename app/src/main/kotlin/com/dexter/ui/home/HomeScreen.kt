@@ -64,6 +64,7 @@ import com.dexter.ui.adaptiveColumns
 import com.dexter.ui.genreColor
 import com.dexter.ui.theme.Green
 import com.dexter.ui.timeAgo
+import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.delay
 import java.time.Instant
 import kotlin.time.Duration.Companion.minutes
@@ -81,7 +82,7 @@ fun HomeScreen(
     val recent by viewModel.recent.collectAsState()
     val because by viewModel.becauseYouRead.collectAsState()
     val appContext = LocalContext.current
-    val columns = adaptiveColumns(LocalConfiguration.current.screenWidthDp.toFloat())
+    val columns = adaptiveColumns(windowWidthDp())
     LaunchedEffect(Unit) { viewModel.refreshBecause() }
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val subscribedIds by viewModel.subscribedIds.collectAsState()

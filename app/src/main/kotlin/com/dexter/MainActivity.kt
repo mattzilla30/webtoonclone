@@ -89,6 +89,7 @@ import com.dexter.ui.theme.Green
 import com.dexter.ui.theme.isDark
 import com.dexter.ui.updates.UpdatesScreen
 import com.dexter.ui.updates.UpdatesViewModel
+import com.dexter.ui.windowWidthDp
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import android.graphics.Color as AndroidColor
@@ -191,7 +192,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
         val rootBackground = if (onReader) readerBackgroundColor(settings.readerBackground) else MaterialTheme.colorScheme.background
         // One inset pad for the whole app keeps every screen between the status and navigation bars.
         Box(Modifier.fillMaxSize().background(rootBackground).systemBarsPadding()) {
-            val wide = LocalConfiguration.current.screenWidthDp >= RAIL_MIN_WIDTH_DP
+            val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
             Row(Modifier.fillMaxSize()) {
                 if (wide && onTab) SideRail(nav, route?.substringBefore('?'))
                 Scaffold(

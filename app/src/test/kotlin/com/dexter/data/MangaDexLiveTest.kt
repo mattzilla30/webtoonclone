@@ -181,8 +181,11 @@ class MangaDexLiveTest {
         assertTrue("similar lists the series itself", soloSimilar.none { it.id == solo.id })
 
         // Groups: chapters name the group that uploaded them, and a chapter id leads back to its series.
+        // Some series have only group-less uploads, so look across a few of them.
         val firstChapters = repository.chapterPage(series.id, 0, mutableSetOf()).chapters
-        assertTrue("no chapter names a group", firstChapters.any { it.group != null })
+        val namedSomewhere = firstChapters.any { it.group != null } ||
+            candidates.take(6).any { other -> repository.chapterPage(other.id, 0, mutableSetOf()).chapters.any { it.group != null } }
+        assertTrue("no chapter names a group", namedSomewhere)
         assertEquals("chapter link lookup", series.id, repository.seriesIdForChapter(chapters.first().id))
 
         // Search paging: page 1 must add series that page 0 did not have.

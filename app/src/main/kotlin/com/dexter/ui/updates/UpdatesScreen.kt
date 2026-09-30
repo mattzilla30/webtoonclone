@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,11 +25,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dexter.R
+import com.dexter.ui.AppTopBar
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.LoadView
@@ -42,7 +46,7 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
 
     Column(Modifier.fillMaxSize()) {
-        Text(stringResource(R.string.updates), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(16.dp))
+        AppTopBar(stringResource(R.string.updates))
         LoadView(state, onRetry = viewModel::load) { entries ->
             val listState = rememberLazyListState()
 
@@ -59,21 +63,31 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
                     item { OfflineBanner(savedAt, "updates", onRetry = viewModel::load) }
                 }
                 items(entries, key = { it.series.id }) { entry ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { onOpenSeries(entry.series.id) }.padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        onClick = { onOpenSeries(entry.series.id) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     ) {
-                        Cover(entry.series.coverUrl, entry.series.title, Modifier.width(48.dp).aspectRatio(2f / 3f), thumb = true)
-                        Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            GenreLabel(entry.series.genre)
-                            Text(entry.series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                            Text(
-                                "Ep. ${entry.chapterNumber}",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Cover(
+                                entry.series.coverUrl,
+                                entry.series.title,
+                                Modifier.width(52.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small),
+                                contentScale = ContentScale.Crop,
+                                thumb = true,
                             )
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                GenreLabel(entry.series.genre)
+                                Text(entry.series.title, style = MaterialTheme.typography.titleSmallEmphasized)
+                                Text(
+                                    "Ep. ${entry.chapterNumber}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text(timeAgo(entry.publishedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(timeAgo(entry.publishedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 if (loadingMore) {

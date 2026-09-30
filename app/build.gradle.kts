@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.webtoonclone"
+    namespace = "com.dexter"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.webtoonclone"
+        applicationId = "com.dexter"
         minSdk = 37
         targetSdk = 37
         versionCode = 1

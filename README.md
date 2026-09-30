@@ -1,4 +1,4 @@
-# Webtoon Clone
+# Dexter
 
 A native Android reader for MangaDex. Kotlin, Jetpack Compose, dark theme.
 Targets Android API 37 on 64-bit ARM (`arm64-v8a`) only.

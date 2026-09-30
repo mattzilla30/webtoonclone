@@ -6,14 +6,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name=".WebtoonApp"
+        android:name=".DexterApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.Webtoon"
+        android:theme="@style/Theme.Dexter"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"

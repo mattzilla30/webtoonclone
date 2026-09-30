@@ -1,0 +1,232 @@
+package com.dexter.ui.search
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.dexter.data.LibraryStore
+import com.dexter.data.MangaDexRepository
+import com.dexter.data.OfflineStore
+import com.dexter.data.Order
+import com.dexter.data.SearchFilters
+import com.dexter.data.SeriesSummary
+import com.dexter.data.searchKey
+import com.dexter.ui.Load
+import com.dexter.ui.friendlyError
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class SearchViewModel(
+    private val repository: MangaDexRepository,
+    private val library: LibraryStore,
+    private val offline: OfflineStore,
+) : ViewModel() {
+    /** When the results are a saved copy because the network failed, the time it was saved. */
+    private val _offlineSavedAt = MutableStateFlow<Long?>(null)
+    val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt
+
+    /** Reruns the current search, for the offline banner. */
+    fun retry() {
+        val current = request ?: return
+        viewModelScope.launch { start(current) }
+    }
+
+    /** Null while the user has not searched yet. */
+    private val _results = MutableStateFlow<Load<List<SeriesSummary>>?>(null)
+    val results: StateFlow<Load<List<SeriesSummary>>?> = _results
+
+    private val _loadingMore = MutableStateFlow(false)
+    val loadingMore: StateFlow<Boolean> = _loadingMore
+
+    private val typed = MutableStateFlow("")
+
+    /** Titles matching what is being typed. Empty until two characters have been typed and paused. */
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val suggestions: StateFlow<List<SeriesSummary>> = typed
+        .debounce(350)
+        .distinctUntilChanged()
+        .mapLatest { text ->
+            if (!shouldSuggest(text)) emptyList()
+            else runCatching { repository.browse(title = text.trim(), limit = 5) }.getOrDefault(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun onTyping(text: String) {
+        typed.value = text
+    }
+
+    private val _message = MutableStateFlow<String?>(null)
+
+    /** A short notice, such as a failed Random. Cleared by the next action. */
+    val message: StateFlow<String?> = _message
+
+    private val _sort = MutableStateFlow(Order.Popular)
+    val sort: StateFlow<Order> = _sort
+
+    /** What the current results came from, so a new sort can rerun it. */
+    private var request: Request? = null
+
+    private val _filters = MutableStateFlow(SearchFilters())
+
+    /** The advanced limits applied to the current results. */
+    val filters: StateFlow<SearchFilters> = _filters
+
+    /** Applies [next] to the current results, or starts a filtered listing when nothing is showing. */
+    fun setFilters(next: SearchFilters) {
+        if (next == _filters.value) return
+        _filters.value = next
+        val current = request
+        viewModelScope.launch {
+            when {
+                current != null -> start(current)
+                !next.isEmpty -> {
+                    query = "Filtered"
+                    start(Request(title = null, tag = null))
+                }
+            }
+        }
+    }
+
+    private class Request(val title: String?, val tag: String?)
+
+    /** Fetches one page of the current search or genre. Null when nothing is showing. */
+    private var source: (suspend (page: Int) -> List<SeriesSummary>)? = null
+    private var page = 0
+    private var endReached = false
+
+    val recentSearches: StateFlow<List<String>> = library.data.map { it.searches }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    var query = ""
+        private set
+
+    init {
+        // Start from the sort you chose last time.
+        viewModelScope.launch {
+            val saved = runCatching { Order.valueOf(library.data.first().searchOrder) }.getOrNull()
+            if (saved != null && request == null) _sort.value = saved
+        }
+    }
+
+    fun search(text: String) {
+        query = text.trim()
+        if (query.isEmpty()) return clear()
+        val term = query
+        viewModelScope.launch {
+            library.addSearch(term)
+            start(Request(title = term, tag = null))
+        }
+    }
+
+    /** Lists series with a MangaDex tag: a genre, theme, format, or content tag. */
+    fun openTag(name: String) {
+        query = name
+        viewModelScope.launch { start(Request(title = null, tag = name)) }
+    }
+
+    /** Lists every series in one order, such as top rated or recently added. */
+    fun openBrowse(label: String, order: Order) {
+        query = label
+        _sort.value = order
+        viewModelScope.launch { start(Request(title = null, tag = null)) }
+    }
+
+    /** Finds a random series with English chapters and passes its id to [onFound]. */
+    fun openRandom(onFound: (String) -> Unit) {
+        _message.value = null
+        viewModelScope.launch {
+            val series = runCatching { repository.randomSeries() }.getOrNull()
+            if (series != null) onFound(series.id) else _message.value = "Could not find a series. Try again."
+        }
+    }
+
+    /** Reruns the current results in a new order. */
+    fun setSort(order: Order) {
+        if (order == _sort.value) return
+        _sort.value = order
+        viewModelScope.launch { library.setSearchOrder(order.name) }
+        val current = request ?: return
+        viewModelScope.launch { start(current) }
+    }
+
+    fun clear() {
+        query = ""
+        _filters.value = SearchFilters()
+        source = null
+        request = null
+        _offlineSavedAt.value = null
+        _results.value = null
+    }
+
+    /** Appends the next page. Called when the list scrolls near its end. */
+    fun loadMore() {
+        val fetch = source ?: return
+        val current = (_results.value as? Load.Ready)?.value ?: return
+        if (_loadingMore.value || endReached) return
+        _loadingMore.value = true
+        viewModelScope.launch {
+            try {
+                val more = fetch(page + 1)
+                // The source may have changed while this request ran.
+                if (source === fetch) {
+                    page += 1
+                    val seen = current.mapTo(mutableSetOf()) { it.id }
+                    endReached = more.isEmpty()
+                    _results.value = Load.Ready(current + more.filter { it.id !in seen })
+                }
+            } catch (e: Exception) {
+                // Keep the list as is. Scrolling again retries.
+            } finally {
+                _loadingMore.value = false
+            }
+        }
+    }
+
+    fun removeSearch(text: String) {
+        viewModelScope.launch { library.removeSearch(text) }
+    }
+
+    fun clearSearches() {
+        viewModelScope.launch { library.clearSearches() }
+    }
+
+    private suspend fun start(req: Request) {
+        val order = _sort.value
+        val filters = _filters.value
+        val fetch: suspend (page: Int) -> List<SeriesSummary> = { p ->
+            repository.browse(title = req.title, tag = req.tag, page = p, order = order, withStats = req.title == null, filters = filters)
+        }
+        request = req
+        _message.value = null
+        source = fetch
+        page = 0
+        endReached = false
+        _results.value = Load.Loading
+        val key = searchKey(req.title, req.tag, order, filters, "${repository.language}|${repository.contentRatings.joinToString(",")}")
+        _results.value = try {
+            val first = fetch(0)
+            _offlineSavedAt.value = null
+            endReached = first.isEmpty()
+            if (first.isNotEmpty()) runCatching { offline.saveSearch(key, first) }
+            Load.Ready(first)
+        } catch (e: Exception) {
+            // Fall back to the last first page of this same search, if there is one.
+            val saved = runCatching { offline.loadSearch(key) }.getOrNull()
+            if (saved != null) {
+                _offlineSavedAt.value = saved.savedAt
+                endReached = true
+                Load.Ready(saved.series)
+            } else {
+                Load.Error(friendlyError(e, "Search failed"))
+            }
+        }
+    }
+}

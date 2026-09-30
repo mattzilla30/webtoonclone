@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "webtoonclone"
+rootProject.name = "dexter"
 include(":app")

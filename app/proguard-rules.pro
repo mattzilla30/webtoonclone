@@ -1,5 +1,5 @@
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**
--keep,includedescriptorclasses class com.webtoonclone.data.**$$serializer { *; }
--keepclassmembers class com.webtoonclone.data.** { *** Companion; }
--keepclasseswithmembers class com.webtoonclone.data.** { kotlinx.serialization.KSerializer serializer(...); }
+-keep,includedescriptorclasses class com.dexter.data.**$$serializer { *; }
+-keepclassmembers class com.dexter.data.** { *** Companion; }
+-keepclasseswithmembers class com.dexter.data.** { kotlinx.serialization.KSerializer serializer(...); }

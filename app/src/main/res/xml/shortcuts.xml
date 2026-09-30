@@ -7,8 +7,8 @@
         android:shortcutShortLabel="@string/shortcut_search">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetClass="com.webtoonclone.MainActivity"
-            android:targetPackage="com.webtoonclone">
+            android:targetClass="com.dexter.MainActivity"
+            android:targetPackage="com.dexter">
             <extra android:name="route" android:value="search" />
         </intent>
     </shortcut>
@@ -19,8 +19,8 @@
         android:shortcutShortLabel="@string/shortcut_library">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetClass="com.webtoonclone.MainActivity"
-            android:targetPackage="com.webtoonclone">
+            android:targetClass="com.dexter.MainActivity"
+            android:targetPackage="com.dexter">
             <extra android:name="route" android:value="library" />
         </intent>
     </shortcut>

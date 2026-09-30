@@ -8,6 +8,7 @@ import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.SeriesDetail
 import com.webtoonclone.ui.Load
+import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,7 +74,7 @@ class SeriesViewModel(
                     Load.Ready(SeriesPage(detail.await(), page.chapters, page.nextOffset != null))
                 }
             } catch (e: Exception) {
-                Load.Error(e.message ?: "Could not load series")
+                Load.Error(friendlyError(e, "Could not load series"))
             }
         }
     }

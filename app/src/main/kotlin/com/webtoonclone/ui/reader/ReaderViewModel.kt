@@ -8,6 +8,7 @@ import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.ProgressStore
 import com.webtoonclone.ui.Load
+import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +64,7 @@ class ReaderViewModel(
                     ).also { recordRecent(list[index]) }
                 }
             } catch (e: Exception) {
-                Load.Error(e.message ?: "Could not load chapter")
+                Load.Error(friendlyError(e, "Could not load chapter"))
             }
         }
     }

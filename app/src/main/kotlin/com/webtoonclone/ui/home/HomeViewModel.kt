@@ -7,6 +7,7 @@ import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.SavedSeries
 import com.webtoonclone.ui.Load
+import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,7 +65,7 @@ class HomeViewModel(
                 _state.value = Load.Ready(repository.home())
             } catch (e: Exception) {
                 // A silent refresh keeps the old content when the network fails.
-                if (_state.value !is Load.Ready) _state.value = Load.Error(e.message ?: "Could not load series")
+                if (_state.value !is Load.Ready) _state.value = Load.Error(friendlyError(e, "Could not load series"))
             } finally {
                 busy = false
             }

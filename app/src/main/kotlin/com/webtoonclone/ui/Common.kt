@@ -11,6 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 sealed interface Load<out T> {
     data object Loading : Load<Nothing>
@@ -39,3 +43,17 @@ fun <T> LoadView(state: Load<T>, onRetry: () -> Unit, content: @Composable (T) -
         is Load.Ready -> content(state.value)
     }
 }
+
+/** Turns a failure into a message a reader can act on, instead of an exception string. */
+fun friendlyError(e: Throwable, fallback: String): String {
+    val message = e.message.orEmpty()
+    return when {
+        e is UnknownHostException || e is ConnectException || e is SocketTimeoutException ->
+            "No connection. Check your internet and try again."
+        Regex("""\b429\b""").containsMatchIn(message) -> "MangaDex is busy right now. Try again in a moment."
+        Regex("""HTTP 5\d\d""").containsMatchIn(message) -> "MangaDex is having trouble. Try again in a moment."
+        e is IOException && message.startsWith("MangaDex") -> "MangaDex could not load this. Try again."
+        else -> fallback
+    }
+}
+

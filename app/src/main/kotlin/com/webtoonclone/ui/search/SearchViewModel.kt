@@ -7,6 +7,7 @@ import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.Order
 import com.webtoonclone.data.SeriesSummary
 import com.webtoonclone.ui.Load
+import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -123,7 +124,7 @@ class SearchViewModel(
             endReached = first.isEmpty()
             Load.Ready(first)
         } catch (e: Exception) {
-            Load.Error(e.message ?: "Search failed")
+            Load.Error(friendlyError(e, "Search failed"))
         }
     }
 }

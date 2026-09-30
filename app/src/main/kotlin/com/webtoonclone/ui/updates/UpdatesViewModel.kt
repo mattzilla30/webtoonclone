@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.UpdateEntry
 import com.webtoonclone.ui.Load
+import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -28,7 +29,7 @@ class UpdatesViewModel(private val repository: MangaDexRepository) : ViewModel()
             _state.value = try {
                 Load.Ready(repository.latestUpdates(0))
             } catch (e: Exception) {
-                Load.Error(e.message ?: "Could not load updates")
+                Load.Error(friendlyError(e, "Could not load updates"))
             }
         }
     }

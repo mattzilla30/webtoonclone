@@ -23,3 +23,36 @@ class ComponentsTest {
         assertEquals("2.5M", compact(2_500_000))
     }
 }
+
+class FriendlyErrorTest {
+    private fun friendly(e: Throwable) = friendlyError(e, "fallback")
+
+    @org.junit.Test
+    fun offlineFailuresSaySoPlainly() {
+        val offline = "No connection. Check your internet and try again."
+        org.junit.Assert.assertEquals(offline, friendly(java.net.UnknownHostException("api.mangadex.org")))
+        org.junit.Assert.assertEquals(offline, friendly(java.net.SocketTimeoutException("timeout")))
+        org.junit.Assert.assertEquals(offline, friendly(java.net.ConnectException("refused")))
+    }
+
+    @org.junit.Test
+    fun mangaDexErrorsAreTranslated() {
+        org.junit.Assert.assertEquals(
+            "MangaDex is busy right now. Try again in a moment.",
+            friendly(java.io.IOException("MangaDex /manga failed: HTTP 429")),
+        )
+        org.junit.Assert.assertEquals(
+            "MangaDex is having trouble. Try again in a moment.",
+            friendly(java.io.IOException("MangaDex /manga failed: HTTP 503")),
+        )
+        org.junit.Assert.assertEquals(
+            "MangaDex could not load this. Try again.",
+            friendly(java.io.IOException("MangaDex /manga/x failed: 404")),
+        )
+    }
+
+    @org.junit.Test
+    fun otherFailuresUseTheFallback() {
+        org.junit.Assert.assertEquals("fallback", friendly(IllegalStateException("boom")))
+    }
+}

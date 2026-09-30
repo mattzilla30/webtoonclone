@@ -11,6 +11,8 @@ data class SeriesSummary(
     val author: String? = null,
     val description: String = "",
     val follows: Int? = null,
+    /** MangaDex id of the first author, for the author page. */
+    val authorId: String? = null,
 )
 
 @Serializable
@@ -41,6 +43,11 @@ data class Chapter(
     val publishedAt: String,
     /** Set when the publisher hosts the chapter. The app opens it in the browser. */
     val externalUrl: String? = null,
+    /** The scanlation group that uploaded it, when MangaDex names one. */
+    val group: String? = null,
+    val volume: String? = null,
+    /** Other uploads of the same chapter by other groups. The primary one is this chapter. */
+    val alternates: List<Chapter> = emptyList(),
 )
 
 data class ReadingProgress(
@@ -73,7 +80,25 @@ data class SavedSeries(
     val knownChapterNumber: String? = null,
     /** Whether new chapters of this subscribed series notify. */
     val notify: Boolean = true,
+    /** Where the series sits in your reading lists, when you put it in one. */
+    val status: ReadingStatus? = null,
 )
+
+/** The reading lists a series can be in. */
+@Serializable
+enum class ReadingStatus(val label: String) {
+    Reading("Reading"),
+    PlanToRead("Plan to read"),
+    Completed("Completed"),
+    Dropped("Dropped"),
+}
+
+/** The lists of saved series the library keeps. [key] names the list in the database. */
+enum class LibraryList(val key: String) {
+    Recent("recent"),
+    Subscribed("subscribed"),
+    Lists("lists"),
+}
 
 @Serializable
 data class LibraryData(
@@ -88,7 +113,11 @@ data class LibraryData(
     val searchOrder: String = "Popular",
     /** True once the first-launch tip on the home screen has been dismissed. */
     val hintDismissed: Boolean = false,
+    /** Series you put in reading lists, each with its status. */
+    val lists: List<SavedSeries> = emptyList(),
+    /** True once the lists moved from the old single file into the database. */
+    val roomMigrated: Boolean = false,
 ) {
-    /** A saved copy of this series, if you have read or subscribed to it before. */
-    fun knownSeries(id: String): SavedSeries? = (recent + subscribed).firstOrNull { it.id == id }
+    /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
+    fun knownSeries(id: String): SavedSeries? = (recent + subscribed + lists).firstOrNull { it.id == id }
 }

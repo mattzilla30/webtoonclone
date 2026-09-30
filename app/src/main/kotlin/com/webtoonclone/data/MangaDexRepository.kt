@@ -1,7 +1,11 @@
 package com.webtoonclone.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
@@ -12,12 +16,12 @@ import java.io.IOException
 
 private const val API = "https://api.mangadex.org"
 private const val PAGE_SIZE = 24
-private const val LANG = "en"
 private const val CHAPTER_PAGE = 500
 private const val MAX_ATTEMPTS = 3
 private const val RANDOM_TRIES = 5
 private const val PAGE_URL_TTL_MS = 10L * 60 * 1000
 private const val UPDATES_PAGE = 50
+private const val SIMILAR_MINIMUM = 4
 
 enum class Order(val param: String) {
     Popular("followedCount"),
@@ -30,15 +34,27 @@ class MangaDexRepository(private val client: OkHttpClient) {
     private val json = Json { ignoreUnknownKeys = true }
     private var tagIndex: TagIndex? = null
 
-    /** Set from Settings. Read on the network threads, so both are volatile. */
+    /** Set from Settings. Read on the network threads, so all three are volatile. */
     @Volatile var dataSaver = false
 
     @Volatile var originalTitles = false
 
+    /** The MangaDex language code for chapters, titles, and descriptions. */
+    @Volatile var language = "en"
+
+    private val _contentVersion = MutableStateFlow(0)
+
+    /** Goes up when a setting that changes what the lists contain (language, original titles) changes. */
+    val contentVersion: StateFlow<Int> = _contentVersion
+
     fun applySettings(settings: Settings) {
+        val contentChanged = settings.language != language || settings.originalTitles != originalTitles
         dataSaver = settings.dataSaver
         originalTitles = settings.originalTitles
+        language = settings.language
+        if (contentChanged) _contentVersion.value += 1
     }
+
     private val pageUrls = TtlCache<String, List<String>>(PAGE_URL_TTL_MS)
 
     suspend fun browse(
@@ -49,22 +65,35 @@ class MangaDexRepository(private val client: OkHttpClient) {
         ids: List<String>? = null,
         limit: Int = PAGE_SIZE,
         withStats: Boolean = false,
+        filters: SearchFilters = SearchFilters(),
+        authorId: String? = null,
     ): List<SeriesSummary> {
-        val tagId = tag?.let { tagIndex().ids[it.lowercase()] }
+        val included = filters.included + listOfNotNull(tag)
+        // The tag list is only fetched when a tag is involved.
+        val index = if (included.isNotEmpty() || filters.excluded.isNotEmpty()) tagIndex() else null
+        val includedIds = included.mapNotNull { index?.ids?.get(it.lowercase()) }
+        val excludedIds = filters.excluded.mapNotNull { index?.ids?.get(it.lowercase()) }
         val url = "$API/manga".toHttpUrl().newBuilder()
             .addQueryParameter("limit", limit.toString())
             .addQueryParameter("offset", (page * limit).toString())
             .addQueryParameter("hasAvailableChapters", "true")
             .addQueryParameter("includes[]", "cover_art")
             .addQueryParameter("includes[]", "author")
-            .addQueryParameter("availableTranslatedLanguage[]", LANG)
+            .addQueryParameter("availableTranslatedLanguage[]", language)
             .addQueryParameter("contentRating[]", "safe")
             .addQueryParameter("contentRating[]", "suggestive")
             .apply {
                 if (ids == null) addQueryParameter("order[${order.param}]", "desc")
                 ids?.forEach { addQueryParameter("ids[]", it) }
                 if (title != null) addQueryParameter("title", title)
-                if (tagId != null) addQueryParameter("includedTags[]", tagId)
+                includedIds.forEach { addQueryParameter("includedTags[]", it) }
+                if (includedIds.size > 1) addQueryParameter("includedTagsMode", if (filters.matchAll) "AND" else "OR")
+                excludedIds.forEach { addQueryParameter("excludedTags[]", it) }
+                filters.status.forEach { addQueryParameter("status[]", it) }
+                filters.demographics.forEach { addQueryParameter("publicationDemographic[]", it) }
+                filters.originalLanguages.forEach { addQueryParameter("originalLanguage[]", it) }
+                filters.year?.let { addQueryParameter("year", it.toString()) }
+                if (authorId != null) addQueryParameter("authorOrArtist", authorId)
             }
             .build()
         val list = json.decodeFromString<MangaListDto>(fetch(url)).data.map { it.toSummary() }
@@ -74,8 +103,8 @@ class MangaDexRepository(private val client: OkHttpClient) {
     }
 
     /**
-     * A random series that has English chapters, or null if five tries find none. The endpoint picks
-     * without regard to language, so a few tries are usually enough.
+     * A random series that has chapters in the chosen language, or null if five tries find none. The
+     * endpoint picks without regard to language, so a few tries are usually enough.
      */
     suspend fun randomSeries(): SeriesSummary? {
         repeat(RANDOM_TRIES) {
@@ -86,7 +115,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
                 .addQueryParameter("contentRating[]", "suggestive")
                 .build()
             val manga = json.decodeFromString<MangaOneDto>(fetch(url)).data
-            if (LANG in manga.attributes.availableTranslatedLanguages) return manga.toSummary()
+            if (language in manga.attributes.availableTranslatedLanguages) return manga.toSummary()
         }
         return null
     }
@@ -95,14 +124,13 @@ class MangaDexRepository(private val client: OkHttpClient) {
     suspend fun newSeries(): List<SeriesSummary> = browse(order = Order.Newest, limit = 3)
 
     /** The hero and picks are random on every call, so each app open looks different. */
-    suspend fun home(): HomeContent {
-        // MangaDex allows about five requests per second, so these run one after another.
-        val newSeries = newSeries()
+    suspend fun home(): HomeContent = coroutineScope {
+        // Two chains run together, so at most three requests are in flight. MangaDex allows about five a second.
+        val newSeries = async { newSeries() }
+        val pool = async { readablePicks(7) }
         // One random series leads the screen as the hero. The other six fill Today's Picks.
-        val pool = readablePicks(7)
-        val hero = pool.firstOrNull()
-        val picks = pool.drop(1)
-        return HomeContent(hero, newSeries, picks)
+        val picked = pool.await()
+        HomeContent(picked.firstOrNull(), newSeries.await(), picked.drop(1))
     }
 
     /** The newest chapter that opens in the reader, or null when the series has none. */
@@ -110,17 +138,11 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
             .addQueryParameter("limit", "1")
             .addQueryParameter("includeExternalUrl", "0")
-            .addQueryParameter("translatedLanguage[]", LANG)
+            .addQueryParameter("translatedLanguage[]", language)
             .addQueryParameter("order[readableAt]", "desc")
             .build()
         val dto = json.decodeFromString<ChapterListDto>(fetch(url)).data.firstOrNull() ?: return null
-        return Chapter(
-            dto.id,
-            dto.attributes.chapter ?: "Oneshot",
-            dto.attributes.title.orEmpty(),
-            dto.attributes.publishAt,
-            dto.attributes.externalUrl,
-        )
+        return dto.toChapter()
     }
 
     /** One page of series ordered by their newest readable chapter. Repeats across pages are possible. */
@@ -129,7 +151,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("limit", UPDATES_PAGE.toString())
             .addQueryParameter("offset", (page * UPDATES_PAGE).toString())
             .addQueryParameter("includeExternalUrl", "0")
-            .addQueryParameter("translatedLanguage[]", LANG)
+            .addQueryParameter("translatedLanguage[]", language)
             .addQueryParameter("order[readableAt]", "desc")
             .addQueryParameter("contentRating[]", "safe")
             .addQueryParameter("contentRating[]", "suggestive")
@@ -157,7 +179,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val url = "$API/chapter".toHttpUrl().newBuilder()
             .addQueryParameter("limit", "100")
             .addQueryParameter("includeExternalUrl", "0")
-            .addQueryParameter("translatedLanguage[]", LANG)
+            .addQueryParameter("translatedLanguage[]", language)
             .addQueryParameter("order[readableAt]", "desc")
             .addQueryParameter("contentRating[]", "safe")
             .addQueryParameter("contentRating[]", "suggestive")
@@ -194,43 +216,65 @@ class MangaDexRepository(private val client: OkHttpClient) {
     }
 
     /**
-     * One page of the chapter feed, newest first. [seen] carries chapter numbers across pages
-     * so a chapter uploaded by several groups shows once.
+     * One page of the chapter feed, newest first. [seen] carries chapter numbers across pages so a
+     * chapter uploaded by several groups shows once. When groups overlap within a page, [preferredGroup]
+     * picks the upload to show, and the others stay available as alternates.
      */
-    suspend fun chapterPage(seriesId: String, offset: Int, seen: MutableSet<String>): ChapterPage {
+    suspend fun chapterPage(
+        seriesId: String,
+        offset: Int,
+        seen: MutableSet<String>,
+        preferredGroup: String? = null,
+    ): ChapterPage {
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
             .addQueryParameter("limit", CHAPTER_PAGE.toString())
             .addQueryParameter("offset", offset.toString())
-            .addQueryParameter("translatedLanguage[]", LANG)
+            .addQueryParameter("translatedLanguage[]", language)
             .addQueryParameter("order[chapter]", "desc")
+            .addQueryParameter("includes[]", "scanlation_group")
             .build()
         val body = json.decodeFromString<ChapterListDto>(fetch(url))
-        val chapters = body.data.mapNotNull { dto ->
-            val number = dto.attributes.chapter ?: "Oneshot"
-            if (!seen.add(number)) return@mapNotNull null
-            Chapter(
-                dto.id,
-                number,
-                dto.attributes.title.orEmpty(),
-                dto.attributes.publishAt,
-                dto.attributes.externalUrl,
-            )
+        val byNumber = LinkedHashMap<String, MutableList<Chapter>>()
+        for (dto in body.data) {
+            val chapter = dto.toChapter()
+            if (chapter.number in seen) continue
+            byNumber.getOrPut(chapter.number) { mutableListOf() } += chapter
         }
+        seen += byNumber.keys
+        val chapters = byNumber.values.map { pickUpload(it, preferredGroup) }
         val next = offset + body.data.size
         return ChapterPage(chapters, if (body.data.isEmpty() || next >= body.total) null else next)
     }
 
     /** Every chapter, oldest first. The reader uses it to find the previous and next chapter. */
-    suspend fun allChapters(seriesId: String): List<Chapter> {
+    suspend fun allChapters(seriesId: String, preferredGroup: String? = null): List<Chapter> {
         val seen = mutableSetOf<String>()
         val all = mutableListOf<Chapter>()
         var offset: Int? = 0
         while (offset != null) {
-            val page = chapterPage(seriesId, offset, seen)
+            val page = chapterPage(seriesId, offset, seen, preferredGroup)
             all += page.chapters
             offset = page.nextOffset
         }
         return all.asReversed()
+    }
+
+    /** The series a chapter belongs to, for opening a MangaDex chapter link. */
+    suspend fun seriesIdForChapter(chapterId: String): String? {
+        val dto = json.decodeFromString<ChapterOneDto>(fetch("$API/chapter/$chapterId".toHttpUrl())).data
+        return dto.relationships.firstOrNull { it.type == "manga" }?.id
+    }
+
+    /** Series like the one with [tags], most followed first, without the series itself. */
+    suspend fun similar(seriesId: String, tags: List<String>, limit: Int = 10): List<SeriesSummary> {
+        val chosen = similarTags(tags)
+        if (chosen.isEmpty()) return emptyList()
+        var found = browse(filters = SearchFilters(included = chosen), limit = limit + 1)
+        // Two tags together can be too narrow, so fall back to the first alone.
+        if (found.size < SIMILAR_MINIMUM && chosen.size > 1) {
+            found = browse(filters = SearchFilters(included = chosen.take(1)), limit = limit + 1)
+        }
+        return found.filter { it.id != seriesId }.take(limit)
     }
 
     /**
@@ -318,17 +362,28 @@ class MangaDexRepository(private val client: OkHttpClient) {
             coverUrl = file?.let { "https://uploads.mangadex.org/covers/$id/$it.512.jpg" },
             genre = attributes.tags.firstOrNull { it.attributes.group == "genre" }?.attributes?.name?.pick(),
             author = relationships.firstOrNull { it.type == "author" }?.attributes?.name,
+            authorId = relationships.firstOrNull { it.type == "author" }?.id,
             description = attributes.description.pick(),
         )
     }
 
     /**
-     * MangaDex stores the romanized original name as the main title and the translated
-     * English name in altTitles. Non-English works use the first English alt title.
+     * MangaDex stores the romanized original name as the main title and translated names in
+     * altTitles. Works not originally in the chosen language use its first alternate title.
      * A work with none keeps its main title.
      */
     private fun MangaDto.displayTitle(): String =
-        chooseTitle(attributes.title, attributes.altTitles, attributes.originalLanguage, originalTitles, LANG)
+        chooseTitle(attributes.title, attributes.altTitles, attributes.originalLanguage, originalTitles, language)
 
-    private fun Map<String, String>.pick(): String = this[LANG] ?: values.firstOrNull().orEmpty()
+    private fun Map<String, String>.pick(): String = this[language] ?: values.firstOrNull().orEmpty()
+
+    private fun ChapterDto.toChapter() = Chapter(
+        id = id,
+        number = attributes.chapter ?: "Oneshot",
+        title = attributes.title.orEmpty(),
+        publishedAt = attributes.publishAt,
+        externalUrl = attributes.externalUrl,
+        group = relationships.firstOrNull { it.type == "scanlation_group" }?.attributes?.name,
+        volume = attributes.volume,
+    )
 }

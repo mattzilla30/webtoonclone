@@ -2,6 +2,7 @@ package com.webtoonclone.ui.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -38,7 +40,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.webtoonclone.data.LibraryData
+import com.webtoonclone.data.LibraryList
+import com.webtoonclone.data.ReadingStatus
 import com.webtoonclone.data.SavedSeries
+import com.webtoonclone.ui.ChoiceChip
 import com.webtoonclone.ui.Cover
 import com.webtoonclone.ui.series.hasUnreadChapters
 import com.webtoonclone.ui.theme.Green
@@ -53,10 +59,17 @@ fun LibraryScreen(
     onOpenSettings: () -> Unit,
 ) {
     val library by viewModel.library.collectAsState()
-    var subscribedTab by rememberSaveable { mutableStateOf(false) }
+    var tabKey by rememberSaveable { mutableStateOf(LibraryList.Recent.key) }
+    val tab = LibraryList.entries.firstOrNull { it.key == tabKey } ?: LibraryList.Recent
+    val subscribedTab = tab == LibraryList.Subscribed
+    var statusFilter by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = remember { mutableStateListOf<String>() }
     val alphabetical = library.sortAlphabetical
-    val items = sortSaved(if (subscribedTab) library.subscribed else library.recent, alphabetical)
+    val tabItems = listFor(library, tab)
+    val items = sortSaved(
+        if (tab == LibraryList.Lists) tabItems.filter { statusFilter == null || it.status?.name == statusFilter } else tabItems,
+        alphabetical,
+    )
 
     var undo by remember { mutableStateOf<UndoState?>(null) }
 
@@ -76,8 +89,20 @@ fun LibraryScreen(
                 }
             }
             Row(Modifier.fillMaxWidth()) {
-                Tab("RECENT", !subscribedTab, Modifier.weight(1f)) { subscribedTab = false; selected.clear() }
-                Tab("SUBSCRIBED", subscribedTab, Modifier.weight(1f)) { subscribedTab = true; selected.clear() }
+                Tab("RECENT", tab == LibraryList.Recent, Modifier.weight(1f)) { tabKey = LibraryList.Recent.key; selected.clear() }
+                Tab("SUBSCRIBED", subscribedTab, Modifier.weight(1f)) { tabKey = LibraryList.Subscribed.key; selected.clear() }
+                Tab("LISTS", tab == LibraryList.Lists, Modifier.weight(1f)) { tabKey = LibraryList.Lists.key; selected.clear() }
+            }
+            if (tab == LibraryList.Lists) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ChoiceChip("All", statusFilter == null) { statusFilter = null }
+                    ReadingStatus.entries.forEach { status ->
+                        ChoiceChip(status.label, statusFilter == status.name) { statusFilter = status.name }
+                    }
+                }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("${items.size} SERIES", fontSize = 12.sp, color = Green, fontWeight = FontWeight.Bold)
@@ -90,16 +115,16 @@ fun LibraryScreen(
                     Text(
                         "Delete", fontSize = 12.sp,
                         modifier = Modifier.clickable(enabled = selected.isNotEmpty()) {
-                            undo = UndoState(subscribedTab, if (subscribedTab) library.subscribed else library.recent, selected.size)
-                            viewModel.delete(subscribedTab, selected.toSet())
+                            undo = UndoState(tab, tabItems, selected.size)
+                            viewModel.delete(tab, selected.toSet())
                             selected.clear()
                         },
                     )
                     Text(
                         "Delete All", fontSize = 12.sp,
                         modifier = Modifier.clickable(enabled = items.isNotEmpty()) {
-                            undo = UndoState(subscribedTab, if (subscribedTab) library.subscribed else library.recent, items.size)
-                            viewModel.delete(subscribedTab, items.map { it.id }.toSet())
+                            undo = UndoState(tab, tabItems, items.size)
+                            viewModel.delete(tab, items.map { it.id }.toSet())
                             selected.clear()
                         },
                     )
@@ -108,7 +133,11 @@ fun LibraryScreen(
             if (items.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        if (subscribedTab) "Subscribe to a series to see it here." else "Series you read show up here.",
+                        when (tab) {
+                            LibraryList.Subscribed -> "Subscribe to a series to see it here."
+                            LibraryList.Lists -> "Add a series to a list from its page."
+                            LibraryList.Recent -> "Series you read show up here."
+                        },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -126,6 +155,9 @@ fun LibraryScreen(
                                     Text("NEW", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green)
                                 }
                                 Text(series.title, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                if (tab == LibraryList.Lists) {
+                                    series.status?.let { Text(it.label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Green) }
+                                }
                                 series.chapterNumber?.let {
                                     Text("Ep. $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -164,7 +196,7 @@ fun LibraryScreen(
                     fontSize = 13.sp,
                     color = Green,
                     modifier = Modifier.clickable {
-                        viewModel.restore(state.subscribed, state.snapshot)
+                        viewModel.restore(state.list, state.snapshot)
                         undo = null
                     },
                 )
@@ -173,8 +205,14 @@ fun LibraryScreen(
     }
 }
 
+private fun listFor(library: LibraryData, tab: LibraryList): List<SavedSeries> = when (tab) {
+    LibraryList.Recent -> library.recent
+    LibraryList.Subscribed -> library.subscribed
+    LibraryList.Lists -> library.lists
+}
+
 /** What an undo needs: which tab, the list as it was, and how many series were removed. */
-private data class UndoState(val subscribed: Boolean, val snapshot: List<SavedSeries>, val count: Int)
+private data class UndoState(val list: LibraryList, val snapshot: List<SavedSeries>, val count: Int)
 
 @Composable
 private fun Tab(label: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {

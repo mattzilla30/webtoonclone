@@ -3,6 +3,7 @@ package com.webtoonclone.ui.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.webtoonclone.data.LibraryData
+import com.webtoonclone.data.LibraryList
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.SavedSeries
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,8 +15,8 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
     val library: StateFlow<LibraryData> = store.data
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryData())
 
-    fun restore(subscribedTab: Boolean, snapshot: List<SavedSeries>) {
-        viewModelScope.launch { store.restore(subscribedTab, snapshot) }
+    fun restore(list: LibraryList, snapshot: List<SavedSeries>) {
+        viewModelScope.launch { store.restore(list, snapshot) }
     }
 
     fun setSortAlphabetical(alphabetical: Boolean) {
@@ -26,9 +27,13 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
         viewModelScope.launch { store.setNotifications(enabled) }
     }
 
-    fun delete(subscribedTab: Boolean, ids: Set<String>) {
+    fun delete(list: LibraryList, ids: Set<String>) {
         viewModelScope.launch {
-            if (subscribedTab) store.removeSubscribed(ids) else store.removeRecent(ids)
+            when (list) {
+                LibraryList.Recent -> store.removeRecent(ids)
+                LibraryList.Subscribed -> store.removeSubscribed(ids)
+                LibraryList.Lists -> store.removeLists(ids)
+            }
         }
     }
 }

@@ -217,7 +217,7 @@ private fun WebtoonNav(settings: Settings, openCount: Int, open: PendingOpen?, o
                         val seriesId = entry.arguments!!.getString("seriesId")!!
                         val chapterId = entry.arguments!!.getString("chapterId")!!
                         val vm = viewModel(key = chapterId) {
-                            ReaderViewModel(seriesId, chapterId, app.repository, app.progressStore, app.libraryStore, app.settingsStore)
+                            ReaderViewModel(seriesId, chapterId, app.repository, app.progressStore, app.libraryStore, app.settingsStore, app.seriesCache)
                         }
                         // The reader stays dark in a light app, so its bars and text keep their contrast.
                         DarkTheme {

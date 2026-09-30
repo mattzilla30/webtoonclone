@@ -40,7 +40,8 @@ class DetailsTest {
     fun languageAndDemographicLabelsAreReadable() {
         assertEquals("Japanese", languageName("ja"))
         assertEquals("Chinese (Traditional)", languageName("zh-hk"))
-        assertEquals("PT", languageName("pt"))
+        assertEquals("XX", languageName("xx"))
+        assertEquals("Portuguese", languageName("pt"))
         assertEquals("Shounen", demographicLabel("shounen"))
         assertEquals(null, demographicLabel(null))
     }

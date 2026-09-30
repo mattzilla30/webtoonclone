@@ -115,11 +115,11 @@ class SeriesViewModel(
                 }
                 _offlineSavedAt.value = null
                 _state.value = Load.Ready(ready)
-                val saved = CachedSeries(ready.detail, ready.chapters.take(MAX_CACHED_CHAPTERS), System.currentTimeMillis())
+                val saved = CachedSeries(ready.detail, ready.chapters.take(MAX_CACHED_CHAPTERS), System.currentTimeMillis(), repository.language)
                 runCatching { seriesCache.save(saved) }
             } catch (e: Exception) {
                 // Fall back to the last copy of this series, if you opened it before.
-                val saved = runCatching { seriesCache.load(seriesId) }.getOrNull()
+                val saved = runCatching { seriesCache.load(seriesId, repository.language) }.getOrNull()
                 if (saved != null) {
                     nextOffset = null
                     _offlineSavedAt.value = saved.savedAt

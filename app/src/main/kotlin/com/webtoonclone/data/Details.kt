@@ -29,17 +29,10 @@ fun buildLinks(links: Map<String, String>?): List<SeriesLink> = buildList {
     links?.get("engtl")?.takeIf { it.startsWith("http") }?.let { add(SeriesLink("Official English release", it)) }
 }
 
-/** A readable name for a MangaDex language code. Unknown codes are shown in capitals. */
-fun languageName(code: String): String = when (code.lowercase()) {
-    "ja" -> "Japanese"
-    "ko" -> "Korean"
-    "zh" -> "Chinese"
-    "zh-hk" -> "Chinese (Traditional)"
-    "en" -> "English"
-    "es" -> "Spanish"
-    "fr" -> "French"
-    "" -> ""
-    else -> code.uppercase()
+/** A readable name for a MangaDex language code. Codes the app does not list are shown in capitals. */
+fun languageName(code: String): String = when {
+    code.isEmpty() -> ""
+    else -> Languages.firstOrNull { it.code.equals(code, ignoreCase = true) }?.name ?: code.uppercase()
 }
 
 /** "shounen" becomes "Shounen". */

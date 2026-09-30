@@ -23,6 +23,8 @@ data class CachedSeries(
     /** Newest first, as the series page lists them. */
     val chapters: List<Chapter>,
     val savedAt: Long,
+    /** The language the chapters were listed in. A copy in another language is not shown. */
+    val language: String = "en",
 )
 
 /** Puts [added] first and drops any older copy of the same series, keeping at most [max]. */
@@ -41,9 +43,9 @@ class SeriesCacheStore(private val context: Context) {
         }
     }
 
-    suspend fun load(seriesId: String): CachedSeries? {
+    suspend fun load(seriesId: String, language: String = "en"): CachedSeries? {
         val raw = context.seriesCacheDataStore.data.first()[ENTRIES] ?: return null
         val all = runCatching { json.decodeFromString(serializer, raw) }.getOrNull() ?: return null
-        return all.firstOrNull { it.detail.summary.id == seriesId }
+        return all.firstOrNull { it.detail.summary.id == seriesId && it.language == language }
     }
 }

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -66,6 +67,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.okhttp)
@@ -75,9 +79,14 @@ dependencies {
     testImplementation(libs.junit)
 }
 
+// Room writes its schema here so future migrations can be checked against it.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 // Kotlin style checks. `./gradlew :app:ktlintCheck` reports problems and `:app:ktlintFormat` fixes them.
 // The rules are in the .editorconfig at the project root.
-val ktlint: Configuration by configurations.creating
+val ktlint = configurations.create("ktlint")
 
 dependencies {
     ktlint("com.pinterest.ktlint:ktlint-cli:1.8.0") {

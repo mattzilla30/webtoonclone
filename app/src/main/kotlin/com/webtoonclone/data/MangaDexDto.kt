@@ -64,6 +64,9 @@ internal data class RelationshipDto(
 internal data class RelationshipAttributesDto(val fileName: String? = null, val name: String? = null)
 
 @Serializable
+internal data class ChapterOneDto(val data: ChapterDto)
+
+@Serializable
 internal data class ChapterListDto(val data: List<ChapterDto>, val total: Int = 0)
 
 @Serializable
@@ -78,6 +81,7 @@ internal data class ChapterAttributesDto(
     val chapter: String? = null,
     val title: String? = null,
     val publishAt: String = "",
+    val volume: String? = null,
     val externalUrl: String? = null,
 )
 

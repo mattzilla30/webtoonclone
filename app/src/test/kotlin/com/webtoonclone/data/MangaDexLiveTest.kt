@@ -3,6 +3,7 @@ package com.webtoonclone.data
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -146,6 +147,43 @@ class MangaDexLiveTest {
         val topRated = repository.browse(order = Order.TopRated, limit = 5).map { it.id }
         assertTrue("top rated is empty", topRated.isNotEmpty())
         assertTrue("top rated matches popular", topRated != repository.browse(order = Order.Popular, limit = 5).map { it.id })
+
+        // Language: another language returns its own series and chapters.
+        val spanishRepo = MangaDexRepository(OkHttpClient()).also { it.language = "es" }
+        val spanish = spanishRepo.browse(limit = 10)
+        assertTrue("no Spanish series", spanish.isNotEmpty())
+        // A series can be listed for a language yet have no chapters in it, so look for one that does.
+        val spanishWithChapters = spanish.firstOrNull { spanishRepo.chapterPage(it.id, 0, mutableSetOf()).chapters.isNotEmpty() }
+        assertTrue("no Spanish series has Spanish chapters", spanishWithChapters != null)
+
+        // Filters: included, excluded, and status limits all apply to what comes back.
+        val filtered = repository.browse(
+            filters = SearchFilters(included = listOf("Romance"), excluded = listOf("Horror"), status = listOf("completed")),
+            limit = 10,
+        )
+        assertTrue("filters returned nothing", filtered.isNotEmpty())
+        val filteredDetail = repository.series(filtered.first().id)
+        assertEquals("status filter ignored", "completed", filteredDetail.status)
+        assertTrue("excluded tag present: ${filteredDetail.tags}", "Horror" !in filteredDetail.tags)
+        assertTrue("included tag missing: ${filteredDetail.tags}", "Romance" in filteredDetail.tags)
+        val year2020 = repository.browse(filters = SearchFilters(year = 2020), limit = 5)
+        assertTrue("year filter returned nothing", year2020.isNotEmpty())
+        assertEquals("year filter ignored", 2020, repository.series(year2020.first().id).year)
+
+        // Authors: a series' author id leads to a list that includes that series.
+        val withAuthor = repository.browse(limit = 24).first { it.authorId != null }
+        val authorWorks = repository.browse(authorId = withAuthor.authorId, limit = 20)
+        assertTrue("author page misses the series", authorWorks.any { it.id == withAuthor.id })
+
+        // Similar: a well-known series has neighbours, and never lists itself.
+        val soloSimilar = repository.similar(solo.id, soloDetail.tags)
+        assertTrue("no similar series for ${soloDetail.tags}", soloSimilar.isNotEmpty())
+        assertTrue("similar lists the series itself", soloSimilar.none { it.id == solo.id })
+
+        // Groups: chapters name the group that uploaded them, and a chapter id leads back to its series.
+        val firstChapters = repository.chapterPage(series.id, 0, mutableSetOf()).chapters
+        assertTrue("no chapter names a group", firstChapters.any { it.group != null })
+        assertEquals("chapter link lookup", series.id, repository.seriesIdForChapter(chapters.first().id))
 
         // Search paging: page 1 must add series that page 0 did not have.
         val first = repository.browse(title = "love", page = 0)

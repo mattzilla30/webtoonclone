@@ -6,9 +6,14 @@ import com.webtoonclone.data.Chapter
 import com.webtoonclone.data.LibraryStore
 import com.webtoonclone.data.MangaDexRepository
 import com.webtoonclone.data.ProgressStore
+import com.webtoonclone.data.ReadingMode
 import com.webtoonclone.data.SavedSeries
+import com.webtoonclone.data.SeriesCacheStore
 import com.webtoonclone.data.Settings
 import com.webtoonclone.data.SettingsStore
+import com.webtoonclone.data.detectReadingMode
+import com.webtoonclone.data.findChapter
+import com.webtoonclone.data.resolveMode
 import com.webtoonclone.ui.Load
 import com.webtoonclone.ui.friendlyError
 import kotlinx.coroutines.async
@@ -16,7 +21,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -40,9 +47,36 @@ class ReaderViewModel(
     private val progressStore: ProgressStore,
     private val libraryStore: LibraryStore,
     private val settingsStore: SettingsStore,
+    private val seriesCache: SeriesCacheStore,
 ) : ViewModel() {
     val settings: StateFlow<Settings> = settingsStore.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
+
+    /** The mode detected from the series' tags and original language. */
+    private val detected = MutableStateFlow(ReadingMode.Vertical)
+
+    /** The reading mode in use: this series' own choice, or the detected one when the choice is Auto. */
+    val mode: StateFlow<ReadingMode> = combine(settingsStore.settings, detected) { settings, detected ->
+        resolveMode(settings.seriesReadingModes[seriesId], detected)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReadingMode.Vertical)
+
+    /** What the options dialog shows as selected. Auto means the detected mode is in use. */
+    val chosenMode: StateFlow<ReadingMode> = settingsStore.settings
+        .map { it.seriesReadingModes[seriesId] ?: ReadingMode.Auto }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReadingMode.Auto)
+
+    /** Saves a reading mode for this series. Auto removes the choice so detection applies again. */
+    fun setMode(mode: ReadingMode) {
+        updateSettings { settings ->
+            settings.copy(
+                seriesReadingModes = if (mode == ReadingMode.Auto) {
+                    settings.seriesReadingModes - seriesId
+                } else {
+                    settings.seriesReadingModes + (seriesId to mode)
+                },
+            )
+        }
+    }
 
     fun updateSettings(change: (Settings) -> Settings) {
         viewModelScope.launch { settingsStore.update(change) }
@@ -75,15 +109,18 @@ class ReaderViewModel(
         viewModelScope.launch {
             _state.value = try {
                 coroutineScope {
-                    val chapters = async { repository.allChapters(seriesId) }
+                    val preferredGroup = settingsStore.current().preferredGroups[seriesId]
+                    val chapters = async { repository.allChapters(seriesId, preferredGroup) }
                     val pages = async { repository.pages(chapterId, forceRefresh) }
+                    val detection = async { detectMode() }
                     val saved = progressStore.observe(seriesId).first()
                     val list = chapters.await().filter { it.externalUrl == null }
-                    val index = list.indexOfFirst { it.id == chapterId }
-                    if (index == -1) error("Chapter not found")
+                    // The chapter may be another group's upload of one in the list.
+                    val (index, chapter) = findChapter(list, chapterId) ?: error("Chapter not found")
+                    detected.value = detection.await()
                     Load.Ready(
                         ReaderPage(
-                            chapter = list[index],
+                            chapter = chapter,
                             chapters = list,
                             pages = pages.await(),
                             prevId = list.getOrNull(index - 1)?.id,
@@ -92,12 +129,19 @@ class ReaderViewModel(
                             total = list.size,
                             startPage = saved?.takeIf { it.chapterId == chapterId }?.page ?: 0,
                         ),
-                    ).also { recordRecent(list[index]) }
+                    ).also { recordRecent(chapter) }
                 }
             } catch (e: Exception) {
                 Load.Error(friendlyError(e, "Could not load chapter"))
             }
         }
+    }
+
+    /** Reads the series' tags and language from the saved copy, or from MangaDex when there is none. */
+    private suspend fun detectMode(): ReadingMode {
+        val detail = seriesCache.load(seriesId, repository.language)?.detail
+            ?: runCatching { repository.series(seriesId) }.getOrNull()
+        return if (detail != null) detectReadingMode(detail.tags, detail.originalLanguage) else ReadingMode.Vertical
     }
 
     private fun recordRecent(chapter: Chapter) {

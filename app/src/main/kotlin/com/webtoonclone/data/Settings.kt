@@ -16,6 +16,10 @@ enum class ThemeMode { Dark, Light, System, Black }
 @Serializable
 enum class ReaderBackground { Dark, Black, White }
 
+/** How the reader turns pages. Auto picks from the series' tags and original language. */
+@Serializable
+enum class ReadingMode { Auto, Vertical, PagedLtr, PagedRtl }
+
 /** Everything the Settings screen and the reader options change. Defaults match the app before settings existed. */
 @Serializable
 data class Settings(
@@ -41,6 +45,12 @@ data class Settings(
     /** Save a crash report on the device so it can be shared next launch. Off unless you turn it on. */
     val crashReports: Boolean = false,
     val welcomeDone: Boolean = false,
+    /** MangaDex language code for chapters, titles, and descriptions. */
+    val language: String = "en",
+    /** The scanlation group to prefer for each series, by series id. */
+    val preferredGroups: Map<String, String> = emptyMap(),
+    /** A reading mode chosen for one series. A series with no entry uses Auto. */
+    val seriesReadingModes: Map<String, ReadingMode> = emptyMap(),
 )
 
 /** Whether to show the first-launch walkthrough. People who already dismissed the old tip skip it. */

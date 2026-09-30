@@ -103,6 +103,15 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         }
     }
 
+    /** Removes every series from the Recent list. Subscriptions, lists, and collections stay. */
+    fun clearHistory() {
+        viewModelScope.launch {
+            val ids = app.libraryStore.data.first().recent.mapTo(mutableSetOf()) { it.id }
+            app.libraryStore.removeRecent(ids)
+            _message.value = "Reading history cleared"
+        }
+    }
+
     fun refreshCacheSize() {
         viewModelScope.launch { _cacheBytes.value = withContext(Dispatchers.IO) { measureCache() } }
     }

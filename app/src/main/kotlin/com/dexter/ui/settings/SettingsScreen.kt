@@ -86,6 +86,21 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
         if (uri != null) viewModel.setAutoBackupFolder(uri)
     }
     var pickTag by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear reading history?") },
+            text = { Text("This empties the Recent list. Subscriptions, lists, and collections stay.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearHistory()
+                    confirmClear = false
+                }) { Text("Clear") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
     if (pickTag) {
         TagPickerDialog(
             blocked = settings.blockedTags,
@@ -251,6 +266,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             }
             InfoRow(title = stringResource(R.string.downloaded_chapters), onClick = onOpenDownloads)
             InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
+            InfoRow(title = "Clear reading history", subtitle = "Empties the Recent list.", onClick = { confirmClear = true })
 
             SectionTitle("Backup")
             Text(

@@ -27,8 +27,10 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -176,31 +178,27 @@ fun LibraryScreen(
                     ChoiceChip("Unread only", unreadOnly) { unreadOnly = !unreadOnly }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${items.size} SERIES", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        if (alphabetical) "Sort: A-Z" else "Sort: Recent",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.clickable { viewModel.setSortAlphabetical(!alphabetical) },
-                    )
-                    Text(
-                        "Delete", style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.clickable(enabled = selected.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("${items.size} series", style = MaterialTheme.typography.labelLargeEmphasized, color = MaterialTheme.colorScheme.primary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { viewModel.setSortAlphabetical(!alphabetical) }) { Text(if (alphabetical) "Sort: A-Z" else "Sort: Recent") }
+                    TextButton(
+                        enabled = selected.isNotEmpty(),
+                        onClick = {
                             undo = UndoState(tab, tabItems, selected.size, collection)
                             if (collection != null) viewModel.removeFromCollection(collection, selected.toSet()) else viewModel.delete(tab, selected.toSet())
                             selected.clear()
                         },
-                    )
-                    Text(
-                        "Delete All", style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.clickable(enabled = items.isNotEmpty()) {
+                    ) { Text("Delete") }
+                    TextButton(
+                        enabled = items.isNotEmpty(),
+                        onClick = {
                             undo = UndoState(tab, tabItems, items.size, collection)
                             val ids = items.map { it.id }.toSet()
                             if (collection != null) viewModel.removeFromCollection(collection, ids) else viewModel.delete(tab, ids)
                             selected.clear()
                         },
-                    )
+                    ) { Text("Delete all") }
                 }
             }
             if (items.isEmpty()) {
@@ -260,28 +258,17 @@ fun LibraryScreen(
                 delay(6.seconds)
                 undo = null
             }
-            Row(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Removed ${state.count} series", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    "Undo",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable {
-                        if (state.collection != null) viewModel.restoreCollection(state.collection, state.snapshot) else viewModel.restore(state.list, state.snapshot)
-                        undo = null
-                    },
-                )
-            }
+            Snackbar(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                action = {
+                    TextButton(
+                        onClick = {
+                            if (state.collection != null) viewModel.restoreCollection(state.collection, state.snapshot) else viewModel.restore(state.list, state.snapshot)
+                            undo = null
+                        },
+                    ) { Text("Undo") }
+                },
+            ) { Text("Removed ${state.count} series") }
         }
     }
 }

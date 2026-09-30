@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
@@ -211,15 +212,7 @@ fun HomeScreen(
                 delay(3.seconds)
                 viewModel.clearToast()
             }
-            Text(
-                message,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(16.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) { Text(message) }
         }
     }
 }

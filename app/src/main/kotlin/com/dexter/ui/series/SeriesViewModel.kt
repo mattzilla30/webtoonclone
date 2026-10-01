@@ -269,16 +269,22 @@ class SeriesViewModel(
         coversState.value = null
     }
 
+    private var relatedJob: Job? = null
+    private var similarJob: Job? = null
+
     private fun loadSimilar(detail: SeriesDetail) {
+        // A reload starts these again, so the ones still running for the old page must not land afterwards.
+        relatedJob?.cancel()
+        similarJob?.cancel()
         _similar.value = emptyList()
         relatedState.value = emptyList()
-        viewModelScope.launch {
-            val list = runCatching { repository.relatedSeries(detail.relations) }.getOrDefault(emptyList())
+        relatedJob = viewModelScope.launch {
+            val list = runCatching { repository.relatedSeries(detail.relations) }.getOrElse { if (it is CancellationException) throw it else emptyList() }
             val kinds = detail.relations.associate { it.id to relationLabel(it.kind) }
             relatedState.value = list.map { (kinds[it.id] ?: "Related") to it }
         }
-        viewModelScope.launch {
-            _similar.value = runCatching { repository.similar(seriesId, detail.tags) }.getOrDefault(emptyList())
+        similarJob = viewModelScope.launch {
+            _similar.value = runCatching { repository.similar(seriesId, detail.tags) }.getOrElse { if (it is CancellationException) throw it else emptyList() }
         }
     }
 

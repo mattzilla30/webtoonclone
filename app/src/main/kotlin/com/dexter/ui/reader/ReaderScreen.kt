@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,11 +50,13 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -80,6 +84,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
@@ -219,6 +224,7 @@ private fun ReaderContent(
     val scope = rememberCoroutineScope()
     var barsVisible by remember { mutableStateOf(true) }
     var showChapters by remember { mutableStateOf(false) }
+    var jumpTo by remember { mutableStateOf<String?>(null) }
     var container by remember { mutableStateOf(IntSize.Zero) }
     val onPage = if (settings.readerBackground == ReaderBackground.White) Color.Black else Color.White
 
@@ -433,7 +439,7 @@ private fun ReaderContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("${position + 1} / $count", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 12.dp))
+                        TextButton(onClick = { jumpTo = (position + 1).toString() }) { Text("${position + 1} / $count", style = MaterialTheme.typography.labelLarge) }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { showChapters = true }, colors = barIcons) {
                                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.chapters))
@@ -448,6 +454,33 @@ private fun ReaderContent(
                     }
                 }
             }
+        }
+
+        jumpTo?.let { typed ->
+            val target = typed.toIntOrNull()
+            AlertDialog(
+                onDismissRequest = { jumpTo = null },
+                title = { Text("Go to page") },
+                text = {
+                    OutlinedTextField(
+                        value = typed,
+                        onValueChange = { jumpTo = it.filter(Char::isDigit).take(4) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        supportingText = { Text("1 to $count") },
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = target != null && target in 1..count,
+                        onClick = {
+                            scope.launch { goToPage((target ?: 1) - 1) }
+                            jumpTo = null
+                        },
+                    ) { Text("Go") }
+                },
+                dismissButton = { TextButton(onClick = { jumpTo = null }) { Text("Cancel") } },
+            )
         }
 
         if (showChapters) {

@@ -127,3 +127,8 @@ tasks.register<JavaExec>("ktlintFormat") {
 
 // The same goes for anything that reads the sources: format them before they are compiled.
 tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach { mustRunAfter("ktlintFormat") }
+
+// Turning the live API tests on or off changes what the tests do, so Gradle must not reuse a result from the other mode.
+tasks.withType<Test>().configureEach {
+    inputs.property("live", providers.environmentVariable("LIVE").orElse(""))
+}

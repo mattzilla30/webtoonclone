@@ -265,6 +265,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 viewModel.update { it.copy(downloadWifiOnly = on) }
             }
             InfoRow(title = stringResource(R.string.downloaded_chapters), onClick = onOpenDownloads)
+            ChoiceRow(
+                "Daily reading goal",
+                listOf(0 to "Off", 1 to "1", 2 to "2", 3 to "3", 5 to "5", 10 to "10"),
+                settings.dailyGoal,
+            ) { goal -> viewModel.update { it.copy(dailyGoal = goal) } }
             InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
             InfoRow(title = "Clear reading history", subtitle = "Empties the Recent list.", onClick = { confirmClear = true })
 

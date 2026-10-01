@@ -66,6 +66,8 @@ data class Settings(
     val hiddenSeries: Set<String> = emptySet(),
     /** Whether the reader locks the screen to portrait or landscape. */
     val readerOrientation: ReaderOrientation = ReaderOrientation.Auto,
+    /** Chapters you aim to read each day. 0 turns the goal off. */
+    val dailyGoal: Int = 0,
     /** Keep the screen on while a chapter is open. */
     val keepScreenOn: Boolean = true,
     /** Space between pages in the vertical strip, in dp. */

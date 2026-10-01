@@ -62,7 +62,7 @@ val appModule = module {
     viewModel { UpdatesViewModel(get(), get(), get()) }
     viewModel { LibraryViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
-    viewModel { StatsViewModel(get()) }
+    viewModel { StatsViewModel(get(), get()) }
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }
     viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), get(), get(), get(), get(), get(), get(), get()) }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,11 +39,28 @@ import java.time.format.TextStyle
 @Composable
 fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
     val stats by viewModel.stats.collectAsState()
+    val goal by viewModel.goal.collectAsState()
     Column(Modifier.fillMaxSize()) {
         AppTopBar(stringResource(R.string.reading_stats), onBack)
         val current = stats
         if (current != null) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+                if (goal > 0) {
+                    val today = current.perDay.lastOrNull()?.second ?: 0
+                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                if (today >= goal) "Goal reached: $today of $goal today" else "Today: $today of $goal chapters",
+                                style = MaterialTheme.typography.titleMediumEmphasized,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            LinearProgressIndicator(
+                                progress = { (today.toFloat() / goal).coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            )
+                        }
+                    }
+                }
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Figure("Chapters read", current.total.toString())
                     Figure("Last 7 days", current.last7Days.toString())

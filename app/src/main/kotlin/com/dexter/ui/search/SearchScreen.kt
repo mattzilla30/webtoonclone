@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -36,6 +37,7 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,9 +46,11 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -82,6 +86,7 @@ import com.dexter.ui.OfflineBanner
 import com.dexter.ui.PickTile
 import com.dexter.ui.adaptiveColumns
 import com.dexter.ui.windowWidthDp
+import kotlinx.coroutines.launch
 
 @Composable
 fun SearchScreen(
@@ -237,20 +242,30 @@ fun SearchScreen(
                             .collect { last -> if (last >= rows.size - 2) viewModel.loadMore() }
                     }
 
-                    LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                        items(rows.size) { row ->
-                            Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val pair = rows[row]
-                                pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
-                                repeat(columns - pair.size) { Box(Modifier.weight(1f)) }
-                            }
-                        }
-                        if (loadingMore) {
-                            item {
-                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                    LoadingIndicator(Modifier.size(40.dp))
+                    Box(Modifier.fillMaxSize()) {
+                        LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                            items(rows.size) { row ->
+                                Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    val pair = rows[row]
+                                    pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
+                                    repeat(columns - pair.size) { Box(Modifier.weight(1f)) }
                                 }
                             }
+                            if (loadingMore) {
+                                item {
+                                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        LoadingIndicator(Modifier.size(40.dp))
+                                    }
+                                }
+                            }
+                        }
+                        val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
+                        if (showTop) {
+                            val scope = rememberCoroutineScope()
+                            SmallFloatingActionButton(
+                                onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                            ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Back to top") }
                         }
                     }
                 }

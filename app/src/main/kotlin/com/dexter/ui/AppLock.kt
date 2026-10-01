@@ -7,7 +7,6 @@ import android.os.CancellationSignal
 import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,7 +81,7 @@ fun LockScreen() {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             // Touches stop here, so nothing under the lock can be tapped.
-            .clickable(interactionSource = MutableInteractionSource(), indication = null) {}
+            .clickable(interactionSource = null, indication = null) {}
             .systemBarsPadding(),
         contentAlignment = Alignment.Center,
     ) {

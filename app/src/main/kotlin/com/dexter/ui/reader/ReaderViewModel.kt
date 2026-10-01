@@ -24,6 +24,8 @@ import com.dexter.data.withSeriesLook
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -112,6 +114,8 @@ class ReaderViewModel(
     /** The next chapter's first pages are preloaded once per reader session. */
     private var previewed = false
 
+    private var loadJob: Job? = null
+
     init { load() }
 
     /** Reloads after an error and asks for fresh page addresses, which may have expired. */
@@ -131,8 +135,10 @@ class ReaderViewModel(
     }
 
     fun load(forceRefresh: Boolean = false) {
+        // A retry replaces the load before it, so only one result can land.
+        loadJob?.cancel()
         _state.value = Load.Loading
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             _state.value = try {
                 coroutineScope {
                     val preferredGroup = settingsStore.current().preferredGroups[seriesId]
@@ -166,6 +172,8 @@ class ReaderViewModel(
                         saveNextChapter(list.getOrNull(index + 1))
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Load.Error(friendlyError(e, "Could not load chapter"))
             }

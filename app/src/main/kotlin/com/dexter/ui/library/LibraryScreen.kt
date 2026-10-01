@@ -6,11 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -19,8 +17,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
@@ -28,7 +24,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
@@ -42,9 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -59,11 +52,8 @@ import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
-import com.dexter.ui.Cover
 import com.dexter.ui.series.hasUnreadChapters
-import com.dexter.ui.timeAgo
 import kotlinx.coroutines.delay
-import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
@@ -93,11 +83,9 @@ fun LibraryScreen(
             else -> listFor(library, tab)
         }
     }
+    val lastReadById = remember(library.recent) { HashMap<String, String?>().also { map -> library.recent.forEach { map.putIfAbsent(it.id, it.chapterNumber) } } }
     val items = remember(library, tabItems, tab, collection, statusFilter, query, unreadOnly, sortMode) {
-        // One pass over the read list, so each series looks up its last chapter without scanning it again.
-        val lastRead = HashMap<String, String?>()
-        for (read in library.recent) lastRead.putIfAbsent(read.id, read.chapterNumber)
-        val unread = { series: SavedSeries -> hasUnreadChapters(series.knownChapterNumber, lastRead[series.id]) }
+        val unread = { series: SavedSeries -> hasUnreadChapters(series.knownChapterNumber, lastReadById[series.id]) }
         sortSaved(
             filterSaved(
                 if (tab == LibraryList.Lists && collection == null) tabItems.filter { statusFilter == null || it.status?.name == statusFilter } else tabItems,
@@ -258,41 +246,18 @@ fun LibraryScreen(
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     items(items, key = { it.id }) { series ->
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            onClick = { onOpenSeries(series.id) },
-                            modifier = Modifier.animateItem().fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        ) {
-                            Row(
-                                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Cover(series.coverUrl, series.title, Modifier.width(44.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true)
-                                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                                    val lastRead = library.recent.firstOrNull { it.id == series.id }?.chapterNumber
-                                    if (subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastRead)) {
-                                        Text(stringResource(R.string.new_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                    Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
-                                    if (tab == LibraryList.Lists) {
-                                        series.status?.let { Text(it.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
-                                    }
-                                    series.chapterNumber?.let {
-                                        val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(Instant.ofEpochMilli(series.at)) else ""
-                                        Text("Ep. $it$readAt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                                Checkbox(
-                                    checked = series.id in selected,
-                                    onCheckedChange = {
-                                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                        if (it) selected.add(series.id) else selected.remove(series.id)
-                                    },
-                                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
-                                )
-                            }
-                        }
+                        LibraryRow(
+                            series = series,
+                            tab = tab,
+                            showNew = subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastReadById[series.id]),
+                            selected = series.id in selected,
+                            onOpen = { onOpenSeries(series.id) },
+                            onSelect = { on ->
+                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                if (on) selected.add(series.id) else selected.remove(series.id)
+                            },
+                            modifier = Modifier.animateItem(),
+                        )
                     }
                 }
             }

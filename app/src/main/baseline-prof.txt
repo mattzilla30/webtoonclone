@@ -24,6 +24,7 @@ HSPLcom/dexter/data/ProgressStore;->*(**)**
 HSPLcom/dexter/data/ImageReportInterceptor;->*(**)**
 HSPLcom/dexter/ui/series/SeriesPartsKt;->*(**)**
 HSPLcom/dexter/ui/library/LibraryScreenKt;->*(**)**
+HSPLcom/dexter/ui/library/LibraryRowKt;->*(**)**
 HSPLcom/dexter/ui/library/LibraryViewModel;->*(**)**
 HSPLcom/dexter/ui/updates/UpdatesScreenKt;->*(**)**
 HSPLcom/dexter/ui/updates/UpdatesViewModel;->*(**)**

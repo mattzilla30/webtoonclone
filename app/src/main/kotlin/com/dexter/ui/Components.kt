@@ -57,13 +57,7 @@ import coil3.compose.AsyncImage
 import com.dexter.R
 import com.dexter.data.SeriesSummary
 import kotlinx.coroutines.launch
-import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 fun compact(n: Int): String = when {
     n >= 1_000_000 -> "%.1fM".format(n / 1_000_000.0)
@@ -184,24 +178,6 @@ fun PickTile(
                 HeartCount(series.follows)
             }
         }
-    }
-}
-
-/** "5 min ago", "3 h ago", "2 d ago", or a date for anything older than a month. */
-fun timeAgo(iso: String, now: Instant = Instant.now()): String {
-    val time = runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrNull() ?: return ""
-    return timeAgo(time, now)
-}
-
-fun timeAgo(time: Instant, now: Instant = Instant.now()): String {
-    val minutes = Duration.between(time, now).toMinutes().coerceAtLeast(0)
-    return when {
-        minutes < 1 -> "just now"
-        minutes < 60 -> "$minutes min ago"
-        minutes < 60 * 24 -> "${minutes / 60} h ago"
-        minutes < 60 * 24 * 30 -> "${minutes / (60 * 24)} d ago"
-        else -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-            .format(LocalDate.ofInstant(time, ZoneId.systemDefault()))
     }
 }
 

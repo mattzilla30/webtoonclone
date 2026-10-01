@@ -23,16 +23,18 @@ class BackupService(
     )
 
     suspend fun writeTo(uri: Uri) {
-        val text = encodeBackup(create())
+        val backup = create()
         withContext(Dispatchers.IO) {
+            val text = encodeBackup(backup)
             context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
         }
     }
 
     /** Writes [AUTO_BACKUP_FILE] into the folder at [tree], replacing the file from the last run. */
     suspend fun writeToFolder(tree: Uri) {
-        val text = encodeBackup(create())
+        val backup = create()
         withContext(Dispatchers.IO) {
+            val text = encodeBackup(backup)
             val resolver = context.contentResolver
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
             val existing = findChild(tree, parent, AUTO_BACKUP_FILE)

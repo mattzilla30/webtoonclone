@@ -79,10 +79,10 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
 
     fun readBackup(uri: Uri) {
         viewModelScope.launch {
-            val text = runCatching {
+            // Reading and parsing a whole backup is more than the main thread should do.
+            val backup = runCatching {
                 withContext(Dispatchers.IO) { app.contentResolver.openInputStream(uri)!!.use { String(it.readBytes()) } }
-            }.getOrNull()
-            val backup = text?.let(::decodeBackup)
+            }.getOrNull()?.let { text -> withContext(Dispatchers.Default) { decodeBackup(text) } }
             if (backup == null) _message.value = "That file is not a backup from this app" else _pending.value = backup
         }
     }

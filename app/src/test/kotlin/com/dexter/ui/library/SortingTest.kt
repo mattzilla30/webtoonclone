@@ -1,5 +1,6 @@
 package com.dexter.ui.library
 
+import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -31,7 +32,33 @@ class SortingTest {
     fun tappingCyclesThroughEveryMode() {
         assertEquals(LibrarySort.Alphabetical, LibrarySort.Recent.next())
         assertEquals(LibrarySort.UnreadFirst, LibrarySort.Alphabetical.next())
-        assertEquals(LibrarySort.Recent, LibrarySort.UnreadFirst.next())
+        assertEquals(LibrarySort.Updated, LibrarySort.UnreadFirst.next())
+        assertEquals(LibrarySort.Status, LibrarySort.Updated.next())
+        assertEquals(LibrarySort.Recent, LibrarySort.Status.next())
+    }
+
+    @Test
+    fun recentlyUpdatedPutsTheNewestChangeFirst() {
+        val stamped = listOf(SavedSeries("1", "a", at = 5), SavedSeries("2", "b", at = 9), SavedSeries("3", "c", at = 1))
+        assertEquals(listOf("2", "1", "3"), sortSaved(stamped, LibrarySort.Updated).map { it.id })
+    }
+
+    @Test
+    fun byStatusGroupsInListOrderAndKeepsTheSavedOrderWithin() {
+        val listed = listOf(
+            SavedSeries("1", "a", status = ReadingStatus.Completed),
+            SavedSeries("2", "b", status = ReadingStatus.Reading),
+            SavedSeries("3", "c"),
+            SavedSeries("4", "d", status = ReadingStatus.Reading),
+        )
+        assertEquals(listOf("2", "4", "1", "3"), sortSaved(listed, LibrarySort.Status).map { it.id })
+    }
+
+    @Test
+    fun aNamedSortWinsOverTheOldFlags() {
+        assertEquals(LibrarySort.Status, sortModeOf("Status", alphabetical = true, unreadFirst = false))
+        assertEquals(LibrarySort.Alphabetical, sortModeOf(null, alphabetical = true, unreadFirst = false))
+        assertEquals(LibrarySort.Recent, sortModeOf("Unknown", alphabetical = false, unreadFirst = false))
     }
 
     @Test

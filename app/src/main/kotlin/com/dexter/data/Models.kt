@@ -210,6 +210,10 @@ data class LibraryData(
     val uploadMarks: Map<String, String> = emptyMap(),
     /** When the background check last read every subscribed series' feed. */
     val fullCheckAt: Long = 0,
+    /** My Series shows covers in a grid instead of rows. */
+    val libraryGrid: Boolean = false,
+    /** The My Series sort, as a LibrarySort name. Null falls back to the two older sort flags. */
+    val librarySort: String? = null,
 ) {
     /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
     fun knownSeries(id: String): SavedSeries? =

@@ -70,7 +70,7 @@ val appModule = module {
     viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get(), get()) }
     viewModel { UpdatesViewModel(get(), get(), get()) }
-    viewModel { LibraryViewModel(get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get(), androidApplication()) }
     viewModel { DownloadsViewModel(get()) }
     viewModel { StatsViewModel(get(), get()) }
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }

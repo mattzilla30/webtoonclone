@@ -162,8 +162,12 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     suspend fun recordChecks(known: Map<String, Pair<String, String>>, marks: Map<String, String>?, fullCheckAt: Long? = null) {
         if (known.isNotEmpty()) {
             modify(LibraryList.Subscribed) { subscribed ->
+                // [SavedSeries.at] of a subscription is when its newest chapter last changed, for the "Recently updated" sort.
+                val now = System.currentTimeMillis()
                 subscribed.map { series ->
-                    known[series.id]?.let { (id, number) -> series.copy(knownChapterId = id, knownChapterNumber = number) } ?: series
+                    known[series.id]?.let { (id, number) ->
+                        series.copy(knownChapterId = id, knownChapterNumber = number, at = if (id != series.knownChapterId && series.knownChapterId != null) now else series.at)
+                    } ?: series
                 }
             }
         }
@@ -237,6 +241,32 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     }
 
     suspend fun deleteCollection(name: String) = updateScalars { it.copy(collections = it.collections - name) }
+
+    /** Renames a collection, keeping its series. A name already taken merges the two, without repeats. */
+    suspend fun renameCollection(from: String, to: String) = updateScalars { data ->
+        val members = data.collections[from] ?: return@updateScalars data
+        if (to == from) return@updateScalars data
+        val merged = (data.collections[to].orEmpty() + members).distinctBy { it.id }
+        data.copy(collections = (data.collections - from) + (to to merged))
+    }
+
+    /** Adds every one of [series] to the collection [name], creating it if needed. */
+    suspend fun addToCollection(name: String, series: List<SavedSeries>) = updateScalars { data ->
+        val current = data.collections[name].orEmpty()
+        val added = series.filter { s -> current.none { it.id == s.id } }
+        data.copy(collections = data.collections + (name to (added + current)))
+    }
+
+    /** Puts every one of [series] in a reading list with [status], or takes them out of the lists when [status] is null. */
+    suspend fun setStatusAll(series: List<SavedSeries>, status: ReadingStatus?) = modify(LibraryList.Lists) { lists ->
+        val ids = series.mapTo(HashSet()) { it.id }
+        val rest = lists.filterNot { it.id in ids }
+        if (status == null) rest else series.map { it.copy(status = status) } + rest
+    }
+
+    suspend fun setLibraryGrid(on: Boolean) = updateScalars { it.copy(libraryGrid = on) }
+
+    suspend fun setLibrarySort(name: String) = updateScalars { it.copy(librarySort = name) }
 
     suspend fun removeFromCollection(name: String, ids: Set<String>) = updateScalars { data ->
         data.copy(collections = data.collections + (name to data.collections[name].orEmpty().filterNot { it.id in ids }))

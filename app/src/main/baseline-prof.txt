@@ -2,6 +2,7 @@
 HSPLcom/dexter/DexterApp;->*(**)**
 HSPLcom/dexter/MainActivity;->*(**)**
 HSPLcom/dexter/MainActivityKt;->*(**)**
+HSPLcom/dexter/NavigationKt;->*(**)**
 HSPLcom/dexter/di/AppModuleKt;->*(**)**
 HSPLcom/dexter/data/MangaDexRepository;->*(**)**
 HSPLcom/dexter/data/SettingsStore;->*(**)**

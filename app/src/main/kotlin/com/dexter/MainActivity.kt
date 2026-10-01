@@ -20,24 +20,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ShortNavigationBar
-import androidx.compose.material3.ShortNavigationBarItem
-import androidx.compose.material3.Text
-import androidx.compose.material3.WideNavigationRail
-import androidx.compose.material3.WideNavigationRailItem
-import androidx.compose.material3.WideNavigationRailValue
-import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,10 +33,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -150,18 +133,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
-
-private val tabs = listOf(
-    Tab("home", "Home", Icons.Default.Home),
-    Tab("search", "Search", Icons.Default.Search),
-    Tab("updates", "Updates", Icons.Default.Refresh),
-    Tab("library", "My Series", Icons.Default.Favorite),
-    Tab("settings", "Settings", Icons.Default.Settings),
-)
-
-private val tabRoutes = tabs.map { it.route }.toSet()
 
 @Composable
 private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, onOpened: () -> Unit) {
@@ -309,55 +280,5 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                 }
             }
         }
-    }
-}
-
-private fun NavHostController.navigateTab(route: String) {
-    navigate(route) {
-        popUpTo("home") { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
-
-@Composable
-private fun SideRail(nav: NavHostController, current: String?, unread: Int) {
-    val state = rememberWideNavigationRailState()
-    WideNavigationRail(state = state) {
-        tabs.forEach { tab ->
-            WideNavigationRailItem(
-                selected = current == tab.route,
-                onClick = { nav.navigateTab(tab.route) },
-                icon = { TabIcon(tab, unread) },
-                label = { Text(tab.label) },
-                railExpanded = state.targetValue == WideNavigationRailValue.Expanded,
-            )
-        }
-    }
-}
-
-@Composable
-private fun BottomBar(nav: NavHostController, current: String?, unread: Int) {
-    ShortNavigationBar {
-        tabs.forEach { tab ->
-            ShortNavigationBarItem(
-                selected = current == tab.route,
-                onClick = { nav.navigateTab(tab.route) },
-                icon = { TabIcon(tab, unread) },
-                label = { Text(tab.label) },
-            )
-        }
-    }
-}
-
-/** A tab's icon. My Series carries a badge with the number of subscribed series that have unread chapters. */
-@Composable
-private fun TabIcon(tab: Tab, unread: Int) {
-    if (tab.route == "library" && unread > 0) {
-        BadgedBox(badge = { Badge { Text(if (unread > 99) "99+" else unread.toString()) } }) {
-            Icon(tab.icon, contentDescription = null)
-        }
-    } else {
-        Icon(tab.icon, contentDescription = null)
     }
 }

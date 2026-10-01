@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -21,7 +22,8 @@ class ProgressStore(private val context: Context) {
                 val (chapterId, page) = raw.split(":", limit = 2).let { it[0] to it.getOrNull(1) }
                 ReadingProgress(chapterId, page?.toIntOrNull() ?: 0)
             }
-        }
+            // Any series' write re-emits the whole store, so skip the ones that did not change this series.
+        }.distinctUntilChanged()
 
     suspend fun save(seriesId: String, chapterId: String, page: Int) {
         context.dataStore.edit { it[key(seriesId)] = "$chapterId:$page" }

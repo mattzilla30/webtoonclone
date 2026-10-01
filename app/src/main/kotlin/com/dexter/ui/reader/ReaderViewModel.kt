@@ -1,5 +1,7 @@
 package com.dexter.ui.reader
 
+import android.annotation.SuppressLint
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dexter.data.Chapter
@@ -19,6 +21,7 @@ import com.dexter.data.effectiveLook
 import com.dexter.data.findChapter
 import com.dexter.data.resolveMode
 import com.dexter.data.withSeriesLook
+import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.async
@@ -57,6 +60,8 @@ class ReaderViewModel(
     private val seriesCache: SeriesCacheStore,
     private val downloads: DownloadStore,
     private val stats: StatsStore,
+    @SuppressLint("StaticFieldLeak") // The application context lives as long as the process.
+    private val context: Context,
 ) : ViewModel() {
     /** The settings as this series' reader sees them, with its own dimming and background when it has them. */
     val settings: StateFlow<Settings> = settingsStore.settings
@@ -157,7 +162,10 @@ class ReaderViewModel(
                             seriesTitle = seriesCache.load(seriesId, repository.language)?.detail?.summary?.title
                                 ?: libraryStore.data.first().knownSeries(seriesId)?.title,
                         ),
-                    ).also { recordRecent(chapter) }
+                    ).also {
+                        recordRecent(chapter)
+                        saveNextChapter(list.getOrNull(index + 1))
+                    }
                 }
             } catch (e: Exception) {
                 Load.Error(friendlyError(e, "Could not load chapter"))
@@ -170,6 +178,17 @@ class ReaderViewModel(
         val detail = seriesCache.load(seriesId, repository.language)?.detail
             ?: runCatching { repository.series(seriesId) }.getOrNull()
         return if (detail != null) detectReadingMode(detail.tags, detail.originalLanguage) else ReadingMode.Vertical
+    }
+
+    /** With the setting on, queues the next chapter for saving, unless it is already saved or on its way. */
+    private fun saveNextChapter(next: Chapter?) {
+        if (next == null) return
+        viewModelScope.launch {
+            val current = settingsStore.current()
+            if (!current.autoDownloadNext || downloads.isSaved(next.id) || next.id in downloads.active.value) return@launch
+            val known = libraryStore.data.first().knownSeries(seriesId) ?: return@launch
+            DownloadWorker.enqueue(context, downloads, seriesId, known.title, known.coverUrl, next, current.downloadWifiOnly)
+        }
     }
 
     private fun recordRecent(chapter: Chapter) {

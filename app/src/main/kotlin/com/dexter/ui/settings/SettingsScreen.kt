@@ -261,6 +261,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 action = { TextButton(onClick = { viewModel.clearCache() }) { Text(stringResource(R.string.clear_cache)) } },
             )
 
+            SwitchRow("Save the next chapter while reading", "Queues the next chapter in the background so it is ready offline.", settings.autoDownloadNext) { on ->
+                viewModel.update { it.copy(autoDownloadNext = on) }
+            }
             SwitchRow("Save on Wi-Fi only", "Downloads wait for an unmetered connection.", settings.downloadWifiOnly) { on ->
                 viewModel.update { it.copy(downloadWifiOnly = on) }
             }

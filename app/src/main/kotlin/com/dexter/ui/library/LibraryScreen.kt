@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ButtonGroupDefaults
@@ -120,6 +121,14 @@ fun LibraryScreen(
                             Icons.Default.Notifications,
                             contentDescription = if (library.notificationsEnabled) "Notifications on" else "Notifications off",
                         )
+                    }
+                    if (items.size > 1) {
+                        androidx.compose.material3.IconButton(onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            onOpenSeries(items.random().id)
+                        }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Pick one at random")
+                        }
                     }
                     androidx.compose.material3.IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))

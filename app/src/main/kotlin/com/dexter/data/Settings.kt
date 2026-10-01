@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -98,7 +99,7 @@ private val SETTINGS = stringPreferencesKey("settings")
 class SettingsStore(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs -> decode(prefs[SETTINGS]) }
+    val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs -> decode(prefs[SETTINGS]) }.distinctUntilChanged()
 
     suspend fun current(): Settings = settings.first()
 
@@ -108,6 +109,14 @@ class SettingsStore(private val context: Context) {
         }
     }
 
-    private fun decode(raw: String?): Settings =
-        raw?.let { runCatching { json.decodeFromString<Settings>(it) }.getOrNull() } ?: Settings()
+    /** The last text decoded and its result. Many screens watch the settings, and each change reaches all of them. */
+    @Volatile
+    private var lastDecoded: Pair<String?, Settings>? = null
+
+    private fun decode(raw: String?): Settings {
+        lastDecoded?.let { (text, settings) -> if (text == raw) return settings }
+        val settings = raw?.let { runCatching { json.decodeFromString<Settings>(it) }.getOrNull() } ?: Settings()
+        lastDecoded = raw to settings
+        return settings
+    }
 }

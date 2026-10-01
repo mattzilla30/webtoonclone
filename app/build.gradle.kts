@@ -27,6 +27,13 @@ android {
         localeFilters += "en"
     }
 
+    packaging {
+        resources {
+            // Licence texts and tool markers that the app never reads at run time.
+            excludes += listOf("META-INF/androidx/**/LICENSE.txt", "META-INF/*.version", "DebugProbesKt.bin")
+        }
+    }
+
     buildTypes {
         release {
             // Personal build: the debug key signs it, so it installs without any keystore setup.

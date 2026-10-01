@@ -74,6 +74,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.readBackup(uri)
     }
+    val mihonLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importMihon(uri)
+    }
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) viewModel.setAutoBackupFolder(uri)
     }
@@ -342,6 +345,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                         OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) { Text(stringResource(R.string.restore_backup)) }
                     }
                 }
+                InfoRow(
+                    title = "Import from Mihon or Tachiyomi",
+                    subtitle = "Adds the MangaDex series in a .tachibk backup, with categories and last read chapters.",
+                    onClick = { mihonLauncher.launch(arrayOf("*/*")) },
+                )
                 InfoRow(
                     title = "Share my library as text",
                     subtitle = "A list of your titles to send to a friend or keep in a note.",

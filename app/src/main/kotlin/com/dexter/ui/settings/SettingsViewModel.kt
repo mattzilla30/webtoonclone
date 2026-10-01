@@ -11,6 +11,7 @@ import com.dexter.data.HttpStatusException
 import com.dexter.data.LibraryData
 import com.dexter.data.Settings
 import com.dexter.data.decodeBackup
+import com.dexter.data.parseMihonBackup
 import com.dexter.notify.AutoBackupWorker
 import com.dexter.notify.GoalReminderWorker
 import com.dexter.notify.NewChaptersWorker
@@ -71,6 +72,21 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
             } finally {
                 _busy.value = false
             }
+        }
+    }
+
+    /** Reads a Mihon or Tachiyomi backup file and adds its MangaDex series to the library. */
+    fun importMihon(uri: Uri) = accountJob {
+        val bytes = withContext(Dispatchers.IO) { app.contentResolver.openInputStream(uri)!!.use { it.readBytes() } }
+        val backup = try {
+            withContext(Dispatchers.Default) { parseMihonBackup(bytes) }
+        } catch (e: IllegalArgumentException) {
+            return@accountJob "That file is not a Mihon or Tachiyomi backup."
+        }
+        app.libraryStore.importSeries(backup.series)
+        buildString {
+            append("Imported ${backup.series.size} MangaDex series, ${backup.series.count { it.favorite }} of them as subscriptions.")
+            if (backup.otherSources > 0) append(" ${backup.otherSources} from other sources were left out.")
         }
     }
 

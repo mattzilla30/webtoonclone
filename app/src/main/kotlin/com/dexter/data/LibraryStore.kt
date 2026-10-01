@@ -257,6 +257,27 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
         data.copy(collections = data.collections + (name to (added + current)))
     }
 
+    /**
+     * Adds series from another app's backup: library series as subscriptions, their categories as collections,
+     * and their last read chapters to Recent behind what you read here. Nothing already here changes.
+     */
+    suspend fun importSeries(imported: List<ImportedSeries>) {
+        val saved = imported.map { SavedSeries(it.id, it.title, it.coverUrl) }.associateBy { it.id }
+        modify(LibraryList.Subscribed) { subscribed ->
+            val have = subscribed.mapTo(HashSet()) { it.id }
+            subscribed + imported.filter { it.favorite && it.id !in have }.map { saved.getValue(it.id) }
+        }
+        modify(LibraryList.Recent) { recent ->
+            val have = recent.mapTo(HashSet()) { it.id }
+            val read = imported.filter { it.lastReadChapterId != null && it.id !in have }
+                .map { SavedSeries(it.id, it.title, it.coverUrl, it.lastReadChapterId, it.lastReadNumber) }
+            (recent + read).take(MAX_RECENT)
+        }
+        imported.flatMap { series -> series.collections.map { it to saved.getValue(series.id) } }
+            .groupBy({ it.first }, { it.second })
+            .forEach { (name, members) -> addToCollection(name, members) }
+    }
+
     /** Puts every one of [series] in a reading list with [status], or takes them out of the lists when [status] is null. */
     suspend fun setStatusAll(series: List<SavedSeries>, status: ReadingStatus?) = modify(LibraryList.Lists) { lists ->
         val ids = series.mapTo(HashSet()) { it.id }

@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 
 class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     val settings: StateFlow<Settings> = app.settingsStore.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), app.settingsStore.latest)
 
     val library: StateFlow<LibraryData> = app.libraryStore.data
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryData())

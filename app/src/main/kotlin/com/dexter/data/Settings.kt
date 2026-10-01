@@ -4,12 +4,17 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -101,9 +106,18 @@ private val SETTINGS = stringPreferencesKey("settings")
 class SettingsStore(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs -> decode(prefs[SETTINGS]) }.distinctUntilChanged().flowOn(Dispatchers.Default)
+    private val fresh: Flow<Settings> = context.settingsDataStore.data.map { prefs -> decode(prefs[SETTINGS]) }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
-    suspend fun current(): Settings = settings.first()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** The settings as they change, shared by every screen that watches them. */
+    val settings: SharedFlow<Settings> = fresh.shareIn(scope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+
+    /** The last settings the app saw, or the defaults before the first read. Screens start from it so the theme and reader do not flash the defaults. */
+    val latest: Settings get() = settings.replayCache.firstOrNull() ?: Settings()
+
+    /** One fresh read, straight from storage. */
+    suspend fun current(): Settings = fresh.first()
 
     suspend fun update(change: (Settings) -> Settings) {
         context.settingsDataStore.edit { prefs ->

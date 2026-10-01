@@ -127,7 +127,7 @@ class MainActivity : ComponentActivity() {
         pending = readPending(intent)
         val app = application as DexterApp
         setContent {
-            val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = Settings())
+            val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = app.settingsStore.latest)
             DexterNav(settings, openCount, pending) { pending = null }
         }
     }

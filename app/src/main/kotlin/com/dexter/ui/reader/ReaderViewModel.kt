@@ -1,7 +1,6 @@
 package com.dexter.ui.reader
 
 import android.app.Application
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dexter.data.Chapter
@@ -68,7 +67,7 @@ class ReaderViewModel(
     /** The settings as this series' reader sees them, with its own dimming and background when it has them. */
     val settings: StateFlow<Settings> = settingsStore.settings
         .map { effectiveLook(it, seriesId) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), effectiveLook(settingsStore.latest, seriesId))
 
     /** Whether this series has its own dimming and background. */
     val hasSeriesLook: StateFlow<Boolean> = settingsStore.settings

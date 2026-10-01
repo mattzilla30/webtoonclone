@@ -84,6 +84,8 @@ fun chaptersOverCap(rows: List<DownloadEntity>, capBytes: Long, keep: String?): 
 
 /** Chapters saved on the device: page files on disk and a row per finished chapter. */
 class DownloadStore(context: Context, private val db: AppDatabase, private val client: OkHttpClient) {
+    private val cbz = CbzExport(context)
+
     private val dao get() = db.downloads()
     private val queueDao get() = db.queue()
     private val root = File(context.filesDir, "downloads")
@@ -181,6 +183,12 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
     suspend fun chaptersOf(seriesId: String): List<Chapter> = savedChapters(dao.forSeries(seriesId))
 
     suspend fun isSaved(chapterId: String) = dao.get(chapterId) != null
+
+    /** Exports saved chapters as CBZ files in Downloads/Dexter. Returns how many were written. */
+    suspend fun exportCbz(chapterIds: List<String>): Int = chapterIds.count { id ->
+        val row = dao.get(id) ?: return@count false
+        cbz.export(row, File(root, id))
+    }
 
     /** Downloads every page of [chapter]. Throws when a page still fails after retries, leaving nothing saved. */
     suspend fun save(

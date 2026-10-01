@@ -97,6 +97,14 @@ data class Settings(
     val seriesLooks: Map<String, SeriesLook> = emptyMap(),
     /** A reading mode chosen for one series. A series with no entry uses Auto. */
     val seriesReadingModes: Map<String, ReadingMode> = emptyMap(),
+    /** True once you closed the tip that a long press on a cover subscribes. */
+    val longPressTipSeen: Boolean = false,
+    /** Delete a saved chapter once you open the chapter after it. */
+    val deleteAfterRead: Boolean = false,
+    /** Most space saved chapters may use, in megabytes. The oldest go first. 0 means no limit. */
+    val downloadCapMb: Long = 0,
+    /** Search and author results as rows with details instead of a grid of covers. */
+    val resultsAsList: Boolean = false,
 )
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")

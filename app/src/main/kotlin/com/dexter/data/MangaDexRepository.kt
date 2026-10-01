@@ -152,12 +152,16 @@ class MangaDexRepository(
                 filters.status.forEach { addQueryParameter("status[]", it) }
                 filters.demographics.forEach { addQueryParameter("publicationDemographic[]", it) }
                 filters.originalLanguages.forEach { addQueryParameter("originalLanguage[]", it) }
-                filters.year?.let { addQueryParameter("year", it.toString()) }
+                filters.exactYear?.let { addQueryParameter("year", it.toString()) }
                 if (authorId != null) addQueryParameter("authorOrArtist", authorId)
             }
             .build()
         val hidden = hiddenSeries
-        val list = fetchJson<MangaListDto>(url).data.map { it.toSummary() }.filter { ids != null || it.id !in hidden }
+        val range = filters.yearRange
+        val list = fetchJson<MangaListDto>(url).data.map { it.toSummary() }
+            .filter { ids != null || it.id !in hidden }
+            // MangaDex filters by one year only, so a range is applied here, to each page.
+            .filter { range == null || (it.year != null && it.year in range) }
         if (!withStats || list.isEmpty()) return list
         val stats = stats(list.map { it.id })
         return list.map { it.copy(follows = stats[it.id]?.follows) }
@@ -435,6 +439,16 @@ class MangaDexRepository(
         ).also { tagIndex = it }
     }
 
+    /** Authors and artists whose name contains [name], best matches first. */
+    suspend fun searchAuthors(name: String, limit: Int = 5): List<AuthorSummary> {
+        ensureSettings()
+        val url = "$API/author".toHttpUrl().newBuilder()
+            .addQueryParameter("name", name)
+            .addQueryParameter("limit", limit.toString())
+            .build()
+        return fetchJson<AuthorListDto>(url).data.map { AuthorSummary(it.id, it.attributes.name) }.filter { it.name.isNotBlank() }
+    }
+
     /** Statistics for one series. Only this form carries the score distribution. */
     private suspend fun statsOne(id: String): StatDto? = try {
         fetchJson<StatsDto>("$API/statistics/manga/$id".toHttpUrl()).statistics[id]
@@ -465,6 +479,7 @@ class MangaDexRepository(
             author = relationships.firstOrNull { it.type == "author" }?.attributes?.name,
             authorId = relationships.firstOrNull { it.type == "author" }?.id,
             description = attributes.description.pick(),
+            year = attributes.year,
         )
     }
 

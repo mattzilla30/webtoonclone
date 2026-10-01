@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -57,7 +59,8 @@ internal fun ReaderTopBar(page: ReaderPage, onBack: () -> Unit, onOpenOptions: (
         shape = MaterialTheme.shapes.extraLarge.copy(topStart = CornerSize(0.dp), topEnd = CornerSize(0.dp)),
         modifier = modifier.fillMaxWidth(),
     ) {
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The panel colour reaches up behind the status bar, and the buttons sit below it.
+        Row(Modifier.statusBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, colors = barIcons) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
             }
@@ -105,7 +108,7 @@ internal fun ReaderBottomBar(
         shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column {
+        Column(Modifier.navigationBarsPadding()) {
             if (count > 1) {
                 // Right-to-left reading puts the first page on the right, so the slider runs that way too.
                 CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LocalLayoutDirection.current) {

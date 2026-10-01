@@ -18,6 +18,11 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -27,14 +32,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.dexter.R
+import com.dexter.data.AuthorSummary
 import com.dexter.data.ContentTags
 import com.dexter.data.Formats
 import com.dexter.data.Genres
@@ -52,15 +62,32 @@ internal fun Idle(
     recent: List<String>,
     saved: List<SavedSearch>,
     suggestions: List<SeriesSummary>,
+    authors: List<AuthorSummary>,
     message: String?,
     viewModel: SearchViewModel,
     onOpenSeries: (String) -> Unit,
+    onOpenAuthor: (id: String, name: String) -> Unit,
     onBrowse: (String) -> Unit,
     onTag: (String) -> Unit,
 ) {
+    // Which tag sections are open. Browse and Genres start open, the long lists start closed.
+    var open by rememberSaveable { mutableStateOf(setOf("Browse", "Genres")) }
+    val toggle: (String) -> Unit = { title -> open = if (title in open) open - title else open + title }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         if (message != null) {
             item { Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp)) }
+        }
+        // Authors and artists whose name matches what is being typed.
+        items(authors, key = { "author-${it.id}" }) { author ->
+            CardRow(onClick = { onOpenAuthor(author.id, author.name) }) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.padding(start = 12.dp)) {
+                        Text(author.name, style = MaterialTheme.typography.titleSmallEmphasized)
+                        Text("Author or artist", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
         }
         // Titles that match what is being typed, before the browse lists.
         items(suggestions, key = { it.id }) { series ->
@@ -80,9 +107,17 @@ internal fun Idle(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     saved.forEach { search ->
                         InputChip(
-                            selected = false,
+                            selected = search.notify,
                             onClick = { viewModel.openSaved(search) },
                             label = { Text(search.name) },
+                            // The bell turns notifications for new matches on and off.
+                            leadingIcon = {
+                                Icon(
+                                    if (search.notify) Icons.Default.Notifications else Icons.Outlined.Notifications,
+                                    contentDescription = if (search.notify) "Stop notifying for ${search.name}" else "Notify about new matches for ${search.name}",
+                                    modifier = Modifier.size(InputChipDefaults.IconSize).clickable { viewModel.toggleSavedNotify(search) },
+                                )
+                            },
                             trailingIcon = {
                                 Icon(
                                     Icons.Default.Clear,
@@ -102,7 +137,8 @@ internal fun Idle(
                     TextButton(onClick = { viewModel.clearSearches() }) { Text(stringResource(R.string.delete_all)) }
                 }
                 FlowRow(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    recent.sortedBy { it.lowercase() }.forEach { term ->
+                    // Newest first, as they were searched.
+                    recent.forEach { term ->
                         InputChip(
                             selected = false,
                             onClick = { viewModel.search(term) },
@@ -119,25 +155,35 @@ internal fun Idle(
                 }
             }
         }
-        // Sections and their tags are in alphabetical order.
-        tagSection("Browse", BrowseOptions, onBrowse)
-        tagSection("Content", ContentTags, onTag)
-        tagSection("Formats", Formats, onTag)
-        tagSection("Genres", Genres.map { it.name }, onTag)
-        tagSection("Suggestive", SuggestiveTags, onTag)
-        tagSection("Themes", Themes, onTag)
+        // Sections and their tags are in alphabetical order. Tapping a heading opens or closes it.
+        tagSection("Browse", BrowseOptions, "Browse" in open, toggle, onBrowse)
+        tagSection("Content", ContentTags, "Content" in open, toggle, onTag)
+        tagSection("Formats", Formats, "Formats" in open, toggle, onTag)
+        tagSection("Genres", Genres.map { it.name }, "Genres" in open, toggle, onTag)
+        tagSection("Suggestive", SuggestiveTags, "Suggestive" in open, toggle, onTag)
+        tagSection("Themes", Themes, "Themes" in open, toggle, onTag)
         item { Box(Modifier.padding(bottom = 24.dp)) }
     }
 }
 
-/** A titled group of tappable tag chips. */
+/** A titled group of tappable tag chips. The heading opens and closes the group. */
 @OptIn(ExperimentalLayoutApi::class)
-private fun LazyListScope.tagSection(title: String, tags: List<String>, onTag: (String) -> Unit) {
-    item {
-        Text(title, style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 16.dp, bottom = 10.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            tags.sortedBy { it.lowercase() }.forEach { tag ->
-                AssistChip(onClick = { onTag(tag) }, label = { Text(tag) })
+private fun LazyListScope.tagSection(title: String, tags: List<String>, expanded: Boolean, onToggle: (String) -> Unit, onTag: (String) -> Unit) {
+    item(key = "section-$title") {
+        Row(
+            Modifier.fillMaxWidth().clickable { onToggle(title) }.padding(top = 16.dp, bottom = 10.dp)
+                .semantics { stateDescription = if (expanded) "Open" else "Closed" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.weight(1f))
+            Text("${tags.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
+        }
+        if (expanded) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                tags.sortedBy { it.lowercase() }.forEach { tag ->
+                    AssistChip(onClick = { onTag(tag) }, label = { Text(tag) })
+                }
             }
         }
     }

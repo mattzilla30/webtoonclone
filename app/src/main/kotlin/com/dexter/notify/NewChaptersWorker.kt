@@ -133,6 +133,23 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
                 }
                 delay(300)
             }
+            // Saved searches you asked to hear about: a series that newly matches notifies once.
+            for (search in library.savedSearches.filter { it.notify }) {
+                val newest = try {
+                    app.repository.browse(title = search.title, tag = search.tag, order = Order.Newest, filters = search.filters, limit = 10)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    if (isWorthRetrying(e)) failed = true
+                    continue
+                }
+                val fresh = newest.filter { it.id !in search.knownIds }
+                if (fresh.isNotEmpty()) {
+                    postSearchMatch(search.name, fresh.first(), fresh.size)
+                    app.libraryStore.markSearchSeen(search.name, fresh.map { it.id })
+                }
+                delay(300)
+            }
         }
         post(found, settings.notificationDigest)
         return if (failed) Result.retry() else Result.success()
@@ -170,6 +187,18 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             newBuilder("New series by $authorName")
                 .setContentText(series.title)
                 .setContentIntent(opensApp(series.id.hashCode()) { putExtra(EXTRA_SERIES_ID, series.id) })
+                .build(),
+        )
+    }
+
+    private fun postSearchMatch(searchName: String, series: SeriesSummary, count: Int) {
+        val manager = notifier() ?: return
+        val id = ("search:$searchName").hashCode()
+        manager.notify(
+            id,
+            newBuilder(if (count == 1) "New match for $searchName" else "$count new matches for $searchName")
+                .setContentText(series.title)
+                .setContentIntent(opensApp(id) { putExtra(EXTRA_SERIES_ID, series.id) })
                 .build(),
         )
     }

@@ -1,5 +1,7 @@
 package com.dexter
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.KeyEvent
@@ -94,7 +96,7 @@ class MainActivity : ComponentActivity() {
     /** Set when a notification opens the app. Consumed once by the navigation host. */
     private var pending by mutableStateOf<PendingOpen?>(null)
 
-    private fun readPending(intent: android.content.Intent): PendingOpen? {
+    private fun readPending(intent: Intent): PendingOpen? {
         val link = intent.data?.let { parseMangaDexLink(it.host, it.pathSegments.orEmpty()) }
         return when {
             link is MangaDexLink.Title -> PendingOpen(link.id, null)
@@ -105,7 +107,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: android.content.Intent) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pending = readPending(intent)
     }
@@ -195,8 +197,9 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
 
     DexterTheme(settings) {
         val rootBackground = if (onReader) readerBackgroundColor(settings.readerBackground) else MaterialTheme.colorScheme.background
-        // One inset pad for the whole app keeps every screen between the status and navigation bars.
-        Box(Modifier.fillMaxSize().background(rootBackground).systemBarsPadding()) {
+        // One inset pad for the whole app keeps every screen between the status and navigation bars. The reader
+        // draws edge to edge and pads only its own bars, so the pages fill the screen when the system bars hide.
+        Box(Modifier.fillMaxSize().background(rootBackground).then(if (onReader) Modifier else Modifier.systemBarsPadding())) {
             val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
             val motion = MaterialTheme.motionScheme
             Row(Modifier.fillMaxSize()) {
@@ -224,14 +227,21 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                     onOpenSeries = { nav.navigate("series/$it") },
                                     onOpenSearch = { nav.navigateTab("search") },
                                     onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                    onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
                                     openCount = openCount,
                                 )
                             }
                         }
-                        composable("search?genre={genre}") { entry ->
+                        composable("search?genre={genre}&browse={browse}") { entry ->
                             val vm = koinViewModel<SearchViewModel>()
                             Box(Modifier.fillMaxSize()) {
-                                SearchScreen(vm, entry.arguments?.getString("genre"), onOpenSeries = { nav.navigate("series/$it") })
+                                SearchScreen(
+                                    vm,
+                                    entry.arguments?.getString("genre"),
+                                    initialBrowse = entry.arguments?.getString("browse"),
+                                    onOpenSeries = { nav.navigate("series/$it") },
+                                    onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
+                                )
                             }
                         }
                         composable("updates") {
@@ -261,9 +271,9 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                 vm,
                                 onOpenChapter = { nav.navigate("series/$seriesId/$it") },
                                 onHome = { nav.navigateTab("home") },
-                                onOpenTag = { tag -> nav.navigate("search?genre=${android.net.Uri.encode(tag)}") },
+                                onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
                                 onOpenSeries = { nav.navigate("series/$it") },
-                                onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${android.net.Uri.encode(name)}") },
+                                onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
                             )
                         }
                         composable("stats") {

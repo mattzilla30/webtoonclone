@@ -40,6 +40,7 @@ fun searchKey(
     filters.demographics.sorted().joinToString(","),
     filters.originalLanguages.sorted().joinToString(","),
     filters.year?.toString().orEmpty(),
+    filters.yearTo?.toString().orEmpty(),
     if (filters.matchAll) "all" else "any",
     language,
 ).joinToString("|")

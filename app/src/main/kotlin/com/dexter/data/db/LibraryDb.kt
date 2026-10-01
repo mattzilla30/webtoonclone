@@ -1,6 +1,7 @@
 package com.dexter.data.db
 
 import androidx.room.AutoMigration
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -10,6 +11,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
 import kotlinx.coroutines.flow.Flow
@@ -126,22 +128,85 @@ data class ReadEventEntity(
     val seriesId: String,
     val seriesTitle: String,
     val at: Long,
+    /** Time spent in the reader on this chapter, in milliseconds. */
+    @ColumnInfo(defaultValue = "0") val durationMs: Long = 0,
+    /** The series' first genre, for the genre breakdown. Null for reads from before it was kept. */
+    val genre: String? = null,
 )
 
 @Dao
 interface StatsDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(row: ReadEventEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(row: ReadEventEntity)
+
+    @Query("UPDATE read_events SET at = :at, seriesTitle = :seriesTitle, genre = COALESCE(:genre, genre) WHERE chapterId = :chapterId")
+    suspend fun touch(chapterId: String, seriesTitle: String, at: Long, genre: String?)
+
+    /** Records a chapter as opened now, keeping the reading time it already has. */
+    @Transaction
+    suspend fun recordOpen(chapterId: String, seriesId: String, seriesTitle: String, at: Long, genre: String?) {
+        insertIfAbsent(ReadEventEntity(chapterId, seriesId, seriesTitle, at, 0, genre))
+        touch(chapterId, seriesTitle, at, genre)
+    }
+
+    @Query("UPDATE read_events SET durationMs = durationMs + :ms WHERE chapterId = :chapterId")
+    suspend fun addDuration(chapterId: String, ms: Long)
 
     @Query("SELECT * FROM read_events")
     fun observe(): Flow<List<ReadEventEntity>>
 }
 
+/** A chapter waiting to be saved. [position] orders the queue, smallest first. */
+@Entity(tableName = "download_queue", indices = [Index("position")])
+data class QueuedDownloadEntity(
+    @PrimaryKey val chapterId: String,
+    val seriesId: String,
+    val seriesTitle: String,
+    val coverUrl: String?,
+    val number: String,
+    val title: String,
+    val volume: String?,
+    val groupName: String?,
+    val publishedAt: String,
+    val position: Long,
+    @ColumnInfo(defaultValue = "0") val attempts: Int = 0,
+)
+
+@Dao
+interface QueueDao {
+    @Query("SELECT * FROM download_queue ORDER BY position")
+    fun observe(): Flow<List<QueuedDownloadEntity>>
+
+    @Query("SELECT * FROM download_queue ORDER BY position LIMIT 1")
+    suspend fun first(): QueuedDownloadEntity?
+
+    @Query("SELECT COALESCE(MAX(position), 0) FROM download_queue")
+    suspend fun maxPosition(): Long
+
+    @Query("SELECT COALESCE(MIN(position), 0) FROM download_queue")
+    suspend fun minPosition(): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(row: QueuedDownloadEntity)
+
+    @Query("DELETE FROM download_queue WHERE chapterId = :chapterId")
+    suspend fun delete(chapterId: String)
+
+    @Query("DELETE FROM download_queue")
+    suspend fun deleteAll()
+
+    @Query("UPDATE download_queue SET position = :position WHERE chapterId = :chapterId")
+    suspend fun setPosition(chapterId: String, position: Long)
+
+    @Query("UPDATE download_queue SET attempts = attempts + 1 WHERE chapterId = :chapterId")
+    suspend fun bumpAttempts(chapterId: String)
+}
+
 @Database(
-    entities = [SavedSeriesEntity::class, SearchEntity::class, DownloadEntity::class, ReadEventEntity::class],
-    version = 3,
+    entities = [SavedSeriesEntity::class, SearchEntity::class, DownloadEntity::class, ReadEventEntity::class, QueuedDownloadEntity::class],
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun library(): LibraryDao
@@ -149,6 +214,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloads(): DownloadDao
 
     abstract fun stats(): StatsDao
+
+    abstract fun queue(): QueueDao
 }
 
 fun SavedSeries.toEntity(list: String, position: Int) = SavedSeriesEntity(

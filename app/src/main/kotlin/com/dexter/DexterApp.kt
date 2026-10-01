@@ -18,6 +18,7 @@ import com.dexter.data.SettingsStore
 import com.dexter.di.BASE_CLIENT
 import com.dexter.di.appModule
 import com.dexter.notify.AutoBackupWorker
+import com.dexter.notify.DownloadWorker
 import com.dexter.notify.NewChaptersWorker
 import com.dexter.notify.updateContinueReading
 import kotlinx.coroutines.CoroutineScope
@@ -68,6 +69,12 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
         appScope.launch { AutoBackupWorker.sync(this@DexterApp, settingsStore.current().autoBackupFolder) }
         // Keep the parts that read settings off the main thread in step with what you choose.
         appScope.launch { runCatching { downloadStore.prune() } }
+        // Chapters still in the queue from before a restart start saving again.
+        appScope.launch {
+            if (runCatching { downloadStore.nextQueued() }.getOrNull() != null) {
+                DownloadWorker.start(this@DexterApp, settingsStore.current().downloadWifiOnly)
+            }
+        }
         appScope.launch {
             libraryStore.data
                 .map { library -> library.recent.firstOrNull { it.chapterId != null } }

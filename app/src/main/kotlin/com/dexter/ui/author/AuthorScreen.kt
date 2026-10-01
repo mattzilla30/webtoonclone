@@ -1,12 +1,16 @@
 package com.dexter.ui.author
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -17,12 +21,17 @@ import com.dexter.R
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.LoadView
 import com.dexter.ui.SeriesGrid
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, onOpenSeries: (String) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val loadingMore by viewModel.loadingMore.collectAsStateWithLifecycle()
     val following by viewModel.following.collectAsStateWithLifecycle()
+    val asList by viewModel.asList.collectAsStateWithLifecycle()
+    val subscribedIds by viewModel.subscribedIds.collectAsStateWithLifecycle()
+    val toast by viewModel.toast.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     Column(Modifier.fillMaxSize()) {
         AppTopBar(
@@ -43,7 +52,27 @@ fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, o
             if (series.isEmpty()) {
                 Text(stringResource(R.string.no_series_found), modifier = Modifier.padding(16.dp))
             } else {
-                SeriesGrid(series, loadingMore, onLoadMore = viewModel::loadMore, onOpenSeries = onOpenSeries)
+                Box(Modifier.fillMaxSize()) {
+                    SeriesGrid(
+                        series,
+                        loadingMore,
+                        onLoadMore = viewModel::loadMore,
+                        onOpenSeries = onOpenSeries,
+                        asList = asList,
+                        subscribedIds = subscribedIds,
+                        onLongPress = { item ->
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.toggleSubscribe(item)
+                        },
+                    )
+                    toast?.let { message ->
+                        LaunchedEffect(message) {
+                            delay(3.seconds)
+                            viewModel.clearToast()
+                        }
+                        Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) { Text(message) }
+                    }
+                }
             }
         }
     }

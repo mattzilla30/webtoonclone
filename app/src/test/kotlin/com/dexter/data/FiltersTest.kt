@@ -71,4 +71,15 @@ class FiltersTest {
     fun noLimitsMeansNoChips() {
         assertTrue(activeFilters(SearchFilters()).isEmpty())
     }
+
+    @Test
+    fun twoDifferentYearsMakeARangeAndOneYearStaysExact() {
+        val range = SearchFilters(year = 2020, yearTo = 2015)
+        assertEquals(2015..2020, range.yearRange)
+        assertEquals(null, range.exactYear)
+        assertEquals(2018, SearchFilters(year = 2018).exactYear)
+        assertEquals(2018, SearchFilters(year = 2018, yearTo = 2018).exactYear)
+        assertEquals(listOf("2015 to 2020"), activeFilters(range).map { it.label })
+        assertEquals(1, range.activeCount)
+    }
 }

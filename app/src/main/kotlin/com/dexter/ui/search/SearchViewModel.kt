@@ -2,18 +2,23 @@ package com.dexter.ui.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dexter.data.AuthorSummary
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
 import com.dexter.data.Order
 import com.dexter.data.SavedSearch
+import com.dexter.data.SavedSeries
 import com.dexter.data.SearchFilters
 import com.dexter.data.SeriesSummary
+import com.dexter.data.SettingsStore
 import com.dexter.data.searchKey
+import com.dexter.data.subscriptionStart
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
+import com.dexter.ui.home.subscriptionMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -26,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -34,7 +40,39 @@ class SearchViewModel(
     private val repository: MangaDexRepository,
     private val library: LibraryStore,
     private val offline: OfflineStore,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
+    /** Results as rows with details instead of a grid of covers. */
+    val asList: StateFlow<Boolean> = settingsStore.settings.map { it.resultsAsList }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), settingsStore.latest.resultsAsList)
+
+    fun setAsList(on: Boolean) {
+        viewModelScope.launch(LogFailures) { settingsStore.update { it.copy(resultsAsList = on) } }
+    }
+
+    /** Ids of series you subscribe to, so results can show a marker. */
+    val subscribedIds: StateFlow<Set<String>> = library.stateOf(viewModelScope) { lib -> lib.subscribed.mapTo(HashSet()) { it.id } }
+
+    private val _toast = MutableStateFlow<String?>(null)
+
+    /** A short confirmation shown over the results, such as after a long press subscribes. */
+    val toast: StateFlow<String?> = _toast
+
+    fun clearToast() {
+        _toast.value = null
+    }
+
+    /** Subscribes to [series] from a long press on a result, or unsubscribes when you already do. */
+    fun toggleSubscribe(series: SeriesSummary) {
+        viewModelScope.launch(LogFailures) {
+            val already = series.id in subscribedIds.value
+            library.toggleSubscribed(
+                if (already) SavedSeries(series.id, series.title, series.coverUrl) else repository.subscriptionStart(series.id, series.title, series.coverUrl),
+            )
+            _toast.value = subscriptionMessage(series.title, nowSubscribed = !already)
+        }
+    }
+
     /** When the results are a saved copy because the network failed, the time it was saved. */
     private val _offlineSavedAt = MutableStateFlow<Long?>(null)
     val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt
@@ -62,6 +100,17 @@ class SearchViewModel(
         .mapLatest { text ->
             if (!shouldSuggest(text)) emptyList()
             else catching { repository.browse(title = text.trim(), limit = 5) }.getOrDefault(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Authors and artists matching what is being typed, shown above the title suggestions. */
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val authorSuggestions: StateFlow<List<AuthorSummary>> = typed
+        .debounce(350)
+        .distinctUntilChanged()
+        .mapLatest { text ->
+            if (!shouldSuggest(text)) emptyList()
+            else catching { repository.searchAuthors(text.trim(), limit = 3) }.getOrDefault(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -104,10 +153,29 @@ class SearchViewModel(
     /** Whether the results on screen can be saved: there is a search, tag, or filter behind them. */
     val canSave: Boolean get() = request != null
 
-    fun saveCurrent(name: String) {
+    /** Saves the current search under [name]. With [notify], new matches later notify, starting after what is listed now. */
+    fun saveCurrent(name: String, notify: Boolean = false) {
         val current = request ?: return
+        val shown = (_results.value as? Load.Ready)?.value.orEmpty().map { it.id }
         viewModelScope.launch(LogFailures) {
-            library.saveSearch(SavedSearch(name.trim(), current.title, current.tag, _filters.value, _sort.value.name))
+            library.saveSearch(
+                SavedSearch(name.trim(), current.title, current.tag, _filters.value, _sort.value.name, notify = notify, knownIds = if (notify) shown else emptyList()),
+            )
+        }
+    }
+
+    /** Turns notifications for a saved search on or off. Turning them on records what matches now, so only later series notify. */
+    fun toggleSavedNotify(saved: SavedSearch) {
+        viewModelScope.launch(LogFailures) {
+            val now = if (saved.notify) {
+                emptyList()
+            } else {
+                catching {
+                    repository.browse(title = saved.title, tag = saved.tag, order = Order.Newest, filters = saved.filters, limit = 30).map { it.id }
+                }.getOrDefault(emptyList())
+            }
+            library.setSearchNotify(saved.name, !saved.notify, now)
+            _toast.value = if (saved.notify) "No longer notifying for ${saved.name}" else "New matches for ${saved.name} will notify"
         }
     }
 
@@ -199,10 +267,19 @@ class SearchViewModel(
         _loadingMore.value = true
         viewModelScope.launch(LogFailures) {
             try {
-                val more = fetch(page + 1)
+                // A year range drops series from each page, so a page can come back empty with more after it.
+                // A few empty pages in a row are read past before the list counts as finished.
+                var next = page + 1
+                var more = fetch(next)
+                var tries = 1
+                while (more.isEmpty() && _filters.value.yearRange != null && tries < RANGE_EMPTY_PAGES) {
+                    next += 1
+                    more = fetch(next)
+                    tries++
+                }
                 // The source may have changed while this request ran.
                 if (source === fetch) {
-                    page += 1
+                    page = next
                     val seen = current.mapTo(mutableSetOf()) { it.id }
                     endReached = more.isEmpty()
                     _results.value = Load.Ready(current + more.filter { it.id !in seen })
@@ -245,7 +322,13 @@ class SearchViewModel(
         _results.value = Load.Loading
         val key = searchKey(req.title, req.tag, order, filters, "${repository.language}|${repository.contentRatings.joinToString(",")}")
         _results.value = try {
-            val first = fetch(0)
+            var first = fetch(0)
+            var tries = 1
+            while (first.isEmpty() && filters.yearRange != null && tries < RANGE_EMPTY_PAGES) {
+                page += 1
+                first = fetch(page)
+                tries++
+            }
             _offlineSavedAt.value = null
             endReached = first.isEmpty()
             if (first.isNotEmpty()) catching { offline.saveSearch(key, first) }
@@ -266,3 +349,6 @@ class SearchViewModel(
         }
     }
 }
+
+/** How many empty pages in a row a year range reads past before the list counts as finished. */
+private const val RANGE_EMPTY_PAGES = 5

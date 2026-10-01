@@ -3,7 +3,9 @@ package com.dexter.data
 import android.content.Context
 import com.dexter.data.db.AppDatabase
 import com.dexter.data.db.DownloadEntity
+import com.dexter.data.db.QueuedDownloadEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -23,6 +26,7 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resumeWithException
 
@@ -61,17 +65,104 @@ fun savedChapters(rows: List<DownloadEntity>): List<Chapter> = rows
     .sortedWith(compareBy({ it.number.toDoubleOrNull() ?: Double.MAX_VALUE }, { it.savedAt }))
     .map { Chapter(it.chapterId, it.number, it.title, it.publishedAt, group = it.groupName, volume = it.volume) }
 
+/**
+ * The chapters to delete so the saved total fits in [capBytes], oldest saved first. The chapter in [keep]
+ * is never picked. Nothing is picked when the total already fits.
+ */
+fun chaptersOverCap(rows: List<DownloadEntity>, capBytes: Long, keep: String?): List<String> {
+    var total = rows.sumOf { it.bytes }
+    if (total <= capBytes) return emptyList()
+    val drop = mutableListOf<String>()
+    for (row in rows.sortedBy { it.savedAt }) {
+        if (total <= capBytes) break
+        if (row.chapterId == keep) continue
+        drop += row.chapterId
+        total -= row.bytes
+    }
+    return drop
+}
+
 /** Chapters saved on the device: page files on disk and a row per finished chapter. */
 class DownloadStore(context: Context, private val db: AppDatabase, private val client: OkHttpClient) {
     private val dao get() = db.downloads()
+    private val queueDao get() = db.queue()
     private val root = File(context.filesDir, "downloads")
 
     val saved: Flow<List<DownloadEntity>> get() = dao.observe()
 
     private val _active = MutableStateFlow<Map<String, Float>>(emptyMap())
 
-    /** Chapters being saved now, each with its progress from 0 to 1. */
+    /** The chapter being saved now, with its progress from 0 to 1. */
     val active: StateFlow<Map<String, Float>> = _active
+
+    /** Chapters waiting to be saved, in the order they will be saved. Kept in the database, so a restart keeps them. */
+    val queue: Flow<List<QueuedDownloadEntity>> get() = queueDao.observe()
+
+    /** The jobs saving a chapter right now, by chapter id, so cancelling one stops it mid-chapter. */
+    private val running = ConcurrentHashMap<String, Job>()
+
+    /** Chapters cancelled while they were being saved. The worker reads this to tell a cancel from a stop. */
+    private val cancelled = ConcurrentHashMap.newKeySet<String>()
+
+    /** Puts [chapter] at the end of the queue. A chapter already waiting keeps its place. */
+    suspend fun enqueue(seriesId: String, seriesTitle: String, coverUrl: String?, chapter: Chapter) {
+        queueDao.insert(
+            QueuedDownloadEntity(
+                chapterId = chapter.id,
+                seriesId = seriesId,
+                seriesTitle = seriesTitle,
+                coverUrl = coverUrl,
+                number = chapter.number,
+                title = chapter.title,
+                volume = chapter.volume,
+                groupName = chapter.group,
+                publishedAt = chapter.publishedAt,
+                position = queueDao.maxPosition() + 1,
+            ),
+        )
+    }
+
+    /** The next chapter to save, or null when the queue is empty. */
+    suspend fun nextQueued(): QueuedDownloadEntity? = queueDao.first()
+
+    /** Takes a finished or abandoned chapter out of the queue. */
+    suspend fun dequeue(chapterId: String) = queueDao.delete(chapterId)
+
+    suspend fun bumpAttempts(chapterId: String) = queueDao.bumpAttempts(chapterId)
+
+    /** Takes [chapterId] out of the queue, and stops it if it is being saved right now. */
+    suspend fun cancel(chapterId: String) {
+        queueDao.delete(chapterId)
+        running[chapterId]?.let { job ->
+            cancelled += chapterId
+            job.cancel()
+        }
+    }
+
+    /** Empties the queue and stops the chapter being saved. */
+    suspend fun cancelAll() {
+        queueDao.deleteAll()
+        running.forEach { (id, job) ->
+            cancelled += id
+            job.cancel()
+        }
+    }
+
+    /** Moves [chapterId] to the front of the queue, so it is saved next. */
+    suspend fun moveToTop(chapterId: String) = queueDao.setPosition(chapterId, queueDao.minPosition() - 1)
+
+    /** True once, when [chapterId] stopped because you cancelled it. */
+    fun consumeCancelled(chapterId: String): Boolean = cancelled.remove(chapterId)
+
+    /**
+     * Deletes the oldest saved chapters until the total is at most [capBytes]. The chapter in [keep], just
+     * saved, always stays. A cap of 0 or less means no limit.
+     */
+    suspend fun enforceCap(capBytes: Long, keep: String?) = withContext(Dispatchers.IO) {
+        if (capBytes <= 0) return@withContext
+        val rows = dao.observe().first()
+        chaptersOverCap(rows, capBytes, keep).forEach { delete(it) }
+    }
 
     /** The page files of a saved chapter as file addresses, or null when the chapter is not saved. */
     suspend fun pagesOf(chapterId: String): List<String>? = withContext(Dispatchers.IO) {
@@ -92,8 +183,16 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
     suspend fun isSaved(chapterId: String) = dao.get(chapterId) != null
 
     /** Downloads every page of [chapter]. Throws when a page still fails after retries, leaving nothing saved. */
-    suspend fun save(seriesId: String, seriesTitle: String, coverUrl: String?, chapter: Chapter, urls: List<String>) {
+    suspend fun save(
+        seriesId: String,
+        seriesTitle: String,
+        coverUrl: String?,
+        chapter: Chapter,
+        urls: List<String>,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ) {
         withContext(Dispatchers.IO) {
+            running[chapter.id] = coroutineContext.job
             val dir = File(root, chapter.id).also { it.deleteRecursively(); it.mkdirs() }
             try {
                 // A few pages at a time. A page that fails cancels the rest, and the whole chapter fails with it.
@@ -104,7 +203,9 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
                         async {
                             permits.withPermit {
                                 fetchTo(url, File(dir, pageFileName(index, urls.size, url))).also {
-                                    _active.update { it + (chapter.id to done.incrementAndGet().toFloat() / urls.size) }
+                                    val count = done.incrementAndGet()
+                                    _active.update { it + (chapter.id to count.toFloat() / urls.size) }
+                                    onProgress(count, urls.size)
                                 }
                             }
                         }
@@ -130,15 +231,11 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
                 dir.deleteRecursively()
                 throw e
             } finally {
+                running.remove(chapter.id)
                 _active.update { it - chapter.id }
             }
         }
     }
-
-    /** Marks a chapter as waiting, so the series page shows it before the worker starts. */
-    fun markQueued(chapterId: String) = _active.update { if (chapterId in it) it else it + (chapterId to 0f) }
-
-    fun clearQueued(chapterId: String) = _active.update { it - chapterId }
 
     suspend fun delete(chapterId: String) = withContext(Dispatchers.IO) {
         dao.delete(chapterId)

@@ -43,6 +43,7 @@ import com.dexter.data.LibraryData
 import com.dexter.data.LibraryList
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
+import com.dexter.data.newChapterEstimate
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.series.hasUnreadChapters
@@ -208,6 +209,8 @@ fun LibraryScreen(
                             tab = tab,
                             showNew = subscribedTab && hasUnreadChapters(series.knownChapterNumber, lastReadById[series.id]),
                             selected = series.id in selected,
+                            selecting = selected.isNotEmpty(),
+                            newCount = newChapterEstimate(series.knownChapterNumber, lastReadById[series.id]),
                             onOpen = { onOpenSeries(series.id) },
                             onSelect = { on ->
                                 haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)

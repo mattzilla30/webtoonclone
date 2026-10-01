@@ -56,8 +56,13 @@ fun computeStats(events: List<ReadEventEntity>, today: LocalDate, zone: ZoneId =
 class StatsStore(private val db: AppDatabase) {
     val stats: Flow<ReadingStats> get() = db.stats().observe().map { computeStats(it, LocalDate.now()) }.flowOn(Dispatchers.Default)
 
-    suspend fun recordRead(chapterId: String, seriesId: String, seriesTitle: String) {
-        db.stats().insert(ReadEventEntity(chapterId, seriesId, seriesTitle, System.currentTimeMillis()))
+    suspend fun recordRead(chapterId: String, seriesId: String, seriesTitle: String, genre: String? = null) {
+        db.stats().recordOpen(chapterId, seriesId, seriesTitle, System.currentTimeMillis(), genre)
+    }
+
+    /** Adds [ms] of reader time to a chapter already recorded by [recordRead]. */
+    suspend fun addReadingTime(chapterId: String, ms: Long) {
+        if (ms > 0) db.stats().addDuration(chapterId, ms)
     }
 }
 

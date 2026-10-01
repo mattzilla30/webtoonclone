@@ -22,8 +22,15 @@ class ProgressStore(private val context: Context) {
             // Any series' write re-emits the whole store, so skip the ones that did not change this series.
         }.distinctUntilChanged()
 
-    suspend fun save(seriesId: String, chapterId: String, page: Int, fraction: Float = 0f) {
-        context.dataStore.edit { it[key(seriesId)] = formatProgress(chapterId, page, fraction) }
+    /** Every series' saved position, by series id. */
+    val all: Flow<Map<String, ReadingProgress>> = context.dataStore.data.map { prefs ->
+        prefs.asMap().entries
+            .filter { it.key.name.startsWith(PREFIX) && it.value is String }
+            .associate { it.key.name.removePrefix(PREFIX) to parseProgress(it.value as String) }
+    }.distinctUntilChanged()
+
+    suspend fun save(seriesId: String, chapterId: String, page: Int, fraction: Float = 0f, total: Int = 0) {
+        context.dataStore.edit { it[key(seriesId)] = formatProgress(chapterId, page, fraction, total) }
     }
 
     /** Every saved position, keyed by series id, in the form [formatProgress] writes. */

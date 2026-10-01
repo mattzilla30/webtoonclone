@@ -18,26 +18,34 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +56,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -57,6 +67,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import com.dexter.R
+import com.dexter.data.ReadingProgress
+import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
@@ -71,16 +83,25 @@ import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
+/** "3 new", or "New" when the number of new chapters cannot be counted. */
+fun newLabel(count: Int?): String = if (count != null) "$count new" else "New"
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSeries: (String) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenChapter: (seriesId: String, chapterId: String) -> Unit,
+    onBrowse: (label: String) -> Unit,
     openCount: Int,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val recent by viewModel.recent.collectAsStateWithLifecycle()
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
+    val newCounts by viewModel.newCounts.collectAsStateWithLifecycle()
+    val fromSubscriptions by viewModel.fromSubscriptions.collectAsStateWithLifecycle()
+    val showTip by viewModel.showLongPressTip.collectAsStateWithLifecycle()
     val because by viewModel.becauseYouRead.collectAsStateWithLifecycle()
     val appContext = LocalContext.current
     val columns = adaptiveColumns(windowWidthDp())
@@ -122,7 +143,8 @@ fun HomeScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        PullToRefreshBox(isRefreshing = state is Load.Loading, onRefresh = viewModel::retry, modifier = Modifier.fillMaxSize()) {
+        // A pull keeps what is on screen and swaps in the new picks when they arrive.
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
             LoadView(state, onRetry = viewModel::retry) { home ->
                 LazyColumn(Modifier.fillMaxSize()) {
                     offlineSavedAt?.let { savedAt ->
@@ -130,7 +152,17 @@ fun HomeScreen(
                             OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
                         }
                     }
-                    home.hero?.let { hero -> item { Hero(hero, onOpenSearch, onShuffle = viewModel::retry) { onOpenSeries(hero.id) } } }
+                    home.hero?.let { hero ->
+                        item {
+                            Hero(
+                                hero,
+                                subscribed = hero.id in subscribedIds,
+                                onSearch = onOpenSearch,
+                                onShuffle = viewModel::refresh,
+                                onSubscribe = { toggleSubscribe(hero) },
+                            ) { onOpenSeries(hero.id) }
+                        }
+                    }
 
                     if (recent.isNotEmpty()) {
                         item(contentType = "header") { SectionHeader("Continue Reading") }
@@ -144,35 +176,52 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxWidth().height(250.dp),
                             ) { index ->
                                 val saved = recent[index]
-                                Box(Modifier.maskClip(MaterialTheme.shapes.large).clickable { onOpenChapter(saved.id, saved.chapterId!!) }) {
-                                    Cover(saved.coverUrl, saved.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))))
-                                    Column(Modifier.align(Alignment.BottomStart).padding(10.dp)) {
-                                        Text(saved.title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized)
-                                        saved.chapterNumber?.let { Text("Ep. $it", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall) }
-                                    }
+                                ContinueCard(
+                                    saved = saved,
+                                    progress = progress[saved.id]?.takeIf { it.chapterId == saved.chapterId },
+                                    newCount = newCounts[saved.id],
+                                    hasNew = saved.id in newCounts,
+                                    modifier = Modifier.maskClip(MaterialTheme.shapes.large),
+                                    onOpen = { onOpenChapter(saved.id, saved.chapterId!!) },
+                                    onOpenSeries = { onOpenSeries(saved.id) },
+                                    onMarkRead = { viewModel.markCaughtUp(saved.id) },
+                                    onRemove = { viewModel.removeFromHistory(saved.id) },
+                                )
+                            }
+                        }
+                    }
+
+                    if (fromSubscriptions.isNotEmpty()) {
+                        item(contentType = "header") { SectionHeader("From your subscriptions") }
+                        item {
+                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(fromSubscriptions, key = { it.series.id }) { unread ->
+                                    UnreadTile(unread) { onOpenChapter(unread.series.id, unread.series.knownChapterId!!) }
                                 }
                             }
                         }
                     }
 
                     because?.let { (title, like) ->
-                        item { SectionHeader("Because you read $title") }
+                        item(contentType = "header") { SectionHeader("Because you read $title") }
                         item {
                             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(like, key = { it.id }) { series ->
-                                    PickTile(series, { onOpenSeries(series.id) }, Modifier.width(110.dp), onLongClick = { toggleSubscribe(series) })
+                                    PickTile(series, { onOpenSeries(series.id) }, Modifier.width(110.dp), subscribed = series.id in subscribedIds, onLongClick = { toggleSubscribe(series) })
                                 }
                             }
                         }
                     }
 
-                    item(contentType = "header") { SectionHeader("New Series") }
+                    item(contentType = "header") { SectionHeader("New Series", onClick = { onBrowse("Recently added") }) }
                     items(home.newSeries, key = { it.id }, contentType = { "new-series" }) { series ->
                         NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
                     }
 
-                    item(contentType = "header") { SectionHeader("Today's Picks") }
+                    item(contentType = "header") { SectionHeader("Today's Picks", onClick = { onBrowse("Popular") }) }
+                    if (showTip) {
+                        item(contentType = "tip") { LongPressTip(onDismiss = viewModel::dismissLongPressTip) }
+                    }
                     val pickRows = home.picks.chunked(columns)
                     items(pickRows, key = { it.first().id }, contentType = { "picks" }) { rowSeries ->
                         Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -204,17 +253,132 @@ fun HomeScreen(
     }
 }
 
+/** One Continue Reading cover: where you are in the chapter, a badge for new chapters, and a long-press menu. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onShuffle: () -> Unit, onClick: () -> Unit) {
+private fun ContinueCard(
+    saved: SavedSeries,
+    progress: ReadingProgress?,
+    newCount: Int?,
+    hasNew: Boolean,
+    modifier: Modifier,
+    onOpen: () -> Unit,
+    onOpenSeries: () -> Unit,
+    onMarkRead: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    var menu by remember { mutableStateOf(false) }
+    Box(
+        modifier.combinedClickable(
+            onClick = onOpen,
+            onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                menu = true
+            },
+        ),
+    ) {
+        Cover(saved.coverUrl, saved.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))))
+        if (hasNew) {
+            Text(
+                newLabel(newCount),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+                    .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+        }
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(10.dp)) {
+            Text(saved.title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            saved.chapterNumber?.let { Text("Ep. $it", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall) }
+            progress?.share?.let { share ->
+                LinearProgressIndicator(
+                    progress = { share },
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp)
+                        .semantics { contentDescription = "${(share * 100).toInt()} percent read" },
+                )
+            }
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text("Continue reading") }, onClick = { menu = false; onOpen() })
+            DropdownMenuItem(text = { Text("Open series page") }, onClick = { menu = false; onOpenSeries() })
+            if (hasNew) DropdownMenuItem(text = { Text("Mark all read") }, onClick = { menu = false; onMarkRead() })
+            DropdownMenuItem(text = { Text("Remove from history") }, onClick = { menu = false; onRemove() })
+        }
+    }
+}
+
+/** A subscribed series with unread chapters. Tapping opens its newest chapter. */
+@Composable
+private fun UnreadTile(unread: UnreadSeries, onClick: () -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        onClick = onClick,
+        modifier = Modifier.width(110.dp),
+    ) {
+        Column {
+            Box {
+                Cover(unread.series.coverUrl, unread.series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Crop, thumb = true)
+                Text(
+                    newLabel(unread.newCount),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
+                        .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                Text(unread.series.title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                unread.series.knownChapterNumber?.let {
+                    Text("Ep. $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/** A one-time tip that a long press on any cover subscribes. */
+@Composable
+private fun LongPressTip(onDismiss: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+    ) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Tip: press and hold any cover to subscribe.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            TextButton(onClick = onDismiss) { Text("Got it") }
+        }
+    }
+}
+
+@Composable
+private fun Hero(
+    series: SeriesSummary,
+    subscribed: Boolean,
+    onSearch: () -> Unit,
+    onShuffle: () -> Unit,
+    onSubscribe: () -> Unit,
+    onClick: () -> Unit,
+) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().padding(16.dp).height(380.dp).clip(MaterialTheme.shapes.extraLarge).clickable(onClick = onClick),
+        // A minimum height, so a long title in a large font grows the card instead of being cut off.
+        modifier = Modifier.fillMaxWidth().padding(16.dp).heightIn(min = 380.dp).clip(MaterialTheme.shapes.extraLarge).clickable(onClick = onClick),
     ) {
-        Box {
-            Cover(series.coverUrl, series.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD9000000)))))
+        Box(Modifier.heightIn(min = 380.dp)) {
+            Cover(series.coverUrl, series.title, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD9000000)))))
             Row(Modifier.align(Alignment.TopEnd).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalIconToggleButton(checked = subscribed, onCheckedChange = { onSubscribe() }) {
+                    Icon(Icons.Default.Notifications, contentDescription = if (subscribed) "Unsubscribe" else "Subscribe")
+                }
                 FilledTonalIconButton(onClick = onShuffle) {
                     Icon(Icons.Default.Refresh, contentDescription = "Shuffle picks")
                 }
@@ -222,7 +386,7 @@ private fun Hero(series: SeriesSummary, onSearch: () -> Unit, onShuffle: () -> U
                     Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                 }
             }
-            Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
+            Column(Modifier.align(Alignment.BottomStart).padding(20.dp).padding(top = 200.dp)) {
                 Text(series.title, color = Color.White, style = MaterialTheme.typography.headlineLargeEmphasized)
                 Text(
                     series.description,

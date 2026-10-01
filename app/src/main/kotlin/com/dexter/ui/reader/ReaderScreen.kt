@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -56,6 +58,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
@@ -66,6 +71,7 @@ import com.dexter.data.ReadingMode
 import com.dexter.data.Settings
 import com.dexter.data.TapAction
 import com.dexter.data.tapAction
+import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
@@ -143,7 +149,11 @@ fun ReaderScreen(
         onDispose { VolumeKeyPager.active = false }
     }
 
-    Box(Modifier.fillMaxSize().background(readerBackgroundColor(settings.readerBackground))) {
+    Box(
+        Modifier.fillMaxSize().background(readerBackgroundColor(settings.readerBackground))
+            // Loading and error text keeps clear of the system bars. The pages themselves go edge to edge.
+            .then(if (state is Load.Ready) Modifier else Modifier.systemBarsPadding()),
+    ) {
         LoadView(state, onRetry = viewModel::retry) { page ->
             ReaderContent(
                 viewModel = viewModel,
@@ -192,6 +202,18 @@ private fun ReaderContent(
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     var barsVisible by remember { mutableStateOf(true) }
+
+    // Fullscreen: the status and navigation bars hide with the reader's own bars. A swipe from an edge shows
+    // them for a moment, and they come back for good when the reader closes.
+    val window = (LocalActivity.current)?.window
+    DisposableEffect(window, view) {
+        onDispose { window?.let { WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.systemBars()) } }
+    }
+    LaunchedEffect(window, barsVisible) {
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) } ?: return@LaunchedEffect
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (barsVisible) controller.show(WindowInsetsCompat.Type.systemBars()) else controller.hide(WindowInsetsCompat.Type.systemBars())
+    }
     var showChapters by remember { mutableStateOf(false) }
     var jumpTo by remember { mutableStateOf<String?>(null) }
     var container by remember { mutableStateOf(IntSize.Zero) }
@@ -386,7 +408,7 @@ private fun ReaderContent(
                 shape = CircleShape,
                 color = barColor(),
                 contentColor = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(12.dp),
             ) {
                 Text("${position + 1} / $count", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }

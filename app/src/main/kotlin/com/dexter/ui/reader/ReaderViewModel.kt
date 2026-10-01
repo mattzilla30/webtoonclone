@@ -206,7 +206,8 @@ class ReaderViewModel(
         if (next == null || known == null) return
         viewModelScope.launch(LogFailures) {
             val current = settingsStore.current()
-            if (!current.autoDownloadNext || downloads.isSaved(next.id) || next.id in downloads.active.value) return@launch
+            // The queue ignores a chapter it already holds, so there is no need to check for one here.
+            if (!current.autoDownloadNext || downloads.isSaved(next.id)) return@launch
             DownloadWorker.enqueue(context, downloads, seriesId, known.title, known.coverUrl, next, current.downloadWifiOnly)
         }
     }
@@ -226,7 +227,8 @@ class ReaderViewModel(
     }
 
     fun saveProgress(page: Int, fraction: Float = 0f) {
-        viewModelScope.launch(LogFailures) { progressStore.save(seriesId, chapterId, page, fraction) }
+        val total = (_state.value as? Load.Ready)?.value?.pages?.size ?: 0
+        viewModelScope.launch(LogFailures) { progressStore.save(seriesId, chapterId, page, fraction, total) }
     }
 
     /** When page addresses were last renewed, so a run of failing pages asks once, not once each. */

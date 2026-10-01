@@ -90,13 +90,30 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
                     }
                 }
                 Heading("Year")
-                OutlinedTextField(
-                    value = draft.year?.toString().orEmpty(),
-                    onValueChange = { text -> draft = draft.copy(year = text.filter(Char::isDigit).take(4).toIntOrNull()) },
-                    placeholder = { Text(stringResource(R.string.any_year)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                Text(
+                    "One year, or a range with both. A range is checked against each page as it arrives, so it can take a moment to fill.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = draft.year?.toString().orEmpty(),
+                        onValueChange = { text -> draft = draft.copy(year = text.filter(Char::isDigit).take(4).toIntOrNull()) },
+                        label = { Text("From") },
+                        placeholder = { Text(stringResource(R.string.any_year)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = draft.yearTo?.toString().orEmpty(),
+                        onValueChange = { text -> draft = draft.copy(yearTo = text.filter(Char::isDigit).take(4).toIntOrNull()) },
+                        label = { Text("To") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 Heading("Tags")
                 Text(stringResource(R.string.tap_once_to_include_twice_to_exclude_thr), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

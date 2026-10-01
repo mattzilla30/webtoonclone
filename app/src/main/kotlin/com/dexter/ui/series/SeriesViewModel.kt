@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -78,16 +79,21 @@ class SeriesViewModel(
         .map { rows -> rows.filter { it.seriesId == seriesId }.mapTo(mutableSetOf()) { it.chapterId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
-    /** Ids of chapters waiting or being saved now. */
-    val downloading: StateFlow<Set<String>> = downloads.active
-        .map { it.keys }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    /** Chapters waiting or being saved, by id, with progress from 0 to 1. A chapter still waiting reads 0. */
+    val downloading: StateFlow<Map<String, Float>> = combine(downloads.queue, downloads.active) { queue, active ->
+        queue.associate { it.chapterId to (active[it.chapterId] ?: 0f) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** Stops saving [chapterId], whether it is waiting or being saved now. */
+    fun cancelDownload(chapterId: String) {
+        viewModelScope.launch(LogFailures) { downloads.cancel(chapterId) }
+    }
 
     fun download(detail: SeriesDetail, chapter: Chapter) {
         viewModelScope.launch(LogFailures) { enqueueDownload(detail, chapter, settingsStore.current().downloadWifiOnly) }
     }
 
-    private fun enqueueDownload(detail: SeriesDetail, chapter: Chapter, wifiOnly: Boolean) {
+    private suspend fun enqueueDownload(detail: SeriesDetail, chapter: Chapter, wifiOnly: Boolean) {
         DownloadWorker.enqueue(context, downloads, seriesId, detail.summary.title, detail.summary.coverUrl, chapter, wifiOnly)
     }
 

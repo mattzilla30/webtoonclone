@@ -1,5 +1,7 @@
 package com.dexter.ui.library
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,22 +27,33 @@ import com.dexter.ui.Cover
 import com.dexter.ui.timeAgo
 import java.time.Instant
 
-/** One series in a My Series list: cover, title, where you are, and a checkbox for removing it. */
+/**
+ * One series in a My Series list: cover, title, and where you are. A long press starts selecting, and while
+ * [selecting], a tap ticks the row instead of opening it.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun LibraryRow(
     series: SavedSeries,
     tab: LibraryList,
     showNew: Boolean,
     selected: Boolean,
+    selecting: Boolean,
     onOpen: () -> Unit,
     onSelect: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    newCount: Int? = null,
 ) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        onClick = onOpen,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .combinedClickable(
+                onClick = { if (selecting) onSelect(!selected) else onOpen() },
+                onLongClick = { onSelect(!selected) },
+                onLongClickLabel = "Select",
+            ),
     ) {
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -49,7 +62,7 @@ internal fun LibraryRow(
             Cover(series.coverUrl, series.title, Modifier.width(44.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 if (showNew) {
-                    Text(stringResource(R.string.new_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text(newCount?.let { "$it new" } ?: stringResource(R.string.new_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
                 Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
                 if (tab == LibraryList.Lists) {
@@ -60,11 +73,13 @@ internal fun LibraryRow(
                     Text("Ep. $it$readAt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Checkbox(
-                checked = selected,
-                onCheckedChange = onSelect,
-                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
-            )
+            if (selecting) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = onSelect,
+                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
+                )
+            }
         }
     }
 }

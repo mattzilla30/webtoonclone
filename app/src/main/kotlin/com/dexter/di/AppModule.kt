@@ -67,8 +67,8 @@ val appModule = module {
     single { OfflineStore(androidContext()) }
     single { BackupService(androidContext(), get(), get(), get()) }
 
-    viewModel { HomeViewModel(get(), get(), get(), get()) }
-    viewModel { SearchViewModel(get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
+    viewModel { SearchViewModel(get(), get(), get(), get()) }
     viewModel { UpdatesViewModel(get(), get(), get()) }
     viewModel { LibraryViewModel(get()) }
     viewModel { DownloadsViewModel(get()) }
@@ -76,5 +76,5 @@ val appModule = module {
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }
     viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), androidApplication()) }
     viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
-    viewModel { params -> AuthorViewModel(params.get<String>(0), get(), get()) }
+    viewModel { params -> AuthorViewModel(params.get<String>(0), get(), get(), get()) }
 }

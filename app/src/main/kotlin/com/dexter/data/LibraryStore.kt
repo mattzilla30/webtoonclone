@@ -37,6 +37,7 @@ private val HOME_CACHE_AT = longPreferencesKey("home_cache_at")
 private val LIBRARY_UNREADABLE = stringPreferencesKey("library_unreadable")
 private const val MAX_RECENT = 50
 private const val MAX_SEARCHES = 10
+private const val MAX_SEARCH_KNOWN = 200
 
 /**
  * Whether the lists in the old single-file store should be copied into the database: only once, only
@@ -211,6 +212,24 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     /** Keeps [search] under its name, replacing one with the same name. */
     suspend fun saveSearch(search: SavedSearch) = updateScalars { data ->
         data.copy(savedSearches = listOf(search) + data.savedSearches.filterNot { it.name == search.name })
+    }
+
+    /** Turns notifications for a saved search on or off. Turning them on starts from [currentIds], so old matches stay quiet. */
+    suspend fun setSearchNotify(name: String, enabled: Boolean, currentIds: List<String>) = updateScalars { data ->
+        data.copy(
+            savedSearches = data.savedSearches.map {
+                if (it.name == name) it.copy(notify = enabled, knownIds = if (enabled) (it.knownIds + currentIds).distinct() else it.knownIds) else it
+            },
+        )
+    }
+
+    /** Records [seriesIds] as seen for a saved search. The list keeps the 200 most recent. */
+    suspend fun markSearchSeen(name: String, seriesIds: List<String>) = updateScalars { data ->
+        data.copy(
+            savedSearches = data.savedSearches.map {
+                if (it.name == name) it.copy(knownIds = (seriesIds + it.knownIds).distinct().take(MAX_SEARCH_KNOWN)) else it
+            },
+        )
     }
 
     suspend fun deleteSavedSearch(name: String) = updateScalars { data ->

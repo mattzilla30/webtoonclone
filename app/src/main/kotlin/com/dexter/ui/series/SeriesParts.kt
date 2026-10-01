@@ -98,9 +98,11 @@ internal fun EpisodeRow(
     onMarkUnread: (() -> Unit)?,
     preferredGroup: String?,
     saved: Boolean,
-    saving: Boolean,
+    /** Progress from 0 to 1 while waiting or saving, or null when the chapter is not in the queue. */
+    saving: Float?,
     onDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
+    onCancelDownload: () -> Unit,
     onPreferGroup: (String?) -> Unit,
     onBlockGroup: (String) -> Unit,
     onOpenUpload: (Chapter) -> Unit,
@@ -144,7 +146,7 @@ internal fun EpisodeRow(
                     // Parsing the date once per chapter, not once per draw of the row.
                     val date = remember(chapter.publishedAt) { formatChapterDate(chapter.publishedAt) }
                     Text(
-                        listOfNotNull(date, chapter.group, if (saved) "Saved" else if (saving) "Saving..." else null).joinToString(" · "),
+                        listOfNotNull(date, chapter.group, savingLabel(saved, saving)).joinToString(" · "),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -161,7 +163,9 @@ internal fun EpisodeRow(
             if (chapter.externalUrl == null) {
                 if (saved) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.remove_download)) }, onClick = { menu = false; onRemoveDownload() })
-                } else if (!saving) {
+                } else if (saving != null) {
+                    DropdownMenuItem(text = { Text("Cancel download") }, onClick = { menu = false; onCancelDownload() })
+                } else {
                     DropdownMenuItem(text = { Text(stringResource(R.string.download)) }, onClick = { menu = false; onDownload() })
                 }
             }
@@ -181,6 +185,14 @@ internal fun EpisodeRow(
             }
         }
     }
+}
+
+/** "Saved", "Saving 42%", "Queued", or null when the chapter is neither saved nor in the queue. */
+fun savingLabel(saved: Boolean, progress: Float?): String? = when {
+    saved -> "Saved"
+    progress == null -> null
+    progress > 0f -> "Saving ${(progress * 100).toInt()}%"
+    else -> "Queued"
 }
 
 /** The series' tags. Tapping one searches it. */

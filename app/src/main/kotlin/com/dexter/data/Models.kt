@@ -13,7 +13,12 @@ data class SeriesSummary(
     val follows: Int? = null,
     /** MangaDex id of the first author, for the author page. */
     val authorId: String? = null,
+    /** The year it started, when MangaDex knows it. */
+    val year: Int? = null,
 )
+
+/** An author or artist found by name. */
+data class AuthorSummary(val id: String, val name: String)
 
 @Serializable
 data class SeriesDetail(
@@ -67,22 +72,43 @@ data class ReadingProgress(
     val page: Int,
     /** How far down [page] you were, from 0 to 1. Tall webtoon pages need it to resume in place. */
     val fraction: Float = 0f,
-)
+    /** Pages in the chapter, or 0 when the position was saved before the app kept it. */
+    val total: Int = 0,
+) {
+    /** How far through the chapter you are, from 0 to 1, or null when the page count is unknown. */
+    val share: Float? get() = if (total > 0) ((page + fraction) / total).coerceIn(0f, 1f) else null
+}
 
-/** Reads a saved position, "chapterId:page" or "chapterId:page:permille". */
+/** Reads a saved position: "chapterId:page", "chapterId:page:permille", or "chapterId:page:permille:total". */
 fun parseProgress(raw: String): ReadingProgress {
     val parts = raw.split(":")
     return ReadingProgress(
         chapterId = parts[0],
         page = parts.getOrNull(1)?.toIntOrNull() ?: 0,
         fraction = (parts.getOrNull(2)?.toIntOrNull() ?: 0).coerceIn(0, 999) / 1000f,
+        total = parts.getOrNull(3)?.toIntOrNull()?.coerceAtLeast(0) ?: 0,
     )
 }
 
 /** The saved form of a position, read back by [parseProgress]. */
-fun formatProgress(chapterId: String, page: Int, fraction: Float): String {
+fun formatProgress(chapterId: String, page: Int, fraction: Float, total: Int = 0): String {
     val permille = (fraction * 1000).toInt().coerceIn(0, 999)
-    return if (permille == 0) "$chapterId:$page" else "$chapterId:$page:$permille"
+    return when {
+        total > 0 -> "$chapterId:$page:$permille:$total"
+        permille == 0 -> "$chapterId:$page"
+        else -> "$chapterId:$page:$permille"
+    }
+}
+
+/**
+ * About how many chapters came out after the one you read: the gap between the two chapter numbers, when
+ * both are whole numbers. Null when either is unknown or fractional, since 12.5 could be one chapter or none.
+ */
+fun newChapterEstimate(knownNumber: String?, lastReadNumber: String?): Int? {
+    val known = knownNumber?.toDoubleOrNull() ?: return null
+    val last = lastReadNumber?.toDoubleOrNull() ?: return null
+    if (known != Math.floor(known) || last != Math.floor(last)) return null
+    return (known - last).toInt().takeIf { it > 0 }
 }
 
 /** Home content saved on the device, with the time it was saved. */
@@ -103,6 +129,10 @@ data class SavedSearch(
     val tag: String? = null,
     val filters: SearchFilters = SearchFilters(),
     val order: String = "Popular",
+    /** Whether a new series matching this search notifies, as a followed author does. */
+    val notify: Boolean = false,
+    /** Series already seen for this search, so only later ones notify. */
+    val knownIds: List<String> = emptyList(),
 )
 
 /** An author or artist you follow. [knownIds] are the series already seen, so only later ones notify. */

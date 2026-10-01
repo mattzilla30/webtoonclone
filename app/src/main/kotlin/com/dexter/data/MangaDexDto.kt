@@ -35,6 +35,15 @@ internal data class MangaAttributesDto(
 )
 
 @Serializable
+internal data class AuthorListDto(val data: List<AuthorDto> = emptyList())
+
+@Serializable
+internal data class AuthorDto(val id: String, val attributes: AuthorAttributesDto = AuthorAttributesDto())
+
+@Serializable
+internal data class AuthorAttributesDto(val name: String = "")
+
+@Serializable
 internal data class TagDto(val id: String = "", val attributes: TagAttributesDto)
 
 @Serializable

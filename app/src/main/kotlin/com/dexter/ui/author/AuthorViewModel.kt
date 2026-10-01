@@ -5,16 +5,22 @@ import androidx.lifecycle.viewModelScope
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.Order
+import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
+import com.dexter.data.SettingsStore
+import com.dexter.data.subscriptionStart
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
+import com.dexter.ui.home.subscriptionMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** The series one author or artist worked on, most followed first, loaded a page at a time. */
@@ -22,7 +28,31 @@ class AuthorViewModel(
     private val authorId: String,
     private val repository: MangaDexRepository,
     private val library: LibraryStore,
+    settingsStore: SettingsStore,
 ) : ViewModel() {
+    /** Results as rows with details, following the Search setting. */
+    val asList: StateFlow<Boolean> = settingsStore.settings.map { it.resultsAsList }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), settingsStore.latest.resultsAsList)
+
+    val subscribedIds: StateFlow<Set<String>> = library.stateOf(viewModelScope) { lib -> lib.subscribed.mapTo(HashSet()) { it.id } }
+
+    private val _toast = MutableStateFlow<String?>(null)
+    val toast: StateFlow<String?> = _toast
+
+    fun clearToast() {
+        _toast.value = null
+    }
+
+    /** Subscribes from a long press on a series, or unsubscribes when you already do. */
+    fun toggleSubscribe(series: SeriesSummary) {
+        viewModelScope.launch(LogFailures) {
+            val already = series.id in subscribedIds.value
+            library.toggleSubscribed(
+                if (already) SavedSeries(series.id, series.title, series.coverUrl) else repository.subscriptionStart(series.id, series.title, series.coverUrl),
+            )
+            _toast.value = subscriptionMessage(series.title, nowSubscribed = !already)
+        }
+    }
     val following: StateFlow<Boolean> = library.stateOf(viewModelScope) { data -> data.followedAuthors.any { it.id == authorId } }
 
     fun toggleFollow(name: String) {

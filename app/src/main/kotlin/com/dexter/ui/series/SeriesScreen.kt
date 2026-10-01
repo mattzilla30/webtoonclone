@@ -389,9 +389,10 @@ fun SeriesScreen(
                                 read = isChapterRead(chapter.number, lastRead?.chapterNumber),
                                 preferredGroup = preferredGroup,
                                 saved = chapter.id in downloaded,
-                                saving = chapter.id in downloading,
+                                saving = downloading[chapter.id],
                                 onDownload = { viewModel.download(page.detail, chapter) },
                                 onRemoveDownload = { viewModel.removeDownload(chapter.id) },
+                                onCancelDownload = { viewModel.cancelDownload(chapter.id) },
                                 onClick = { open(chapter) },
                                 // Read marks apply to chapters that open in the reader.
                                 onMarkRead = if (readable) ({ viewModel.markReadUpTo(chapter, page.detail) }) else null,

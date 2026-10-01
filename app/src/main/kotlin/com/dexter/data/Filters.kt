@@ -16,14 +16,23 @@ data class SearchFilters(
     val demographics: List<String> = emptyList(),
     val originalLanguages: List<String> = emptyList(),
     val year: Int? = null,
+    /** With [year], the last year of a range. MangaDex only filters by one year, so a range is applied to each page as it arrives. */
+    val yearTo: Int? = null,
     /** True needs every included tag. False needs any one of them. */
     val matchAll: Boolean = true,
 ) {
     val isEmpty: Boolean get() = activeCount == 0
 
+    /** The years to keep when two different years are set, lowest first. Null for no range. */
+    val yearRange: IntRange?
+        get() = if (year != null && yearTo != null && year != yearTo) minOf(year, yearTo)..maxOf(year, yearTo) else null
+
+    /** The one year to ask MangaDex for, when there is no range. */
+    val exactYear: Int? get() = if (yearRange == null) year ?: yearTo else null
+
     /** How many separate limits are set, for a "Filters (3)" label. */
     val activeCount: Int
-        get() = included.size + excluded.size + status.size + demographics.size + originalLanguages.size + (if (year != null) 1 else 0)
+        get() = included.size + excluded.size + status.size + demographics.size + originalLanguages.size + (if (year != null || yearTo != null) 1 else 0)
 
     /** Moves a tag through off, included, excluded, and back to off. */
     fun cycleTag(name: String): SearchFilters = when (name) {
@@ -63,5 +72,9 @@ fun activeFilters(filters: SearchFilters): List<ActiveFilter> = buildList {
     filters.status.forEach { add(ActiveFilter(it.replaceFirstChar { c -> c.uppercase() }, filters.copy(status = filters.status - it))) }
     filters.demographics.forEach { add(ActiveFilter(it.replaceFirstChar { c -> c.uppercase() }, filters.copy(demographics = filters.demographics - it))) }
     filters.originalLanguages.forEach { add(ActiveFilter(languageName(it), filters.copy(originalLanguages = filters.originalLanguages - it))) }
-    filters.year?.let { add(ActiveFilter(it.toString(), filters.copy(year = null))) }
+    val range = filters.yearRange
+    when {
+        range != null -> add(ActiveFilter("${range.first} to ${range.last}", filters.copy(year = null, yearTo = null)))
+        filters.exactYear != null -> add(ActiveFilter(filters.exactYear.toString(), filters.copy(year = null, yearTo = null)))
+    }
 }

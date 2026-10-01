@@ -14,7 +14,9 @@ import com.dexter.DexterApp
 import com.dexter.MainActivity
 import com.dexter.R
 import com.dexter.data.SavedSeries
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private const val CONTINUE_SHORTCUT = "continue"
 
@@ -66,9 +68,16 @@ private fun launchIntent(context: Context, intent: Intent): PendingIntent =
 /** Home screen widget with the series you read last. Tapping it opens the reader at that chapter. */
 class ContinueWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
-        // The widget redraws from the saved library. The read is short and local.
-        val last = runBlocking { (context.applicationContext as DexterApp).libraryStore.current() }
-            .recent.firstOrNull { it.chapterId != null }
-        appWidgetIds.forEach { manager.updateAppWidget(it, widgetViews(context, last)) }
+        // The widget redraws from the saved library. Reading it can open the database, so it stays off the main thread.
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.Default).launch {
+            try {
+                val last = (context.applicationContext as DexterApp).libraryStore.current()
+                    .recent.firstOrNull { it.chapterId != null }
+                appWidgetIds.forEach { manager.updateAppWidget(it, widgetViews(context, last)) }
+            } finally {
+                pending.finish()
+            }
+        }
     }
 }

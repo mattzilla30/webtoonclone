@@ -13,6 +13,18 @@
         </intent>
     </shortcut>
     <shortcut
+        android:shortcutId="updates"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_updates">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.dexter.MainActivity"
+            android:targetPackage="com.dexter">
+            <extra android:name="route" android:value="updates" />
+        </intent>
+    </shortcut>
+    <shortcut
         android:shortcutId="library"
         android:enabled="true"
         android:icon="@mipmap/ic_launcher"

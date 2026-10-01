@@ -6,6 +6,10 @@
     <string name="widget_heading">CONTINUE READING</string>
     <string name="widget_empty">Open a series to start reading</string>
     <string name="widget_description">Jump back to the chapter you read last</string>
+    <string name="updates_widget_heading">RECENT UPDATES</string>
+    <string name="updates_widget_empty">New chapters of series you subscribe to show here</string>
+    <string name="updates_widget_description">Your subscriptions\' newest chapters</string>
+    <string name="shortcut_updates">Updates</string>
 
     <string name="retry">Retry</string>
     <string name="loading">Loading</string>

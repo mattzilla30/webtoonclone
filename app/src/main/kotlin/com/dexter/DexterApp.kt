@@ -24,7 +24,9 @@ import com.dexter.notify.AutoBackupWorker
 import com.dexter.notify.DownloadWorker
 import com.dexter.notify.GoalReminderWorker
 import com.dexter.notify.NewChaptersWorker
+import com.dexter.notify.refreshUpdatesWidgets
 import com.dexter.notify.updateContinueReading
+import com.dexter.notify.widgetUpdates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -88,6 +90,12 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
                 .map { library -> library.recent.firstOrNull { it.chapterId != null } }
                 .distinctUntilChanged()
                 .collect { last -> updateContinueReading(this@DexterApp, last) }
+        }
+        appScope.launch {
+            libraryStore.data
+                .map { library -> widgetUpdates(library) }
+                .distinctUntilChanged()
+                .collect { updates -> runCatching { refreshUpdatesWidgets(this@DexterApp, updates) } }
         }
         appScope.launch {
             settingsStore.settings.collect { settings ->

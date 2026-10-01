@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
 import org.koin.android.ext.android.inject
@@ -35,6 +36,7 @@ import org.koin.core.context.startKoin
 import java.io.File
 
 private const val IMAGE_CACHE_BYTES = 250L * 1024 * 1024
+private const val IMAGE_REQUESTS_PER_HOST = 10
 
 class DexterApp : Application(), SingletonImageLoader.Factory {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -81,6 +83,8 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     override fun newImageLoader(context: Context): ImageLoader {
         val client = OkHttpClient.Builder()
             .addInterceptor(ImageReportInterceptor(ImageReporter()) { reportImageLoads })
+            // A chapter's pages come from one image server. The default of 5 at a time holds back the pages being prefetched.
+            .dispatcher(Dispatcher().apply { maxRequestsPerHost = IMAGE_REQUESTS_PER_HOST })
             .build()
         return ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { client })) }

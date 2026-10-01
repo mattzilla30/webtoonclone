@@ -1,5 +1,9 @@
 package com.dexter.data
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
@@ -51,5 +55,27 @@ class MangaDexHttpTest {
         val calls = mutableListOf<Int>()
         assertThrows(IOException::class.java) { runBlocking { MangaDexHttp(client(listOf(404), calls)).get(url) } }
         assertEquals(1, calls.size)
+    }
+
+    @Test
+    fun cancellingTheCoroutineCancelsTheRequest() = runBlocking {
+        val entered = CompletableDeferred<Unit>()
+        val aborted = CompletableDeferred<Boolean>()
+        val blocking = OkHttpClient.Builder()
+            .addInterceptor(
+                Interceptor { chain ->
+                    entered.complete(Unit)
+                    // Hold the request until it is cancelled, as a slow server would.
+                    val deadline = System.currentTimeMillis() + 5_000
+                    while (!chain.call().isCanceled() && System.currentTimeMillis() < deadline) Thread.sleep(10)
+                    aborted.complete(chain.call().isCanceled())
+                    throw IOException("Canceled")
+                },
+            )
+            .build()
+        val job = launch(Dispatchers.Default) { MangaDexHttp(blocking).get(url) }
+        entered.await()
+        job.cancelAndJoin()
+        assertEquals(true, aborted.await())
     }
 }

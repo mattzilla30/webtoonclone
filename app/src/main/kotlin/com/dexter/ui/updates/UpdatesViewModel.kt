@@ -8,6 +8,8 @@ import com.dexter.data.OfflineStore
 import com.dexter.data.UpdateEntry
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +40,9 @@ class UpdatesViewModel(
 
     private var page = 0
 
+    private var loadJob: Job? = null
+    private var moreJob: Job? = null
+
     init {
         load()
         // A new content language changes which chapters are listed.
@@ -45,14 +50,20 @@ class UpdatesViewModel(
     }
 
     fun load() {
+        // A refresh replaces the list, so an older refresh or a page still loading must not land on top of it.
+        moreJob?.cancel()
+        loadJob?.cancel()
+        _loadingMore.value = false
         _state.value = Load.Loading
         page = 0
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             try {
                 val entries = repository.latestUpdates(0)
                 _offlineSavedAt.value = null
                 _state.value = Load.Ready(entries)
                 runCatching { offline.saveUpdates(entries) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Fall back to the last first page, if there is one.
                 val saved = runCatching { offline.loadUpdates() }.getOrNull()
@@ -72,12 +83,14 @@ class UpdatesViewModel(
         // A saved copy has no next page to fetch.
         if (_loadingMore.value || _offlineSavedAt.value != null) return
         _loadingMore.value = true
-        viewModelScope.launch {
+        moreJob = viewModelScope.launch {
             try {
                 val more = repository.latestUpdates(page + 1)
                 page += 1
                 val seen = current.mapTo(mutableSetOf()) { it.series.id }
                 _state.value = Load.Ready(current + more.filter { it.series.id !in seen })
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Keep the list as is. Scrolling again retries.
             } finally {

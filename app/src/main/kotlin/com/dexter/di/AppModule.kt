@@ -39,8 +39,11 @@ import java.io.File
  */
 val appModule = module {
     single<OkHttpClient> { cachingClient(File(androidContext().cacheDir, "api")) }
-    single { MangaDexRepository(get()) }
     single { SettingsStore(androidContext()) }
+    single {
+        val settings = get<SettingsStore>()
+        MangaDexRepository(get()) { settings.current() }
+    }
     single { ProgressStore(androidContext()) }
     single {
         Room.databaseBuilder(androidContext(), AppDatabase::class.java, "library.db").build()

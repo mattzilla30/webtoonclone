@@ -21,8 +21,9 @@ import com.dexter.MainActivity
 import com.dexter.data.Order
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
+import com.dexter.data.isWorthRetrying
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
@@ -31,6 +32,7 @@ const val CHANNEL_ID = "new_chapters"
 private const val WORK_NAME = "new-chapters"
 private const val GROUP_KEY = "new_chapters_group"
 private const val DIGEST_ID = 1
+private const val FULL_CHECK_MS = 6L * 60 * 60 * 1000
 const val EXTRA_SERIES_ID = "seriesId"
 const val EXTRA_ROUTE = "route"
 const val EXTRA_CHAPTER_ID = "chapterId"
@@ -40,6 +42,13 @@ const val EXTRA_COVER = "cover"
 
 /** A chapter the background check found for a subscribed series. */
 data class NewChapter(val series: SavedSeries, val chapterId: String, val number: String)
+
+/**
+ * Whether a subscription needs its chapter feed read: when no chapter is recorded yet, when the newest
+ * upload is unknown, or when something was uploaded since the last look.
+ */
+fun needsFeedCheck(series: SavedSeries, lastUpload: String?, newestUpload: String?): Boolean =
+    series.knownChapterId == null || series.knownChapterNumber == null || newestUpload == null || newestUpload != lastUpload
 
 /** The notification title for [count] new chapters. */
 fun digestTitle(count: Int): String = if (count == 1) "1 new chapter" else "$count new chapters"
@@ -62,30 +71,59 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         var failed = false
         val found = mutableListOf<NewChapter>()
 
+        // One request covers up to 100 series. Only series with a new upload since the last look need their own feed read.
+        val uploads = try {
+            app.repository.latestUploads(subscribed.map { it.id })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failed = isWorthRetrying(e)
+            null
+        }
+        // Some groups schedule a chapter to go public after its upload. Every few hours each feed is read anyway, so those still notify.
+        val now = System.currentTimeMillis()
+        val fullCheck = now - library.fullCheckAt >= FULL_CHECK_MS
+        val known = HashMap<String, Pair<String, String>>()
+        val marks = HashMap<String, String>()
         for (series in subscribed) {
-            val latest = try {
-                app.repository.latestChapter(series.id)
-            } catch (e: Exception) {
-                failed = true
+            val newestUpload = uploads?.get(series.id)
+            val lastUpload = if (fullCheck) null else library.uploadMarks[series.id]
+            if (!needsFeedCheck(series, lastUpload, newestUpload)) {
+                marks[series.id] = newestUpload!!
                 continue
             }
-            val known = series.knownChapterId
-            if (latest != null && known != null && latest.id != known && library.notificationsEnabled && series.notify) {
+            val latest = try {
+                app.repository.latestChapter(series.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A series MangaDex removed answers 404 on every run, so only a passing failure asks for a retry.
+                if (isWorthRetrying(e)) failed = true
+                continue
+            }
+            if (newestUpload != null) marks[series.id] = newestUpload
+            val knownId = series.knownChapterId
+            if (latest != null && knownId != null && latest.id != knownId && library.notificationsEnabled && series.notify) {
                 found += NewChapter(series, latest.id, latest.number)
             }
             // First sighting only records the chapter, so old chapters never notify. With
             // notifications off the chapter is still recorded, so turning them on stays quiet.
-            if (latest != null && (latest.id != known || series.knownChapterNumber == null)) {
-                app.libraryStore.markKnown(series.id, latest.id, latest.number)
+            if (latest != null && (latest.id != knownId || series.knownChapterNumber == null)) {
+                known[series.id] = latest.id to latest.number
             }
             delay(300) // stay well under MangaDex's request limit
         }
+        // Everything found is written at once, so open screens redraw once per check, not once per series.
+        // When the upload lookup failed, the marks from the last check stay as they were.
+        app.libraryStore.recordChecks(known, marks.takeIf { uploads != null }, fullCheckAt = now.takeIf { fullCheck && uploads != null })
         if (library.notificationsEnabled) {
             for (author in library.followedAuthors) {
                 val newest = try {
                     app.repository.browse(order = Order.Newest, authorId = author.id, limit = 10)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    failed = true
+                    if (isWorthRetrying(e)) failed = true
                     continue
                 }
                 val fresh = newest.filter { it.id !in author.knownIds }
@@ -185,16 +223,22 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
     }
 
     companion object {
-        /** Runs every 30 minutes on any network. Safe to call on every launch. */
+        /** Runs every 30 minutes on any network, unless the battery is low. Safe to call on every launch. */
         fun schedule(context: Context) {
             // Create the channel up front, so its system settings page exists before the first notification.
             context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(NotificationChannel(CHANNEL_ID, "New chapters", NotificationManager.IMPORTANCE_DEFAULT))
             val request = PeriodicWorkRequestBuilder<NewChaptersWorker>(30, TimeUnit.MINUTES)
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .setRequiresBatteryNotLow(true)
+                        .build(),
+                )
                 .build()
+            // UPDATE keeps the schedule and applies new constraints to a check that already exists.
             WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }
 }

@@ -11,6 +11,7 @@ import com.dexter.data.SearchFilters
 import com.dexter.data.SeriesSummary
 import com.dexter.data.searchKey
 import com.dexter.ui.Load
+import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
@@ -105,7 +106,7 @@ class SearchViewModel(
 
     fun saveCurrent(name: String) {
         val current = request ?: return
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             library.saveSearch(SavedSearch(name.trim(), current.title, current.tag, _filters.value, _sort.value.name))
         }
     }
@@ -118,7 +119,7 @@ class SearchViewModel(
     }
 
     fun deleteSaved(name: String) {
-        viewModelScope.launch { library.deleteSavedSearch(name) }
+        viewModelScope.launch(LogFailures) { library.deleteSavedSearch(name) }
     }
 
     private class Request(val title: String?, val tag: String?)
@@ -135,7 +136,7 @@ class SearchViewModel(
 
     init {
         // Start from the sort you chose last time.
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val saved = runCatching { Order.valueOf(library.current().searchOrder) }.getOrNull()
             if (saved != null && request == null) _sort.value = saved
         }
@@ -145,7 +146,7 @@ class SearchViewModel(
         query = text.trim()
         if (query.isEmpty()) return clear()
         val term = query
-        viewModelScope.launch { library.addSearch(term) }
+        viewModelScope.launch(LogFailures) { library.addSearch(term) }
         begin(Request(title = term, tag = null))
     }
 
@@ -165,7 +166,7 @@ class SearchViewModel(
     /** Finds a random series with English chapters and passes its id to [onFound]. */
     fun openRandom(onFound: (String) -> Unit) {
         _message.value = null
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val series = catching { repository.randomSeries() }.getOrNull()
             if (series != null) onFound(series.id) else _message.value = "Could not find a series. Try again."
         }
@@ -175,7 +176,7 @@ class SearchViewModel(
     fun setSort(order: Order) {
         if (order == _sort.value) return
         _sort.value = order
-        viewModelScope.launch { library.setSearchOrder(order.name) }
+        viewModelScope.launch(LogFailures) { library.setSearchOrder(order.name) }
         val current = request ?: return
         begin(current)
     }
@@ -196,7 +197,7 @@ class SearchViewModel(
         val current = (_results.value as? Load.Ready)?.value ?: return
         if (_loadingMore.value || endReached) return
         _loadingMore.value = true
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             try {
                 val more = fetch(page + 1)
                 // The source may have changed while this request ran.
@@ -215,11 +216,11 @@ class SearchViewModel(
     }
 
     fun removeSearch(text: String) {
-        viewModelScope.launch { library.removeSearch(text) }
+        viewModelScope.launch(LogFailures) { library.removeSearch(text) }
     }
 
     fun clearSearches() {
-        viewModelScope.launch { library.clearSearches() }
+        viewModelScope.launch(LogFailures) { library.clearSearches() }
     }
 
     private var searchJob: Job? = null
@@ -227,7 +228,7 @@ class SearchViewModel(
     /** Runs [req] as the one current search. A slower older request can no longer overwrite a newer one. */
     private fun begin(req: Request) {
         searchJob?.cancel()
-        searchJob = viewModelScope.launch { start(req) }
+        searchJob = viewModelScope.launch(LogFailures) { start(req) }
     }
 
     private suspend fun start(req: Request) {

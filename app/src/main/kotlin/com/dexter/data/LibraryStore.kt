@@ -27,12 +27,14 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.Json
 
 private val Context.libraryDataStore by preferencesDataStore(name = "library")
 private val LIBRARY = stringPreferencesKey("library")
 private val HOME_CACHE = stringPreferencesKey("home_cache")
 private val HOME_CACHE_AT = longPreferencesKey("home_cache_at")
+
+/** Library text that could not be read, kept aside before the first save replaces it. */
+private val LIBRARY_UNREADABLE = stringPreferencesKey("library_unreadable")
 private const val MAX_RECENT = 50
 private const val MAX_SEARCHES = 10
 
@@ -49,7 +51,7 @@ fun shouldMigrate(legacy: LibraryData, alreadyMigrated: Boolean, databaseIsEmpty
  * in a Room database. Small settings and the saved home screen stay in a preferences file, as before.
  */
 class LibraryStore(private val context: Context, private val db: AppDatabase) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = StoredJson
     private val dao get() = db.library()
 
     // The home screen cache lives in the same file, so skip decoding when only that changed.
@@ -74,15 +76,16 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
                     lists = lists.map { it.toSaved() },
                     searches = searches.map { it.term },
                 )
-            },
+            }.distinctUntilChanged(), // A write to one list re-runs every list's query, so drop repeats of the same library.
         )
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /**
-     * The library as it changes. Every screen that watches it shares one set of database queries, which
-     * stop five seconds after the last screen leaves. Use [current] for a read that must see the latest writes.
+     * The library as it changes. Every screen that watches it shares one set of database queries. The app
+     * itself watches it for the Continue Reading widget, so in practice the queries stay live while the
+     * app runs. Use [current] for a read that must see the latest writes.
      */
     val data: SharedFlow<LibraryData> = fresh.shareIn(scope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
 
@@ -152,10 +155,22 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
         if (subscribed.any { it.id == series.id }) subscribed.filterNot { it.id == series.id } else listOf(series) + subscribed
     }
 
-    /** Records the newest chapter the app has told you about for a subscribed series. */
-    suspend fun markKnown(seriesId: String, chapterId: String, chapterNumber: String) = modify(LibraryList.Subscribed) { subscribed ->
-        subscribed.map {
-            if (it.id == seriesId) it.copy(knownChapterId = chapterId, knownChapterNumber = chapterNumber) else it
+    /**
+     * Saves one background check in two writes: the newest chapter found for each series in [known], as
+     * chapter id and number, and the newest uploads in [marks]. The marks replace the old ones, so
+     * series you unsubscribed from drop out. Null [marks] leaves the old ones in place. [fullCheckAt] is
+     * set when this check read every feed.
+     */
+    suspend fun recordChecks(known: Map<String, Pair<String, String>>, marks: Map<String, String>?, fullCheckAt: Long? = null) {
+        if (known.isNotEmpty()) {
+            modify(LibraryList.Subscribed) { subscribed ->
+                subscribed.map { series ->
+                    known[series.id]?.let { (id, number) -> series.copy(knownChapterId = id, knownChapterNumber = number) } ?: series
+                }
+            }
+        }
+        if (marks != null) {
+            updateScalars { data -> data.copy(uploadMarks = marks, fullCheckAt = fullCheckAt ?: data.fullCheckAt) }
         }
     }
 
@@ -279,9 +294,11 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     private suspend fun updateScalars(change: (LibraryData) -> LibraryData) {
         context.libraryDataStore.edit { prefs ->
-            prefs[LIBRARY] = json.encodeToString(LibraryData.serializer(), change(decode(prefs[LIBRARY])))
+            val raw = prefs[LIBRARY]
+            if (isUnreadable(LibraryData.serializer(), raw)) prefs[LIBRARY_UNREADABLE] = raw!!
+            prefs[LIBRARY] = json.encodeToString(LibraryData.serializer(), change(decode(raw)))
         }
     }
 
-    private fun decode(raw: String?): LibraryData = raw?.let { runCatching { json.decodeFromString<LibraryData>(it) }.getOrNull() } ?: LibraryData()
+    private fun decode(raw: String?): LibraryData = decodeStored(LibraryData.serializer(), raw) ?: LibraryData()
 }

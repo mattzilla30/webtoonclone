@@ -11,6 +11,7 @@ import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
 import com.dexter.data.subscriptionStart
 import com.dexter.ui.Load
+import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
@@ -37,7 +38,7 @@ class HomeViewModel(
 
     /** Finds series like the one you read last. Skips series you already have, and does nothing when nothing changed. */
     fun refreshBecause() {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val library = libraryStore.current()
             val last = library.recent.firstOrNull { it.chapterId != null } ?: return@launch
             if (becauseFor == last.id && becauseState.value != null) return@launch
@@ -69,7 +70,7 @@ class HomeViewModel(
 
     /** Subscribes to a series, or unsubscribes if you already do. Starts from its newest chapter. */
     fun toggleSubscribe(series: SeriesSummary) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val already = series.id in subscribedIds.value
             // Unsubscribing needs only the id. Subscribing starts from the newest chapter.
             libraryStore.toggleSubscribed(
@@ -85,7 +86,7 @@ class HomeViewModel(
 
     init {
         // A new content language changes every title and cover, so the home screen loads again.
-        viewModelScope.launch { repository.contentVersion.drop(1).collect { load(showSpinner = true, force = true) } }
+        viewModelScope.launch(LogFailures) { repository.contentVersion.drop(1).collect { load(showSpinner = true, force = true) } }
     }
 
     private var seenOpen = 0
@@ -106,7 +107,7 @@ class HomeViewModel(
     /** Re-checks for newly started series without touching the rest of the screen. */
     fun refreshNewSeries() {
         val current = (_state.value as? Load.Ready)?.value ?: return
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val fresh = catching { repository.newSeries() }.getOrNull() ?: return@launch
             if (fresh.map { it.id } != current.newSeries.map { it.id }) {
                 val latest = (_state.value as? Load.Ready)?.value ?: return@launch
@@ -122,7 +123,7 @@ class HomeViewModel(
             loadJob?.cancel()
         }
         if (showSpinner) _state.value = Load.Loading
-        loadJob = viewModelScope.launch {
+        loadJob = viewModelScope.launch(LogFailures) {
             try {
                 val content = repository.home()
                 _state.value = Load.Ready(content)

@@ -21,6 +21,7 @@ import com.dexter.data.relationLabel
 import com.dexter.data.subscriptionStart
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
+import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
@@ -83,19 +84,19 @@ class SeriesViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun download(detail: SeriesDetail, chapter: Chapter) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val wifiOnly = settingsStore.current().downloadWifiOnly
             DownloadWorker.enqueue(context, downloads, seriesId, detail.summary.title, detail.summary.coverUrl, chapter, wifiOnly)
         }
     }
 
     fun removeDownload(chapterId: String) {
-        viewModelScope.launch { downloads.delete(chapterId) }
+        viewModelScope.launch(LogFailures) { downloads.delete(chapterId) }
     }
 
     /** Saves the next [count] unread chapters after the last one you read, or every unread one when null. */
     fun downloadUnread(detail: SeriesDetail, count: Int?) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val all = catching { repository.allChapters(seriesId, settingsStore.current().preferredGroups[seriesId]) }.getOrNull() ?: return@launch
             val last = lastRead.value?.chapterNumber
             chaptersToDownload(all.asReversed(), last, downloaded.value, count).forEach { download(detail, it) }
@@ -109,39 +110,39 @@ class SeriesViewModel(
     val collections: StateFlow<Map<String, Boolean>> = libraryStore.stateOf(viewModelScope) { lib -> lib.collections.mapValues { (_, members) -> members.any { it.id == seriesId } } }
 
     fun toggleCollection(detail: SeriesDetail, name: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             libraryStore.toggleCollection(name, SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl))
         }
     }
 
     fun hideSeries() {
-        viewModelScope.launch { settingsStore.update { it.copy(hiddenSeries = it.hiddenSeries + seriesId) } }
+        viewModelScope.launch(LogFailures) { settingsStore.update { it.copy(hiddenSeries = it.hiddenSeries + seriesId) } }
     }
 
     fun blockGroup(group: String) {
-        viewModelScope.launch { settingsStore.update { it.copy(blockedGroups = it.blockedGroups + group) } }
+        viewModelScope.launch(LogFailures) { settingsStore.update { it.copy(blockedGroups = it.blockedGroups + group) } }
     }
 
     fun setStatus(detail: SeriesDetail, status: ReadingStatus?) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             libraryStore.setStatus(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl), status)
         }
     }
 
     fun setNotify(enabled: Boolean) {
-        viewModelScope.launch { libraryStore.setSeriesNotify(seriesId, enabled) }
+        viewModelScope.launch(LogFailures) { libraryStore.setSeriesNotify(seriesId, enabled) }
     }
 
     /** Sets [chapter] as the last one read, so it and every earlier chapter show as read. */
     fun markReadUpTo(chapter: Chapter, detail: SeriesDetail) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             libraryStore.recordRecent(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl, chapter.id, chapter.number))
         }
     }
 
     /** Moves the last-read mark back to [previous], or clears it when there is nothing earlier. */
     fun markUnreadFrom(previous: Chapter?, detail: SeriesDetail) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             if (previous != null) {
                 libraryStore.recordRecent(SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl, previous.id, previous.number))
             } else {
@@ -161,7 +162,7 @@ class SeriesViewModel(
 
     /** Saves [group] as the preferred uploader for this series, or clears it when null, then reloads the list. */
     fun setPreferredGroup(group: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             settingsStore.update { settings ->
                 settings.copy(preferredGroups = if (group == null) settings.preferredGroups - seriesId else settings.preferredGroups + (seriesId to group))
             }
@@ -174,11 +175,11 @@ class SeriesViewModel(
     init {
         load()
         // A new content language changes the titles and chapters, so the page loads again.
-        viewModelScope.launch { repository.contentVersion.drop(1).collect { load() } }
+        viewModelScope.launch(LogFailures) { repository.contentVersion.drop(1).collect { load() } }
     }
 
     fun toggleSubscribed(detail: SeriesDetail) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             // Unsubscribing needs only the id. Subscribing starts from the newest chapter.
             libraryStore.toggleSubscribed(
                 if (subscribed.value) {
@@ -201,7 +202,7 @@ class SeriesViewModel(
         _loadingMore.value = false
         _state.value = Load.Loading
         seen.clear()
-        loadJob = viewModelScope.launch {
+        loadJob = viewModelScope.launch(LogFailures) {
             try {
                 val group = settingsStore.current().preferredGroups[seriesId]
                 val ready = coroutineScope {
@@ -244,7 +245,7 @@ class SeriesViewModel(
 
     fun openCovers() {
         coversState.value = Load.Loading
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             coversState.value = try {
                 Load.Ready(repository.covers(seriesId))
             } catch (e: Exception) {
@@ -266,12 +267,12 @@ class SeriesViewModel(
         similarJob?.cancel()
         _similar.value = emptyList()
         relatedState.value = emptyList()
-        relatedJob = viewModelScope.launch {
+        relatedJob = viewModelScope.launch(LogFailures) {
             val list = catching { repository.relatedSeries(detail.relations) }.getOrDefault(emptyList())
             val kinds = detail.relations.associate { it.id to relationLabel(it.kind) }
             relatedState.value = list.map { (kinds[it.id] ?: "Related") to it }
         }
-        similarJob = viewModelScope.launch {
+        similarJob = viewModelScope.launch(LogFailures) {
             _similar.value = catching { repository.similar(seriesId, detail.tags) }.getOrDefault(emptyList())
         }
     }
@@ -282,7 +283,7 @@ class SeriesViewModel(
         val current = (_state.value as? Load.Ready)?.value ?: return
         if (_loadingMore.value) return
         _loadingMore.value = true
-        moreJob = viewModelScope.launch {
+        moreJob = viewModelScope.launch(LogFailures) {
             try {
                 val page = repository.chapterPage(seriesId, offset, seen, settingsStore.current().preferredGroups[seriesId])
                 nextOffset = page.nextOffset

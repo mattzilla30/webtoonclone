@@ -23,7 +23,7 @@ class MangaDexHttp(private val client: OkHttpClient) {
                 return getOnce(url)
             } catch (e: RetryableException) {
                 if (++attempt >= MAX_ATTEMPTS) {
-                    throw IOException("MangaDex ${url.encodedPath} failed: HTTP ${e.code}")
+                    throw HttpStatusException(e.code, "MangaDex ${url.encodedPath} failed: HTTP ${e.code}")
                 }
                 delay(e.delayMs ?: (1_000L * attempt))
             }
@@ -53,9 +53,20 @@ class MangaDexHttp(private val client: OkHttpClient) {
             val wait = response.header("Retry-After")?.toLongOrNull()?.times(1_000)
             throw RetryableException(response.code, wait?.coerceAtMost(MAX_RETRY_WAIT_MS))
         }
-        if (!response.isSuccessful) throw IOException("MangaDex ${url.encodedPath} failed: ${response.code}")
+        if (!response.isSuccessful) throw HttpStatusException(response.code, "MangaDex ${url.encodedPath} failed: ${response.code}")
         return response.body.string()
     }
 
     private class RetryableException(val code: Int, val delayMs: Long?) : IOException()
 }
+
+/** MangaDex answered with an error status, such as 404 for a series that was removed. */
+class HttpStatusException(val code: Int, message: String) : IOException(message)
+
+/**
+ * Whether a background job should try again after [error]. A dropped connection, a rate limit, or a
+ * server error may pass. A 404 or another client error will not, and neither will a reply that does
+ * not parse.
+ */
+fun isWorthRetrying(error: Throwable): Boolean =
+    error is IOException && (error !is HttpStatusException || error.code == 429 || error.code >= 500)

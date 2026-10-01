@@ -30,6 +30,8 @@ internal data class MangaAttributesDto(
     @Serializable(with = LenientStringMap::class) val description: Map<String, String> = emptyMap(),
     val status: String = "",
     val tags: List<TagDto> = emptyList(),
+    /** The id of the newest chapter uploaded in any language. */
+    val latestUploadedChapter: String? = null,
 )
 
 @Serializable

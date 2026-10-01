@@ -5,6 +5,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
@@ -19,6 +21,8 @@ private const val RANDOM_TRIES = 12
 private const val PAGE_URL_TTL_MS = 10L * 60 * 1000
 private const val UPDATES_PAGE = 50
 private const val SIMILAR_MINIMUM = 4
+private const val UPLOADS_PAGE = 100
+private const val CHAPTER_LIST_TTL_MS = 5L * 60 * 1000
 
 enum class Order(val param: String) {
     Popular("followedCount"),
@@ -27,7 +31,14 @@ enum class Order(val param: String) {
     TopRated("rating"),
 }
 
-class MangaDexRepository(private val client: OkHttpClient) {
+/**
+ * The MangaDex API. [loadSettings] reads your saved settings. The first request waits for them, so a
+ * background check in a fresh process uses your language and ratings, not the defaults.
+ */
+class MangaDexRepository(
+    private val client: OkHttpClient,
+    private val loadSettings: (suspend () -> Settings)? = null,
+) {
     private val json = Json { ignoreUnknownKeys = true }
     private val http = MangaDexHttp(client)
     private var tagIndex: TagIndex? = null
@@ -64,6 +75,16 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     @Volatile var hiddenSeries: Set<String> = emptySet()
 
+    @Volatile private var settingsApplied = false
+    private val settingsLock = Mutex()
+
+    /** Applies the saved settings once, before the first request. Later changes arrive through [applySettings]. */
+    private suspend fun ensureSettings() {
+        if (settingsApplied) return
+        val load = loadSettings ?: return
+        settingsLock.withLock { if (!settingsApplied) applySettings(load()) }
+    }
+
     fun applySettings(settings: Settings) {
         val ratings = ratingsFor(settings.contentRatings)
         val contentChanged = settings.language != language || settings.originalTitles != originalTitles || ratings != contentRatings ||
@@ -75,10 +96,22 @@ class MangaDexRepository(private val client: OkHttpClient) {
         dataSaver = settings.dataSaver
         originalTitles = settings.originalTitles
         language = settings.language
-        if (contentChanged) _contentVersion.value += 1
+        // The first settings replace the defaults before anything loaded, so no screen needs to reload.
+        if (contentChanged && settingsApplied) _contentVersion.value += 1
+        settingsApplied = true
     }
 
     private val pageUrls = TtlCache<String, List<String>>(PAGE_URL_TTL_MS)
+
+    /**
+     * Whole chapter lists, oldest first, kept for a few minutes. The series page fills it when one page
+     * holds every chapter, so the reader opens from it, and so does each next chapter after that.
+     */
+    private val chapterLists = TtlCache<String, List<Chapter>>(CHAPTER_LIST_TTL_MS)
+
+    /** Everything that changes a chapter list, so a new language or block never reads an old list. */
+    private fun chapterListKey(seriesId: String, preferredGroup: String?) =
+        listOf(seriesId, preferredGroup, language, contentRatings, blockedGroups.sorted()).joinToString("|")
 
     suspend fun browse(
         page: Int = 0,
@@ -91,6 +124,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         filters: SearchFilters = SearchFilters(),
         authorId: String? = null,
     ): List<SeriesSummary> {
+        ensureSettings()
         val included = filters.included + listOfNotNull(tag)
         // The tag list is only fetched when a tag is involved.
         // Blocked tags and hidden series shape lists. Looking up specific series by id skips them.
@@ -132,6 +166,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
      * endpoint picks without regard to language, so a few tries are usually enough.
      */
     suspend fun randomSeries(): SeriesSummary? {
+        ensureSettings()
         repeat(RANDOM_TRIES) {
             val url = "$API/manga/random".toHttpUrl().newBuilder()
                 .addQueryParameter("includes[]", "cover_art")
@@ -159,6 +194,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     /** The newest chapter that opens in the reader, or null when the series has none. */
     suspend fun latestChapter(seriesId: String): Chapter? {
+        ensureSettings()
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
             .ratings()
             .addQueryParameter("limit", "1")
@@ -168,8 +204,30 @@ class MangaDexRepository(private val client: OkHttpClient) {
         return dto.toChapter()
     }
 
+    /**
+     * The newest upload in any language for each of [ids], by series id, at most 100 series per request.
+     * The background check uses it to skip series where nothing was uploaded since its last look. Every
+     * rating is asked for, so a series never goes missing because of a filter.
+     */
+    suspend fun latestUploads(ids: List<String>): Map<String, String?> {
+        ensureSettings()
+        val result = HashMap<String, String?>()
+        for (chunk in ids.chunked(UPLOADS_PAGE)) {
+            val url = "$API/manga".toHttpUrl().newBuilder()
+                .addQueryParameter("limit", chunk.size.toString())
+                .apply {
+                    chunk.forEach { addQueryParameter("ids[]", it) }
+                    ContentRatings.forEach { addQueryParameter("contentRating[]", it) }
+                }
+                .build()
+            fetchJson<MangaListDto>(url).data.forEach { result[it.id] = it.attributes.latestUploadedChapter }
+        }
+        return result
+    }
+
     /** One page of series ordered by their newest readable chapter. Repeats across pages are possible. */
     suspend fun latestUpdates(page: Int): List<UpdateEntry> {
+        ensureSettings()
         val url = "$API/chapter".toHttpUrl().newBuilder()
             .addQueryParameter("limit", UPDATES_PAGE.toString())
             .addQueryParameter("offset", (page * UPDATES_PAGE).toString())
@@ -196,6 +254,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
      * publisher, so this reads the newest in-app chapters and looks up the series behind them.
      */
     suspend fun readablePicks(limit: Int): List<SeriesSummary> {
+        ensureSettings()
         val url = "$API/chapter".toHttpUrl().newBuilder()
             .addQueryParameter("limit", "100")
             .newestReadable()
@@ -212,6 +271,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
     }
 
     suspend fun series(id: String): SeriesDetail {
+        ensureSettings()
         val url = "$API/manga/$id".toHttpUrl().newBuilder()
             .addQueryParameter("includes[]", "cover_art")
             .addQueryParameter("includes[]", "author")
@@ -249,6 +309,9 @@ class MangaDexRepository(private val client: OkHttpClient) {
         seen: MutableSet<String>,
         preferredGroup: String? = null,
     ): ChapterPage {
+        ensureSettings()
+        val wholeList = offset == 0 && seen.isEmpty()
+        val key = chapterListKey(seriesId, preferredGroup)
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
             .ratings()
             .addQueryParameter("limit", CHAPTER_PAGE.toString())
@@ -267,11 +330,19 @@ class MangaDexRepository(private val client: OkHttpClient) {
         seen += byNumber.keys
         val chapters = byNumber.values.map { pickUpload(it, preferredGroup) }
         val next = offset + body.data.size
-        return ChapterPage(chapters, if (body.data.isEmpty() || next >= body.total) null else next)
+        val nextOffset = if (body.data.isEmpty() || next >= body.total) null else next
+        if (wholeList && nextOffset == null) chapterLists.put(key, chapters.asReversed())
+        return ChapterPage(chapters, nextOffset)
     }
 
-    /** Every chapter, oldest first. The reader uses it to find the previous and next chapter. */
-    suspend fun allChapters(seriesId: String, preferredGroup: String? = null): List<Chapter> {
+    /**
+     * Every chapter, oldest first. The reader uses it to find the previous and next chapter. [fresh]
+     * skips the kept list, for a chapter newer than it.
+     */
+    suspend fun allChapters(seriesId: String, preferredGroup: String? = null, fresh: Boolean = false): List<Chapter> {
+        ensureSettings()
+        val key = chapterListKey(seriesId, preferredGroup)
+        if (!fresh) chapterLists.get(key)?.let { return it }
         val seen = mutableSetOf<String>()
         val all = mutableListOf<Chapter>()
         var offset: Int? = 0
@@ -280,7 +351,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             all += page.chapters
             offset = page.nextOffset
         }
-        return all.asReversed()
+        return all.asReversed().also { chapterLists.put(key, it) }
     }
 
     /** Summaries of related series, in the order MangaDex lists them. Series with nothing to read in your language are left out. */
@@ -292,6 +363,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     /** Every cover of a series, volume order, at a size that suits the gallery. */
     suspend fun covers(seriesId: String): List<SeriesCover> {
+        ensureSettings()
         val url = "$API/cover".toHttpUrl().newBuilder()
             .addQueryParameter("manga[]", seriesId)
             .addQueryParameter("limit", "100")
@@ -304,6 +376,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     /** The series a chapter belongs to, for opening a MangaDex chapter link. */
     suspend fun seriesIdForChapter(chapterId: String): String? {
+        ensureSettings()
         val dto = fetchJson<ChapterOneDto>("$API/chapter/$chapterId".toHttpUrl()).data
         return dto.relationships.firstOrNull { it.type == "manga" }?.id
     }
@@ -326,6 +399,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
      * that chapter with the same addresses. [forceRefresh] asks for new ones, for a retry.
      */
     suspend fun pages(chapterId: String, forceRefresh: Boolean = false): List<String> {
+        ensureSettings()
         // The two image sets have different addresses, so the saver choice is part of the key.
         val saver = dataSaver
         val key = "$chapterId:${if (saver) "saver" else "full"}"
@@ -351,6 +425,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     /** Every MangaDex tag. Loaded once. */
     suspend fun tagIndex(): TagIndex {
+        ensureSettings()
         tagIndex?.let { return it }
         val tags = fetchJson<TagListDto>("$API/manga/tag".toHttpUrl()).data
         return TagIndex(

@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** The reader's dimming and background for one series. */
 @Serializable
@@ -103,9 +102,10 @@ data class Settings(
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 private val SETTINGS = stringPreferencesKey("settings")
 
-class SettingsStore(private val context: Context) {
-    private val json = Json { ignoreUnknownKeys = true }
+/** Settings text that could not be read, kept aside before the first save replaces it. */
+private val SETTINGS_UNREADABLE = stringPreferencesKey("settings_unreadable")
 
+class SettingsStore(private val context: Context) {
     private val fresh: Flow<Settings> = context.settingsDataStore.data.map { prefs -> decode(prefs[SETTINGS]) }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -121,7 +121,9 @@ class SettingsStore(private val context: Context) {
 
     suspend fun update(change: (Settings) -> Settings) {
         context.settingsDataStore.edit { prefs ->
-            prefs[SETTINGS] = json.encodeToString(Settings.serializer(), change(decode(prefs[SETTINGS])))
+            val raw = prefs[SETTINGS]
+            if (isUnreadable(Settings.serializer(), raw)) prefs[SETTINGS_UNREADABLE] = raw!!
+            prefs[SETTINGS] = StoredJson.encodeToString(Settings.serializer(), change(decode(raw)))
         }
     }
 
@@ -131,7 +133,7 @@ class SettingsStore(private val context: Context) {
 
     private fun decode(raw: String?): Settings {
         lastDecoded?.let { (text, settings) -> if (text == raw) return settings }
-        val settings = raw?.let { runCatching { json.decodeFromString<Settings>(it) }.getOrNull() } ?: Settings()
+        val settings = decodeStored(Settings.serializer(), raw) ?: Settings()
         lastDecoded = raw to settings
         return settings
     }

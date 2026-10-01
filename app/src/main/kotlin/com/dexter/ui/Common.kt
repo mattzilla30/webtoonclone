@@ -1,5 +1,6 @@
 package com.dexter.ui
 
+import android.util.Log
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -29,6 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dexter.R
+import kotlinx.coroutines.CoroutineExceptionHandler
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -111,3 +113,9 @@ inline fun <T> catching(block: () -> T): Result<T> = try {
 } catch (e: Throwable) {
     Result.failure(e)
 }
+
+/**
+ * Logs a failed background task instead of closing the app. View models launch their saves and loads
+ * with it, so a full disk or a broken write costs that one action.
+ */
+val LogFailures = CoroutineExceptionHandler { _, error -> Log.e("Dexter", "A background task failed", error) }

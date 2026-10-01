@@ -10,6 +10,7 @@ import com.dexter.data.LibraryData
 import com.dexter.data.Settings
 import com.dexter.data.decodeBackup
 import com.dexter.notify.AutoBackupWorker
+import com.dexter.ui.LogFailures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,11 +32,11 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     val cacheBytes: StateFlow<Long?> = _cacheBytes
 
     fun update(change: (Settings) -> Settings) {
-        viewModelScope.launch { app.settingsStore.update(change) }
+        viewModelScope.launch(LogFailures) { app.settingsStore.update(change) }
     }
 
     fun setNotifications(enabled: Boolean) {
-        viewModelScope.launch { app.libraryStore.setNotifications(enabled) }
+        viewModelScope.launch(LogFailures) { app.libraryStore.setNotifications(enabled) }
     }
 
     private val _message = MutableStateFlow<String?>(null)
@@ -52,7 +53,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     }
 
     fun exportTo(uri: Uri) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             _message.value = runCatching {
                 app.backupService.writeTo(uri)
                 "Backup saved"
@@ -62,7 +63,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
 
     /** Picks the folder for the daily backup. Null turns it off. */
     fun setAutoBackupFolder(uri: Uri?) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             if (uri != null) {
                 runCatching {
                     app.contentResolver.takePersistableUriPermission(
@@ -78,7 +79,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     }
 
     fun readBackup(uri: Uri) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             // Reading and parsing a whole backup is more than the main thread should do.
             val backup = runCatching {
                 withContext(Dispatchers.IO) { app.contentResolver.openInputStream(uri)!!.use { String(it.readBytes()) } }
@@ -94,7 +95,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     fun confirmRestore() {
         val backup = _pending.value ?: return
         _pending.value = null
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             _message.value = runCatching {
                 app.backupService.restore(backup)
                 "Backup restored"
@@ -104,7 +105,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
 
     /** Removes every series from the Recent list. Subscriptions, lists, and collections stay. */
     fun clearHistory() {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val ids = app.libraryStore.current().recent.mapTo(mutableSetOf()) { it.id }
             app.libraryStore.removeRecent(ids)
             _message.value = "Reading history cleared"
@@ -112,11 +113,11 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     }
 
     fun refreshCacheSize() {
-        viewModelScope.launch { _cacheBytes.value = withContext(Dispatchers.IO) { measureCache() } }
+        viewModelScope.launch(LogFailures) { _cacheBytes.value = withContext(Dispatchers.IO) { measureCache() } }
     }
 
     fun clearCache() {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             withContext(Dispatchers.IO) {
                 app.apiClient.cache?.evictAll()
                 val loader = SingletonImageLoader.get(app)

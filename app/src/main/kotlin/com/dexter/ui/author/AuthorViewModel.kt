@@ -7,6 +7,7 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.Order
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Load
+import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
@@ -25,7 +26,7 @@ class AuthorViewModel(
     val following: StateFlow<Boolean> = library.stateOf(viewModelScope) { data -> data.followedAuthors.any { it.id == authorId } }
 
     fun toggleFollow(name: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val shown = (state.value as? Load.Ready)?.value.orEmpty().map { it.id }
             // Series beyond the first page count as seen too, so following never floods you with old ones.
             val newest = catching { repository.browse(order = Order.Newest, authorId = authorId, limit = 30).map { it.id } }.getOrDefault(emptyList())
@@ -51,7 +52,7 @@ class AuthorViewModel(
         _state.value = Load.Loading
         page = 0
         endReached = false
-        loadJob = viewModelScope.launch {
+        loadJob = viewModelScope.launch(LogFailures) {
             _state.value = try {
                 val first = repository.browse(page = 0, order = Order.Popular, authorId = authorId, withStats = true)
                 endReached = first.isEmpty()
@@ -68,7 +69,7 @@ class AuthorViewModel(
         val current = (_state.value as? Load.Ready)?.value ?: return
         if (_loadingMore.value || endReached) return
         _loadingMore.value = true
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             try {
                 val more = repository.browse(page = page + 1, order = Order.Popular, authorId = authorId, withStats = true)
                 page += 1

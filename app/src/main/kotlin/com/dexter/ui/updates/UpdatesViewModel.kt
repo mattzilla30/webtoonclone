@@ -7,6 +7,7 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
 import com.dexter.data.UpdateEntry
 import com.dexter.ui.Load
+import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
@@ -42,7 +43,7 @@ class UpdatesViewModel(
     init {
         load()
         // A new content language changes which chapters are listed.
-        viewModelScope.launch { repository.contentVersion.drop(1).collect { load() } }
+        viewModelScope.launch(LogFailures) { repository.contentVersion.drop(1).collect { load() } }
     }
 
     fun load() {
@@ -52,7 +53,7 @@ class UpdatesViewModel(
         _loadingMore.value = false
         _state.value = Load.Loading
         page = 0
-        loadJob = viewModelScope.launch {
+        loadJob = viewModelScope.launch(LogFailures) {
             try {
                 val entries = repository.latestUpdates(0)
                 _offlineSavedAt.value = null
@@ -79,7 +80,7 @@ class UpdatesViewModel(
         // A saved copy has no next page to fetch.
         if (_loadingMore.value || _offlineSavedAt.value != null) return
         _loadingMore.value = true
-        moreJob = viewModelScope.launch {
+        moreJob = viewModelScope.launch(LogFailures) {
             try {
                 val more = repository.latestUpdates(page + 1)
                 page += 1

@@ -39,8 +39,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,14 +52,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
-import coil3.compose.SubcomposeAsyncImage
-import coil3.compose.SubcomposeAsyncImageContent
-import coil3.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
 import com.dexter.data.ReaderBackground
 import com.dexter.data.ReaderOrientation
 import com.dexter.data.ReadingMode
@@ -70,9 +72,11 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** The color behind the pages, chosen in settings. */
 fun readerBackgroundColor(background: ReaderBackground): Color = when (background) {
@@ -86,11 +90,14 @@ private const val AUTO_RETRIES = 2
 private const val RETRY_BASE_MS = 800L
 private const val NEXT_CHAPTER_PRELOAD_AT = 3
 private const val SAVE_PROGRESS_DELAY_MS = 400L
+private const val RESTORE_WAIT_MS = 5_000L
+private const val FRAME_NANOS_60HZ = 16_666_667f
+private val PLACEHOLDER_HEIGHT = 500.dp
 
 /** On a tablet a vertical strip this wide reads better than one stretched across the screen. */
 private val MAX_STRIP_WIDTH = 720.dp
 
-/** Pixels scrolled every 16 ms at each auto-scroll level. Level 0 is off. */
+/** Pixels scrolled per 60 Hz frame at each auto-scroll level. Level 0 is off. */
 private val AUTO_SCROLL_PX = floatArrayOf(0f, 1.5f, 3f, 5f, 8f, 12f)
 
 /** The translucent panel colour behind the reader's bars. */
@@ -207,13 +214,44 @@ private fun ReaderContent(
     // A new page or a new mode starts fully zoomed out.
     LaunchedEffect(position, paged) { zoom.reset() }
 
+    // How far down the page on screen you are, from 0 to 1. A tall webtoon page needs it to resume in place.
+    val currentPaged by rememberUpdatedState(paged)
+    fun fractionOnScreen(): Float {
+        if (currentPaged || listState.firstVisibleItemIndex != position) return 0f
+        val height = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == position }?.size ?: return 0f
+        return if (height > 0) listState.firstVisibleItemScrollOffset.toFloat() / height else 0f
+    }
+
+    // True until the reader is back at your place within the start page. Saving waits, so the old place is not lost to "top of page".
+    var restoring by remember { mutableStateOf(!paged && page.startFraction > 0f) }
+
     // Progress is saved once scrolling pauses, and once more when the reader closes, so fast scrolling does not write for every page.
     LaunchedEffect(Unit) {
         try {
-            snapshotFlow { position }.distinctUntilChanged().debounce(SAVE_PROGRESS_DELAY_MS).collect { viewModel.saveProgress(it) }
+            snapshotFlow { if (restoring) null else position to (fractionOnScreen() * 1000).toInt() }
+                .filterNotNull()
+                .distinctUntilChanged()
+                .debounce(SAVE_PROGRESS_DELAY_MS)
+                .collect { (index, permille) -> viewModel.saveProgress(index, permille / 1000f) }
         } finally {
-            viewModel.saveProgress(position)
+            if (restoring && position == start) viewModel.saveProgress(start, page.startFraction) else viewModel.saveProgress(position, fractionOnScreen())
         }
+    }
+
+    // Back to where you were within the start page. Its height is known once its image loads, so this waits for that.
+    val placeholderPx = with(LocalDensity.current) { PLACEHOLDER_HEIGHT.roundToPx() }
+    LaunchedEffect(Unit) {
+        if (!restoring) return@LaunchedEffect
+        val height = withTimeoutOrNull(RESTORE_WAIT_MS) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == start }?.size ?: 0 }
+                .first { it > 0 && it != placeholderPx }
+        }
+        // Only when you have not scrolled in the meantime.
+        if (height != null && listState.firstVisibleItemIndex == start && listState.firstVisibleItemScrollOffset == 0) {
+            listState.scrollToItem(start, (height * page.startFraction).toInt())
+        }
+        // Left unset when the reader closes first, so the closing save keeps the old place.
+        restoring = false
     }
 
     // Fetch the next few pages ahead of the reader so they are ready when you arrive.
@@ -221,9 +259,7 @@ private fun ReaderContent(
         val loader = SingletonImageLoader.get(context)
         snapshotFlow { position }.distinctUntilChanged().collect { first ->
             for (next in first + 1..first + PRELOAD_AHEAD) {
-                page.pages.getOrNull(next)?.let { url ->
-                    loader.enqueue(ImageRequest.Builder(context).data(url).build())
-                }
+                page.pages.getOrNull(next)?.let { url -> loader.enqueue(pageRequest(context, url)) }
             }
         }
     }
@@ -233,9 +269,7 @@ private fun ReaderContent(
         if (settings.prefetchPages <= 0) return@LaunchedEffect
         snapshotFlow { position >= count - NEXT_CHAPTER_PRELOAD_AT }.first { it }
         val loader = SingletonImageLoader.get(context)
-        viewModel.nextChapterPreview(settings.prefetchPages).forEach { url ->
-            loader.enqueue(ImageRequest.Builder(context).data(url).build())
-        }
+        viewModel.nextChapterPreview(settings.prefetchPages).forEach { url -> loader.enqueue(pageRequest(context, url)) }
     }
 
     // Volume keys turn a page in paged mode and scroll most of a screen in the vertical strip.
@@ -254,13 +288,17 @@ private fun ReaderContent(
     LaunchedEffect(listState, level, paged) {
         if (level == 0 || paged) return@LaunchedEffect
         try {
+            var lastFrame = 0L
             while (isActive) {
                 if (!listState.canScrollForward) {
                     viewModel.updateSettings { it.copy(autoScrollLevel = 0) }
                     break
                 }
-                listState.scrollBy(AUTO_SCROLL_PX[level])
-                delay(16)
+                // One step per frame, sized by the time since the last one, so the speed holds on 60 and 120 Hz screens.
+                val now = withFrameNanos { it }
+                val frames = if (lastFrame == 0L) 1f else ((now - lastFrame) / FRAME_NANOS_60HZ).coerceAtMost(4f)
+                lastFrame = now
+                listState.scrollBy(AUTO_SCROLL_PX[level] * frames)
             }
         } catch (e: CancellationException) {
             if (isActive) viewModel.updateSettings { it.copy(autoScrollLevel = 0) }
@@ -319,7 +357,7 @@ private fun ReaderContent(
                     modifier = Modifier.fillMaxSize(),
                 ) { index ->
                     if (index < count) {
-                        PageImage(page.pages[index], index, fill = true)
+                        PageImage(page.pages[index], index, fill = true, onGaveUp = viewModel::renewPages)
                     } else {
                         EndOfChapter(page, onPage, onOpenChapter, Modifier.fillMaxSize())
                     }
@@ -330,7 +368,8 @@ private fun ReaderContent(
                     modifier = Modifier.align(Alignment.TopCenter).widthIn(max = MAX_STRIP_WIDTH).fillMaxHeight(),
                     verticalArrangement = Arrangement.spacedBy(settings.pageGap.dp),
                 ) {
-                    itemsIndexed(page.pages, key = { _, url -> url }) { index, url -> PageImage(url, index, fill = false) }
+                    // Keyed by position, so new page addresses keep your place.
+                    itemsIndexed(page.pages) { index, url -> PageImage(url, index, fill = false, onGaveUp = viewModel::renewPages) }
                     item { EndOfChapter(page, onPage, onOpenChapter, Modifier.fillMaxWidth()) }
                 }
             }
@@ -393,54 +432,72 @@ private fun ReaderContent(
 }
 
 /**
- * One page image. A failed load shows a box that retries when tapped. In the vertical strip the image
- * fills the width at its natural height. In paged mode it is fitted whole into the screen.
+ * One page image. A failed load retries twice on its own, then asks for new page addresses through
+ * [onGaveUp] and shows a box that retries when tapped. In the vertical strip the image fills the width
+ * at its natural height. In paged mode it is fitted whole into the screen.
  */
 @Composable
-private fun PageImage(url: String, index: Int, fill: Boolean) {
+private fun PageImage(url: String, index: Int, fill: Boolean, onGaveUp: () -> Unit) {
+    val context = LocalPlatformContext.current
     // Bumping the attempt count rebuilds the image, which asks the server again.
     var attempt by remember { mutableIntStateOf(0) }
-    // Two quiet retries with a growing pause before the tap-to-retry message shows.
-    var autoRetries by remember { mutableIntStateOf(0) }
+    // Two quiet retries with a growing pause before the tap-to-retry message shows. New addresses start over.
+    var autoRetries by remember(url) { mutableIntStateOf(0) }
+    var failed by remember(url) { mutableStateOf(false) }
+    var loaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    key(attempt) {
-        SubcomposeAsyncImage(
-            model = url,
-            onError = {
-                if (autoRetries < AUTO_RETRIES) {
-                    val wait = RETRY_BASE_MS shl autoRetries
-                    autoRetries++
-                    scope.launch {
-                        delay(wait)
+    val request = remember(url) { pageRequest(context, url) }
+    val size = if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+    Box(
+        size
+            // Until it loads, a page in the strip holds a placeholder height. The image itself stays unbounded, so it decodes at full height.
+            .then(if (fill || loaded) Modifier else Modifier.heightIn(min = if (failed) 200.dp else PLACEHOLDER_HEIGHT))
+            .then(if (loaded) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))
+            .then(
+                if (failed) {
+                    Modifier.clickable {
+                        autoRetries = 0
                         attempt++
                     }
-                }
-            },
-            contentDescription = "Page ${index + 1}",
-            contentScale = if (fill) ContentScale.Fit else ContentScale.FillWidth,
-            modifier = if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
-            loading = {
-                Box(Modifier.then(if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(500.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh))
-            },
-            error = {
-                Box(
+                } else {
                     Modifier
-                        .then(if (fill) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(200.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .clickable {
-                            autoRetries = 0
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        key(attempt) {
+            AsyncImage(
+                model = request,
+                contentDescription = "Page ${index + 1}",
+                contentScale = if (fill) ContentScale.Fit else ContentScale.FillWidth,
+                modifier = size,
+                onSuccess = {
+                    loaded = true
+                    failed = false
+                },
+                onError = {
+                    loaded = false
+                    failed = true
+                    if (autoRetries < AUTO_RETRIES) {
+                        val wait = RETRY_BASE_MS shl autoRetries
+                        autoRetries++
+                        scope.launch {
+                            delay(wait)
                             attempt++
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        if (autoRetries < AUTO_RETRIES) "Retrying page ${index + 1}..." else "Page ${index + 1} failed to load. Tap to retry.",
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            },
-            success = { SubcomposeAsyncImageContent() },
-        )
+                        }
+                    } else {
+                        onGaveUp()
+                    }
+                },
+            )
+        }
+        if (failed) {
+            Text(
+                if (autoRetries < AUTO_RETRIES) "Retrying page ${index + 1}..." else "Page ${index + 1} failed to load. Tap to retry.",
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(24.dp),
+            )
+        }
     }
 }
 

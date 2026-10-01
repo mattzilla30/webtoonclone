@@ -16,7 +16,12 @@ data class Backup(
     val progress: Map<String, String> = emptyMap(),
 )
 
-private val backupJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+private val backupJson = Json {
+    ignoreUnknownKeys = true
+    encodeDefaults = true
+    // A backup from another version may name an option this one does not know. That field takes its default.
+    coerceInputValues = true
+}
 
 fun encodeBackup(backup: Backup): String = backupJson.encodeToString(Backup.serializer(), backup)
 

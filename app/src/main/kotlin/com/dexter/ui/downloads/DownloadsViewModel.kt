@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dexter.data.DownloadStore
 import com.dexter.data.db.DownloadEntity
+import com.dexter.ui.LogFailures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,14 +37,14 @@ class DownloadsViewModel(private val store: DownloadStore) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun delete(chapterId: String) {
-        viewModelScope.launch { store.delete(chapterId) }
+        viewModelScope.launch(LogFailures) { store.delete(chapterId) }
     }
 
     fun deleteSeries(seriesId: String) {
-        viewModelScope.launch { store.deleteSeries(seriesId) }
+        viewModelScope.launch(LogFailures) { store.deleteSeries(seriesId) }
     }
 
     fun deleteAll() {
-        viewModelScope.launch { store.deleteAll() }
+        viewModelScope.launch(LogFailures) { store.deleteAll() }
     }
 }

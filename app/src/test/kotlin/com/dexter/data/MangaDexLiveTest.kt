@@ -227,4 +227,14 @@ class MangaDexLiveTest {
         val response = OkHttpClient().newCall(Request.Builder().url(covers.first().url).header("User-Agent", "dexter-test").build()).execute()
         response.use { assertTrue("cover image failed: ${it.code}", it.isSuccessful) }
     }
+
+    @Test
+    fun latestUploadsCoverEverySeriesAskedFor() = runBlocking {
+        assumeTrue(System.getProperty("live") == "true" || System.getenv("LIVE") == "true")
+
+        val ids = repository.browse(limit = 5).map { it.id }
+        val uploads = repository.latestUploads(ids)
+        assertEquals(ids.toSet(), uploads.keys)
+        assertTrue("no upload ids", uploads.values.any { it != null })
+    }
 }

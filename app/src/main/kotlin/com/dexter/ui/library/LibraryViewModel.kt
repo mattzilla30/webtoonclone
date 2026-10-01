@@ -6,6 +6,7 @@ import com.dexter.data.LibraryData
 import com.dexter.data.LibraryList
 import com.dexter.data.LibraryStore
 import com.dexter.data.SavedSeries
+import com.dexter.ui.LogFailures
 import com.dexter.ui.series.hasUnreadChapters
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,19 +18,19 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), store.latest)
 
     fun restore(list: LibraryList, snapshot: List<SavedSeries>) {
-        viewModelScope.launch { store.restore(list, snapshot) }
+        viewModelScope.launch(LogFailures) { store.restore(list, snapshot) }
     }
 
     fun setSort(mode: LibrarySort) {
-        viewModelScope.launch { store.setSort(alphabetical = mode == LibrarySort.Alphabetical, unreadFirst = mode == LibrarySort.UnreadFirst) }
+        viewModelScope.launch(LogFailures) { store.setSort(alphabetical = mode == LibrarySort.Alphabetical, unreadFirst = mode == LibrarySort.UnreadFirst) }
     }
 
     fun setNotifications(enabled: Boolean) {
-        viewModelScope.launch { store.setNotifications(enabled) }
+        viewModelScope.launch(LogFailures) { store.setNotifications(enabled) }
     }
 
     fun delete(list: LibraryList, ids: Set<String>) {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             when (list) {
                 LibraryList.Recent -> store.removeRecent(ids)
                 LibraryList.Subscribed -> store.removeSubscribed(ids)
@@ -39,20 +40,20 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
     }
 
     fun removeFromCollection(name: String, ids: Set<String>) {
-        viewModelScope.launch { store.removeFromCollection(name, ids) }
+        viewModelScope.launch(LogFailures) { store.removeFromCollection(name, ids) }
     }
 
     fun restoreCollection(name: String, snapshot: List<SavedSeries>) {
-        viewModelScope.launch { store.restoreCollection(name, snapshot) }
+        viewModelScope.launch(LogFailures) { store.restoreCollection(name, snapshot) }
     }
 
     fun deleteCollection(name: String) {
-        viewModelScope.launch { store.deleteCollection(name) }
+        viewModelScope.launch(LogFailures) { store.deleteCollection(name) }
     }
 
     /** Marks every subscribed series with new chapters as read up to its newest known chapter. */
     fun markAllRead() {
-        viewModelScope.launch {
+        viewModelScope.launch(LogFailures) {
             val library = store.current()
             val lastRead = library.recent.associate { it.id to it.chapterNumber }
             library.subscribed

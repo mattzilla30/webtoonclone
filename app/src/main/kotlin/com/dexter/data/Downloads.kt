@@ -12,14 +12,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.resumeWithException
 
 private const val PAGE_TRIES = 3
 
@@ -152,21 +157,43 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
         Unit
     }
 
-    private fun fetchTo(url: String, target: File): Long {
+    private suspend fun fetchTo(url: String, target: File): Long {
         var failure: IOException? = null
         repeat(PAGE_TRIES) {
             try {
-                client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("Page failed: ${response.code}")
-                    val temp = File(target.parentFile, target.name + ".part")
-                    response.body.byteStream().use { input -> temp.outputStream().use { input.copyTo(it) } }
-                    if (!temp.renameTo(target)) throw IOException("Could not save page")
-                    return target.length()
-                }
+                return fetchOnce(url, target)
             } catch (e: IOException) {
                 failure = e
             }
         }
         throw failure ?: IOException("Page failed")
+    }
+
+    /**
+     * One try at one page. The file is written on OkHttp's thread as the bytes arrive. Cancelling the
+     * coroutine cancels the call, which stops a page mid-download instead of waiting for it to finish.
+     */
+    private suspend fun fetchOnce(url: String, target: File): Long = suspendCancellableCoroutine { continuation ->
+        val call = client.newCall(Request.Builder().url(url).build())
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    continuation.resumeWithException(e)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    continuation.resumeWith(runCatching { response.use { writePage(it, target) } })
+                }
+            },
+        )
+    }
+
+    private fun writePage(response: Response, target: File): Long {
+        if (!response.isSuccessful) throw IOException("Page failed: ${response.code}")
+        val temp = File(target.parentFile, target.name + ".part")
+        response.body.byteStream().use { input -> temp.outputStream().use { input.copyTo(it) } }
+        if (!temp.renameTo(target)) throw IOException("Could not save page")
+        return target.length()
     }
 }

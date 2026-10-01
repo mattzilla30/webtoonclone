@@ -65,7 +65,25 @@ data class Chapter(
 data class ReadingProgress(
     val chapterId: String,
     val page: Int,
+    /** How far down [page] you were, from 0 to 1. Tall webtoon pages need it to resume in place. */
+    val fraction: Float = 0f,
 )
+
+/** Reads a saved position, "chapterId:page" or "chapterId:page:permille". */
+fun parseProgress(raw: String): ReadingProgress {
+    val parts = raw.split(":")
+    return ReadingProgress(
+        chapterId = parts[0],
+        page = parts.getOrNull(1)?.toIntOrNull() ?: 0,
+        fraction = (parts.getOrNull(2)?.toIntOrNull() ?: 0).coerceIn(0, 999) / 1000f,
+    )
+}
+
+/** The saved form of a position, read back by [parseProgress]. */
+fun formatProgress(chapterId: String, page: Int, fraction: Float): String {
+    val permille = (fraction * 1000).toInt().coerceIn(0, 999)
+    return if (permille == 0) "$chapterId:$page" else "$chapterId:$page:$permille"
+}
 
 /** Home content saved on the device, with the time it was saved. */
 data class CachedHome(val content: HomeContent, val savedAt: Long)
@@ -149,6 +167,10 @@ data class LibraryData(
     val collections: Map<String, List<SavedSeries>> = emptyMap(),
     /** True once the lists moved from the old single file into the database. */
     val roomMigrated: Boolean = false,
+    /** The newest upload, in any language, the background check saw for each subscribed series. */
+    val uploadMarks: Map<String, String> = emptyMap(),
+    /** When the background check last read every subscribed series' feed. */
+    val fullCheckAt: Long = 0,
 ) {
     /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
     fun knownSeries(id: String): SavedSeries? = (recent + subscribed + lists + collections.values.flatten()).firstOrNull { it.id == id }

@@ -18,6 +18,21 @@ fun formatChapterDate(
     OffsetDateTime.parse(iso).atZoneSameInstant(zone).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
 }.getOrDefault("")
 
+/**
+ * The heading for the day [iso] falls on: "Today", "Yesterday", the weekday for the last week, and the date
+ * before that. An unreadable time falls under "Earlier".
+ */
+fun dayHeading(iso: String, today: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault(), locale: Locale = Locale.getDefault()): String {
+    val day = runCatching { OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDate() }.getOrNull() ?: return "Earlier"
+    val daysAgo = java.time.temporal.ChronoUnit.DAYS.between(day, today)
+    return when {
+        daysAgo <= 0L -> "Today"
+        daysAgo == 1L -> "Yesterday"
+        daysAgo < 7L -> day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, locale)
+        else -> day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
+    }
+}
+
 /** "5 min ago", "3 h ago", "2 d ago", or a date for anything older than a month. */
 fun timeAgo(iso: String, now: Instant = Instant.now()): String {
     val time = runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrNull() ?: return ""

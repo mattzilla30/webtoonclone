@@ -91,6 +91,7 @@ internal data class ChapterDto(
 
 @Serializable
 internal data class ChapterAttributesDto(
+    val translatedLanguage: String? = null,
     val chapter: String? = null,
     val title: String? = null,
     val publishAt: String = "",

@@ -247,7 +247,11 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                         composable("updates") {
                             val vm = koinViewModel<UpdatesViewModel>()
                             Box(Modifier.fillMaxSize()) {
-                                UpdatesScreen(vm, onOpenSeries = { nav.navigate("series/$it") })
+                                UpdatesScreen(
+                                    vm,
+                                    onOpenSeries = { nav.navigate("series/$it") },
+                                    onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                )
                             }
                         }
                         composable("library") {

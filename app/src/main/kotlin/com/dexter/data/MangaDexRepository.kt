@@ -1,11 +1,15 @@
 package com.dexter.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
@@ -237,6 +241,7 @@ class MangaDexRepository(
         val url = "$API/chapter".toHttpUrl().newBuilder()
             .addQueryParameter("limit", UPDATES_PAGE.toString())
             .addQueryParameter("offset", (page * UPDATES_PAGE).toString())
+            .addQueryParameter("includes[]", "scanlation_group")
             .newestReadable()
             .ratings()
             .build()
@@ -251,8 +256,66 @@ class MangaDexRepository(
         val byId = browse(ids = newest.keys.toList(), limit = newest.size).associateBy { it.id }
         return newest.mapNotNull { (id, chapter) ->
             val series = byId[id] ?: return@mapNotNull null
-            UpdateEntry(series, chapter.attributes.chapter ?: "Oneshot", chapter.attributes.publishAt)
+            chapter.toUpdate(series)
         }
+    }
+
+    private fun ChapterDto.toUpdate(series: SeriesSummary) = UpdateEntry(
+        series = series,
+        chapterNumber = attributes.chapter ?: "Oneshot",
+        publishedAt = attributes.publishAt,
+        chapterId = id,
+        chapterTitle = attributes.title.orEmpty(),
+        group = relationships.firstOrNull { it.type == "scanlation_group" }?.attributes?.name,
+    )
+
+    /**
+     * The newest readable chapter of each subscribed series, newest first. One request finds each series'
+     * newest upload and one more reads those chapters. A series whose newest upload is in another language
+     * or only links out is looked up on its own, a few at a time.
+     */
+    suspend fun subscribedUpdates(subscribed: List<SavedSeries>): List<UpdateEntry> = coroutineScope {
+        ensureSettings()
+        if (subscribed.isEmpty()) return@coroutineScope emptyList()
+        val uploads = latestUploads(subscribed.map { it.id })
+        val chapterIds = uploads.values.filterNotNull().distinct()
+        val byChapter = HashMap<String, ChapterDto>()
+        for (chunk in chapterIds.chunked(IDS_PAGE)) {
+            val url = "$API/chapter".toHttpUrl().newBuilder()
+                .addQueryParameter("limit", chunk.size.toString())
+                .addQueryParameter("includes[]", "scanlation_group")
+                .ratings()
+                .apply { chunk.forEach { addQueryParameter("ids[]", it) } }
+                .build()
+            fetchJson<ChapterListDto>(url).data.forEach { byChapter[it.id] = it }
+        }
+        val summaries = browse(ids = subscribed.map { it.id }.take(IDS_PAGE), limit = minOf(subscribed.size, IDS_PAGE)).associateBy { it.id }
+        val permits = Semaphore(3)
+        subscribed.map { saved ->
+            async {
+                val series = summaries[saved.id] ?: SeriesSummary(saved.id, saved.title, saved.coverUrl)
+                val newest = uploads[saved.id]?.let { byChapter[it] }
+                val readable = newest?.takeIf { it.attributes.translatedLanguage == language && it.attributes.externalUrl == null }
+                when {
+                    readable != null -> readable.toUpdate(series)
+                    newest == null -> null
+                    else -> permits.withPermit {
+                        catching { latestChapter(saved.id) }?.let { chapter ->
+                            UpdateEntry(series, chapter.number, chapter.publishedAt, chapter.id, chapter.title, chapter.group)
+                        }
+                    }
+                }
+            }
+        }.awaitAll().filterNotNull().sortedByDescending { it.publishedAt }
+    }
+
+    /** Runs [block] and gives null instead of a network failure. A cancelled coroutine still cancels. */
+    private inline fun <T> catching(block: () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     /**

@@ -48,7 +48,16 @@ data class SeriesCover(val url: String, val volume: String?)
 
 /** A series with its newest chapter, for the Updates tab. */
 @Serializable
-data class UpdateEntry(val series: SeriesSummary, val chapterNumber: String, val publishedAt: String)
+data class UpdateEntry(
+    val series: SeriesSummary,
+    val chapterNumber: String,
+    val publishedAt: String,
+    /** The chapter itself, so a long press can open it. Empty in copies saved before it was kept. */
+    val chapterId: String = "",
+    val chapterTitle: String = "",
+    /** The scanlation group, when MangaDex names one. */
+    val group: String? = null,
+)
 
 data class ChapterPage(val chapters: List<Chapter>, val nextOffset: Int?)
 

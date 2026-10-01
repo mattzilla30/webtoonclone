@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
+import com.dexter.data.SavedSeries
 import com.dexter.data.UpdateEntry
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
+import com.dexter.ui.series.isChapterRead
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,10 +22,13 @@ import kotlinx.coroutines.launch
 class UpdatesViewModel(
     private val repository: MangaDexRepository,
     private val offline: OfflineStore,
-    libraryStore: LibraryStore,
+    private val libraryStore: LibraryStore,
 ) : ViewModel() {
     /** Ids of the series you subscribe to, so their rows can carry a marker. */
     val subscribedIds: StateFlow<Set<String>> = libraryStore.stateOf(viewModelScope) { lib -> lib.subscribed.mapTo(mutableSetOf()) { it.id } }
+
+    /** The last chapter you read of each series, by series id, for the unread dots. */
+    val lastRead: StateFlow<Map<String, String?>> = libraryStore.stateOf(viewModelScope) { lib -> lib.recent.associate { it.id to it.chapterNumber } }
 
     /** When the list is a saved copy because the network failed, the time it was saved. */
     private val _offlineSavedAt = MutableStateFlow<Long?>(null)
@@ -35,15 +40,69 @@ class UpdatesViewModel(
     private val _loadingMore = MutableStateFlow(false)
     val loadingMore: StateFlow<Boolean> = _loadingMore
 
+    private val _subscribedOnly = MutableStateFlow(false)
+
+    /** True when the list shows only your subscriptions, each with its newest chapter. */
+    val subscribedOnly: StateFlow<Boolean> = _subscribedOnly
+
+    private val _subscribedState = MutableStateFlow<Load<List<UpdateEntry>>>(Load.Loading)
+
+    /** Your subscriptions' newest chapters, loaded when you switch to them. */
+    val subscribedState: StateFlow<Load<List<UpdateEntry>>> = _subscribedState
+
+    private val _toast = MutableStateFlow<String?>(null)
+    val toast: StateFlow<String?> = _toast
+
+    fun clearToast() {
+        _toast.value = null
+    }
+
     private var page = 0
 
     private var loadJob: Job? = null
     private var moreJob: Job? = null
+    private var subscribedJob: Job? = null
 
     init {
         load()
         // A new content language changes which chapters are listed.
-        viewModelScope.launch(LogFailures) { repository.contentVersion.drop(1).collect { load() } }
+        viewModelScope.launch(LogFailures) {
+            repository.contentVersion.drop(1).collect {
+                load()
+                if (_subscribedOnly.value) loadSubscribed()
+            }
+        }
+    }
+
+    fun setSubscribedOnly(on: Boolean) {
+        _subscribedOnly.value = on
+        if (on && _subscribedState.value !is Load.Ready) loadSubscribed()
+    }
+
+    /** Refreshes whichever list is showing. */
+    fun refresh() = if (_subscribedOnly.value) loadSubscribed() else load()
+
+    fun loadSubscribed() {
+        subscribedJob?.cancel()
+        _subscribedState.value = Load.Loading
+        subscribedJob = viewModelScope.launch(LogFailures) {
+            _subscribedState.value = try {
+                Load.Ready(repository.subscribedUpdates(libraryStore.current().subscribed))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Load.Error(friendlyError(e, "Could not load your subscriptions"))
+            }
+        }
+    }
+
+    /** Records [entry]'s chapter as the last one read of its series, so it and earlier chapters show as read. */
+    fun markRead(entry: UpdateEntry) {
+        if (entry.chapterId.isEmpty()) return
+        viewModelScope.launch(LogFailures) {
+            libraryStore.recordRecent(SavedSeries(entry.series.id, entry.series.title, entry.series.coverUrl, entry.chapterId, entry.chapterNumber))
+            _toast.value = "Marked ${entry.series.title} Ep. ${entry.chapterNumber} as read"
+        }
     }
 
     fun load() {
@@ -96,3 +155,7 @@ class UpdatesViewModel(
         }
     }
 }
+
+/** True for a subscribed series whose listed chapter is newer than the one you read last. A series you never opened has no dot. */
+fun isUnreadUpdate(entry: UpdateEntry, subscribed: Boolean, lastReadNumber: String?): Boolean =
+    subscribed && lastReadNumber != null && entry.chapterNumber.toDoubleOrNull() != null && !isChapterRead(entry.chapterNumber, lastReadNumber)

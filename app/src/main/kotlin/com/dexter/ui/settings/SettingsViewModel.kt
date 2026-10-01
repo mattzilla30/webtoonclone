@@ -9,8 +9,11 @@ import com.dexter.data.Accounts
 import com.dexter.data.Backup
 import com.dexter.data.HttpStatusException
 import com.dexter.data.LibraryData
+import com.dexter.data.Release
 import com.dexter.data.Settings
 import com.dexter.data.decodeBackup
+import com.dexter.data.isNewer
+import com.dexter.data.latestRelease
 import com.dexter.data.parseMihonBackup
 import com.dexter.notify.AutoBackupWorker
 import com.dexter.notify.GoalReminderWorker
@@ -87,6 +90,28 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         buildString {
             append("Imported ${backup.series.size} MangaDex series, ${backup.series.count { it.favorite }} of them as subscriptions.")
             if (backup.otherSources > 0) append(" ${backup.otherSources} from other sources were left out.")
+        }
+    }
+
+    private val _release = MutableStateFlow<Release?>(null)
+
+    /** A newer release found by [checkForUpdate], for the screen to offer. */
+    val release: StateFlow<Release?> = _release
+
+    fun dismissRelease() {
+        _release.value = null
+    }
+
+    /** Looks for a newer release of Dexter on GitHub than [current]. */
+    fun checkForUpdate(current: String) = accountJob {
+        val latest = latestRelease(app.plainClient)
+        when {
+            latest == null -> "No releases are published yet."
+            isNewer(latest.tag, current) -> {
+                _release.value = latest
+                "Version ${latest.tag.removePrefix("v")} is out."
+            }
+            else -> "You have the latest version, $current."
         }
     }
 

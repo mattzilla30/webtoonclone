@@ -66,6 +66,9 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val mangaDexAccount: MangaDexAccount by inject()
     val trackers: Trackers by inject()
     private val baseClient: OkHttpClient by inject(named(BASE_CLIENT))
+
+    /** The client with no response cache, for calls outside MangaDex such as the update check. */
+    val plainClient: OkHttpClient get() = baseClient
     private val imageReporter: ImageReporter by inject()
 
     override fun onCreate() {

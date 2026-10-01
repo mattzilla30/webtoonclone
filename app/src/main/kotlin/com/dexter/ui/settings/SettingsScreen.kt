@@ -68,6 +68,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     val context = LocalContext.current
     val pending by viewModel.pending.collectAsStateWithLifecycle()
     val accounts by viewModel.accounts.collectAsStateWithLifecycle()
+    val release by viewModel.release.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.exportTo(uri)
@@ -121,6 +122,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             },
             confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text(stringResource(R.string.restore)) } },
             dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    release?.let { latest ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRelease,
+            title = { Text("Dexter ${latest.tag.removePrefix("v")}") },
+            text = { Text(latest.name ?: "A newer version is ready to download.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.dismissRelease()
+                    context.startActivity(Intent(Intent.ACTION_VIEW, (latest.apk ?: latest.page).toUri()))
+                }) { Text(if (latest.apk != null) "Download" else "Open release") }
+            },
+            dismissButton = { TextButton(onClick = viewModel::dismissRelease) { Text("Later") } },
         )
     }
     message?.let { text ->
@@ -389,6 +404,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 val version = remember(context) {
                     runCatching { context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0)).versionName }.getOrNull()
                 }
+                InfoRow(
+                    title = "Check for updates",
+                    subtitle = "Looks for a newer release on GitHub.",
+                    action = { TextButton(onClick = { viewModel.checkForUpdate(version ?: "0") }, enabled = !busy) { Text("Check") } },
+                )
                 Text(
                     "Dexter" + (version?.let { " $it" } ?: ""),
                     style = MaterialTheme.typography.labelMedium,

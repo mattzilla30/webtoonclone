@@ -680,6 +680,11 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
                     scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("Title", detail.summary.title))) }
                 },
             ) { Text("Copy title") }
+            TextButton(
+                onClick = {
+                    scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("Link", "https://mangadex.org/title/${detail.summary.id}"))) }
+                },
+            ) { Text("Copy link") }
             if (detail.links.isNotEmpty()) {
                 Text(stringResource(R.string.links), style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(top = 12.dp))
                 detail.links.forEach { link ->

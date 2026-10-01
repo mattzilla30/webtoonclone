@@ -100,94 +100,69 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         return if (failed) Result.retry() else Result.success()
     }
 
-    private fun postAuthor(authorName: String, series: SeriesSummary) {
+    /** The notification manager with the channel in place, or null when you have not allowed notifications. */
+    private fun notifier(): NotificationManager? {
         val context = applicationContext
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "New chapters", NotificationManager.IMPORTANCE_DEFAULT))
-        val open = PendingIntent.getActivity(
-            context,
-            series.id.hashCode(),
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(EXTRA_SERIES_ID, series.id)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return null
+        return context.getSystemService(NotificationManager::class.java).also {
+            it.createNotificationChannel(NotificationChannel(CHANNEL_ID, "New chapters", NotificationManager.IMPORTANCE_DEFAULT))
+        }
+    }
+
+    /** A notification that opens the app, with [extras] saying where. */
+    private fun opensApp(requestCode: Int, extras: Intent.() -> Unit): PendingIntent = PendingIntent.getActivity(
+        applicationContext,
+        requestCode,
+        Intent(applicationContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            extras()
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun newBuilder(title: String): Notification.Builder = Notification.Builder(applicationContext, CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.stat_notify_more)
+        .setContentTitle(title)
+        .setAutoCancel(true)
+
+    private fun postAuthor(authorName: String, series: SeriesSummary) {
+        val manager = notifier() ?: return
         manager.notify(
             series.id.hashCode(),
-            Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_notify_more)
-                .setContentTitle("New series by $authorName")
+            newBuilder("New series by $authorName")
                 .setContentText(series.title)
-                .setContentIntent(open)
-                .setAutoCancel(true)
+                .setContentIntent(opensApp(series.id.hashCode()) { putExtra(EXTRA_SERIES_ID, series.id) })
                 .build(),
         )
     }
 
     private fun post(found: List<NewChapter>, digest: Boolean) {
         if (found.isEmpty()) return
-        val context = applicationContext
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "New chapters", NotificationManager.IMPORTANCE_DEFAULT))
+        val manager = notifier() ?: return
         if (digest) {
-            val open = PendingIntent.getActivity(
-                context,
-                DIGEST_ID,
-                Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    putExtra(EXTRA_ROUTE, "library")
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
             val lines = digestLines(found.map { it.series.title to it.number })
             manager.notify(
                 DIGEST_ID,
-                Notification.Builder(context, CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.stat_notify_more)
-                    .setContentTitle(digestTitle(found.size))
+                newBuilder(digestTitle(found.size))
                     .setContentText(lines.first())
                     .setStyle(Notification.InboxStyle().also { style -> lines.forEach(style::addLine) })
-                    .setContentIntent(open)
-                    .setAutoCancel(true)
+                    .setContentIntent(opensApp(DIGEST_ID) { putExtra(EXTRA_ROUTE, "library") })
                     .build(),
             )
             return
         }
         found.forEach { item -> manager.notify(item.series.id.hashCode(), single(item)) }
         if (found.size > 1) {
-            manager.notify(
-                DIGEST_ID,
-                Notification.Builder(context, CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.stat_notify_more)
-                    .setContentTitle(digestTitle(found.size))
-                    .setGroup(GROUP_KEY)
-                    .setGroupSummary(true)
-                    .setAutoCancel(true)
-                    .build(),
-            )
+            manager.notify(DIGEST_ID, newBuilder(digestTitle(found.size)).setGroup(GROUP_KEY).setGroupSummary(true).build())
         }
     }
 
     private fun single(item: NewChapter): Notification {
-        val context = applicationContext
         val series = item.series
-        val open = PendingIntent.getActivity(
-            context,
-            series.id.hashCode(),
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(EXTRA_SERIES_ID, series.id)
-                putExtra(EXTRA_CHAPTER_ID, item.chapterId)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
         val markRead = PendingIntent.getBroadcast(
-            context,
+            applicationContext,
             series.id.hashCode(),
-            Intent(context, MarkReadReceiver::class.java).apply {
+            Intent(applicationContext, MarkReadReceiver::class.java).apply {
                 putExtra(EXTRA_SERIES_ID, series.id)
                 putExtra(EXTRA_CHAPTER_ID, item.chapterId)
                 putExtra(EXTRA_CHAPTER_NUMBER, item.number)
@@ -196,14 +171,16 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        return Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_notify_more)
-            .setContentTitle(series.title)
+        return newBuilder(series.title)
             .setContentText("Chapter ${item.number} is out")
-            .setContentIntent(open)
+            .setContentIntent(
+                opensApp(series.id.hashCode()) {
+                    putExtra(EXTRA_SERIES_ID, series.id)
+                    putExtra(EXTRA_CHAPTER_ID, item.chapterId)
+                },
+            )
             .setGroup(GROUP_KEY)
             .addAction(Notification.Action.Builder(null, "Mark read", markRead).build())
-            .setAutoCancel(true)
             .build()
     }
 

@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dexter.data.DownloadStore
 import com.dexter.data.db.DownloadEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,9 +30,10 @@ fun groupDownloads(rows: List<DownloadEntity>): List<SavedSeriesGroup> = rows
     .sortedByDescending { group -> group.chapters.maxOf { it.savedAt } }
 
 class DownloadsViewModel(private val store: DownloadStore) : ViewModel() {
-    val groups: StateFlow<List<SavedSeriesGroup>?> = kotlinx.coroutines.flow.flow {
-        store.saved.collect { emit(groupDownloads(it)) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val groups: StateFlow<List<SavedSeriesGroup>?> = store.saved
+        .map { groupDownloads(it) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun delete(chapterId: String) {
         viewModelScope.launch { store.delete(chapterId) }

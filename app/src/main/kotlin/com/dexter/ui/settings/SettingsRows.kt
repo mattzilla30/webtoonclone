@@ -24,6 +24,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,13 +44,29 @@ import com.dexter.data.Themes
 import com.dexter.ui.CardRow
 import com.dexter.ui.ChoiceChip
 
+/** What you typed in the Settings search box. Rows that do not mention it hide. */
+internal val LocalSettingsQuery = compositionLocalOf { "" }
+
+/** True when [query] is empty or one of [text] contains it. */
+fun matchesQuery(query: String, vararg text: String?): Boolean =
+    query.isBlank() || text.any { it?.contains(query.trim(), ignoreCase = true) == true }
+
+/** Shows [content] only while the search box is empty or matches one of [words]. */
+@Composable
+internal fun Searchable(vararg words: String, content: @Composable () -> Unit) {
+    if (matchesQuery(LocalSettingsQuery.current, *words)) content()
+}
+
 @Composable
 internal fun SectionTitle(text: String) {
+    // While searching, the matches show as one list without headings.
+    if (LocalSettingsQuery.current.isNotBlank()) return
     Text(text, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 24.dp, bottom = 8.dp).semantics { heading() })
 }
 
 @Composable
 internal fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    if (!matchesQuery(LocalSettingsQuery.current, title, subtitle)) return
     val haptics = LocalHapticFeedback.current
     CardRow {
         Row(
@@ -83,6 +100,7 @@ internal fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChan
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+    if (!matchesQuery(LocalSettingsQuery.current, title, *options.map { it.second }.toTypedArray())) return
     CardRow {
         Column(Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
@@ -96,6 +114,7 @@ internal fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, select
 /** An hour of the day (0 to 23) with minus and plus buttons that wrap around midnight. */
 @Composable
 internal fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
+    if (!matchesQuery(LocalSettingsQuery.current, label, "quiet hours")) return
     CardRow {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -133,6 +152,7 @@ internal fun InfoRow(
     onClick: (() -> Unit)? = null,
     action: @Composable RowScope.() -> Unit = {},
 ) {
+    if (!matchesQuery(LocalSettingsQuery.current, title, subtitle)) return
     val content: @Composable () -> Unit = {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

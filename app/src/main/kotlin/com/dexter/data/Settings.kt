@@ -30,6 +30,13 @@ fun ratingsFor(chosen: Set<String>): List<String> = ContentRatings.filter { it i
 @Serializable
 enum class ThemeMode { Dark, Light, System, Black }
 
+/** The app's accent colour. */
+@Serializable
+enum class Accent { Green, Blue, Purple, Orange, Pink, Red }
+
+/** The ratings a new install shows. The adult ones are a choice you make in setup or Settings. */
+val NewInstallRatings = setOf("safe", "suggestive")
+
 @Serializable
 enum class ReaderBackground { Dark, Black, White }
 
@@ -57,7 +64,7 @@ enum class PageTransition { Slide, Fade, None }
 @Serializable
 data class Settings(
     val theme: ThemeMode = ThemeMode.Dark,
-    /** Material You surfaces. Accents stay green. */
+    /** Material You colours from the wallpaper. */
     val dynamicColor: Boolean = false,
     /** Load the smaller MangaDex image set to use less data. */
     val dataSaver: Boolean = false,
@@ -75,8 +82,8 @@ data class Settings(
     val autoScrollLevel: Int = 0,
     /** Volume keys scroll the reader by a page. */
     val volumeKeys: Boolean = false,
-    /** Content ratings to show, using MangaDex names. All four by default. */
-    val contentRatings: Set<String> = ContentRatings.toSet(),
+    /** Content ratings to show, using MangaDex names. Safe and suggestive for a new install. */
+    val contentRatings: Set<String> = NewInstallRatings,
     /** Tags that never appear in lists or search, unless you search the tag itself. */
     val blockedTags: Set<String> = emptySet(),
     /** Scanlation groups whose chapters are left out of chapter lists. */
@@ -144,6 +151,13 @@ data class Settings(
     val mutedStatuses: Set<ReadingStatus> = emptySet(),
     /** Collections whose series never notify. */
     val mutedCollections: Set<String> = emptySet(),
+    /** Ask for a fingerprint, face, or the phone's PIN when the app opens. */
+    val appLock: Boolean = false,
+    val accent: Accent = Accent.Green,
+    /** Vibration on taps, toggles, and long presses. */
+    val haptics: Boolean = true,
+    /** True once the first-run setup is done. Installs from before it existed count as done. */
+    val setupDone: Boolean = false,
 )
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
@@ -180,7 +194,7 @@ class SettingsStore(private val context: Context) {
 
     private fun decode(raw: String?): Settings {
         lastDecoded?.let { (text, settings) -> if (text == raw) return settings }
-        val settings = decodeStored(Settings.serializer(), raw) ?: Settings()
+        val settings = migrateSettings(raw, decodeStored(Settings.serializer(), raw) ?: Settings())
         lastDecoded = raw to settings
         return settings
     }
@@ -193,4 +207,15 @@ fun isMuted(seriesId: String, library: LibraryData, settings: Settings): Boolean
         if (status != null && status in settings.mutedStatuses) return true
     }
     return settings.mutedCollections.any { name -> library.collections[name]?.any { it.id == seriesId } == true }
+}
+
+/**
+ * Keeps an install from before first-run setup as it was. Saved settings leave out values equal to their
+ * defaults, so saved text without "setupDone" comes from before setup existed. That install skips setup,
+ * and when it never changed its ratings it keeps the old default of all four.
+ */
+fun migrateSettings(raw: String?, decoded: Settings): Settings {
+    if (raw == null || "\"setupDone\"" in raw) return decoded
+    val ratings = if ("\"contentRatings\"" in raw) decoded.contentRatings else ContentRatings.toSet()
+    return decoded.copy(setupDone = true, contentRatings = ratings)
 }

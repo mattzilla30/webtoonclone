@@ -58,7 +58,8 @@ class BackupService(
     /** Replaces everything on this device with [backup]. */
     suspend fun restore(backup: Backup) {
         library.replaceAll(backup.library)
-        settings.update { backup.settings }
+        // A backup comes from a phone that was already set up, so setup does not ask again.
+        settings.update { backup.settings.copy(setupDone = true) }
         progress.replaceAll(backup.progress)
     }
 }

@@ -29,16 +29,23 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -54,6 +61,9 @@ import com.dexter.notify.EXTRA_SERIES_ID
 import com.dexter.notify.MangaDexLink
 import com.dexter.notify.openRoutes
 import com.dexter.notify.parseMangaDexLink
+import com.dexter.ui.AppLock
+import com.dexter.ui.FirstRunSetup
+import com.dexter.ui.LockScreen
 import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.author.AuthorScreen
 import com.dexter.ui.author.AuthorViewModel
@@ -82,6 +92,7 @@ import com.dexter.ui.theme.isDark
 import com.dexter.ui.updates.UpdatesScreen
 import com.dexter.ui.updates.UpdatesViewModel
 import com.dexter.ui.windowWidthDp
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import android.graphics.Color as AndroidColor
@@ -117,6 +128,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         openCount++
+        AppLock.onStart()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppLock.onStop()
     }
 
     /** While the reader is open and the setting is on, the volume keys scroll it instead of changing volume. */
@@ -197,135 +214,156 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
         onDispose { }
     }
 
+    // With the lock on, the recent apps screen shows a blank card instead of what you were reading.
+    LaunchedEffect(activity, settings.appLock) { activity?.setRecentsScreenshotEnabled(!settings.appLock) }
+    // The haptics switch: views skip their vibrations, and Compose's own feedback goes nowhere.
+    val rootView = LocalView.current
+    SideEffect { rootView.isHapticFeedbackEnabled = settings.haptics }
+    val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+
     DexterTheme(settings) {
-        val rootBackground = if (onReader) readerBackgroundColor(settings.readerBackground) else MaterialTheme.colorScheme.background
-        // One inset pad for the whole app keeps every screen between the status and navigation bars. The reader
-        // draws edge to edge and pads only its own bars, so the pages fill the screen when the system bars hide.
-        Box(Modifier.fillMaxSize().background(rootBackground).then(if (onReader) Modifier else Modifier.systemBarsPadding())) {
-            val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
-            val motion = MaterialTheme.motionScheme
-            Row(Modifier.fillMaxSize()) {
-                if (wide && onTab) SideRail(nav, route?.substringBefore('?'), unread)
-                Scaffold(
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    containerColor = MaterialTheme.colorScheme.background,
-                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                    bottomBar = { if (onTab && !wide) BottomBar(nav, route?.substringBefore('?'), unread) },
-                ) { padding ->
-                    NavHost(
-                        nav,
-                        startDestination = "home",
-                        modifier = Modifier.padding(padding),
-                        enterTransition = { fadeIn(motion.defaultEffectsSpec()) + slideInHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
-                        exitTransition = { fadeOut(motion.fastEffectsSpec()) },
-                        popEnterTransition = { fadeIn(motion.defaultEffectsSpec()) },
-                        popExitTransition = { fadeOut(motion.fastEffectsSpec()) + slideOutHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
-                    ) {
-                        composable("home") {
-                            val vm = koinViewModel<HomeViewModel>()
-                            Box(Modifier.fillMaxSize()) {
-                                HomeScreen(
-                                    vm,
-                                    onOpenSeries = { nav.navigate("series/$it") },
-                                    onOpenSearch = { nav.navigateTab("search") },
-                                    onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                                    onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
-                                    openCount = openCount,
-                                )
+        CompositionLocalProvider(LocalHapticFeedback provides if (settings.haptics) haptics else NoHaptics) {
+            val rootBackground = if (onReader) readerBackgroundColor(settings.readerBackground) else MaterialTheme.colorScheme.background
+            // One inset pad for the whole app keeps every screen between the status and navigation bars. The reader
+            // draws edge to edge and pads only its own bars, so the pages fill the screen when the system bars hide.
+            Box(Modifier.fillMaxSize().background(rootBackground).then(if (onReader) Modifier else Modifier.systemBarsPadding())) {
+                val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
+                val motion = MaterialTheme.motionScheme
+                Row(Modifier.fillMaxSize()) {
+                    if (wide && onTab) SideRail(nav, route?.substringBefore('?'), unread)
+                    Scaffold(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        containerColor = MaterialTheme.colorScheme.background,
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                        bottomBar = { if (onTab && !wide) BottomBar(nav, route?.substringBefore('?'), unread) },
+                    ) { padding ->
+                        NavHost(
+                            nav,
+                            startDestination = "home",
+                            modifier = Modifier.padding(padding),
+                            enterTransition = { fadeIn(motion.defaultEffectsSpec()) + slideInHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
+                            exitTransition = { fadeOut(motion.fastEffectsSpec()) },
+                            popEnterTransition = { fadeIn(motion.defaultEffectsSpec()) },
+                            popExitTransition = { fadeOut(motion.fastEffectsSpec()) + slideOutHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
+                        ) {
+                            composable("home") {
+                                val vm = koinViewModel<HomeViewModel>()
+                                Box(Modifier.fillMaxSize()) {
+                                    HomeScreen(
+                                        vm,
+                                        onOpenSeries = { nav.navigate("series/$it") },
+                                        onOpenSearch = { nav.navigateTab("search") },
+                                        onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                        onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
+                                        openCount = openCount,
+                                    )
+                                }
                             }
-                        }
-                        composable("search?genre={genre}&browse={browse}") { entry ->
-                            val vm = koinViewModel<SearchViewModel>()
-                            Box(Modifier.fillMaxSize()) {
-                                SearchScreen(
+                            composable("search?genre={genre}&browse={browse}") { entry ->
+                                val vm = koinViewModel<SearchViewModel>()
+                                Box(Modifier.fillMaxSize()) {
+                                    SearchScreen(
+                                        vm,
+                                        entry.arguments?.getString("genre"),
+                                        initialBrowse = entry.arguments?.getString("browse"),
+                                        onOpenSeries = { nav.navigate("series/$it") },
+                                        onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
+                                    )
+                                }
+                            }
+                            composable("updates") {
+                                val vm = koinViewModel<UpdatesViewModel>()
+                                Box(Modifier.fillMaxSize()) {
+                                    UpdatesScreen(
+                                        vm,
+                                        onOpenSeries = { nav.navigate("series/$it") },
+                                        onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                    )
+                                }
+                            }
+                            composable("library") {
+                                val vm = koinViewModel<LibraryViewModel>()
+                                Box(Modifier.fillMaxSize()) {
+                                    LibraryScreen(
+                                        vm,
+                                        onOpenSeries = { nav.navigate("series/$it") },
+                                        onOpenSearch = { nav.navigateTab("search") },
+                                    )
+                                }
+                            }
+                            composable("settings") {
+                                val vm = koinViewModel<SettingsViewModel>()
+                                SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
+                            }
+                            composable("series/{seriesId}") { entry ->
+                                val seriesId = entry.arguments!!.getString("seriesId")!!
+                                val vm = koinViewModel<SeriesViewModel> { parametersOf(seriesId) }
+                                SeriesScreen(
                                     vm,
-                                    entry.arguments?.getString("genre"),
-                                    initialBrowse = entry.arguments?.getString("browse"),
+                                    onOpenChapter = { nav.navigate("series/$seriesId/$it") },
+                                    onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
+                                    onHome = { nav.navigateTab("home") },
+                                    onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
                                     onOpenSeries = { nav.navigate("series/$it") },
                                     onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
                                 )
                             }
-                        }
-                        composable("updates") {
-                            val vm = koinViewModel<UpdatesViewModel>()
-                            Box(Modifier.fillMaxSize()) {
-                                UpdatesScreen(
-                                    vm,
-                                    onOpenSeries = { nav.navigate("series/$it") },
-                                    onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                                )
+                            composable("stats") {
+                                val vm = koinViewModel<StatsViewModel>()
+                                StatsScreen(vm, onBack = { nav.popBackStack() })
                             }
-                        }
-                        composable("library") {
-                            val vm = koinViewModel<LibraryViewModel>()
-                            Box(Modifier.fillMaxSize()) {
-                                LibraryScreen(
+                            composable("downloads") {
+                                val vm = koinViewModel<DownloadsViewModel>()
+                                DownloadsScreen(
                                     vm,
-                                    onOpenSeries = { nav.navigate("series/$it") },
-                                    onOpenSearch = { nav.navigateTab("search") },
-                                )
-                            }
-                        }
-                        composable("settings") {
-                            val vm = koinViewModel<SettingsViewModel>()
-                            SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
-                        }
-                        composable("series/{seriesId}") { entry ->
-                            val seriesId = entry.arguments!!.getString("seriesId")!!
-                            val vm = koinViewModel<SeriesViewModel> { parametersOf(seriesId) }
-                            SeriesScreen(
-                                vm,
-                                onOpenChapter = { nav.navigate("series/$seriesId/$it") },
-                                onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
-                                onHome = { nav.navigateTab("home") },
-                                onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
-                                onOpenSeries = { nav.navigate("series/$it") },
-                                onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
-                            )
-                        }
-                        composable("stats") {
-                            val vm = koinViewModel<StatsViewModel>()
-                            StatsScreen(vm, onBack = { nav.popBackStack() })
-                        }
-                        composable("downloads") {
-                            val vm = koinViewModel<DownloadsViewModel>()
-                            DownloadsScreen(
-                                vm,
-                                onBack = { nav.popBackStack() },
-                                onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                                onOpenSeries = { nav.navigate("series/$it") },
-                            )
-                        }
-                        composable("author/{authorId}?name={name}") { entry ->
-                            val authorId = entry.arguments!!.getString("authorId")!!
-                            val name = entry.arguments?.getString("name").orEmpty()
-                            val vm = koinViewModel<AuthorViewModel>(key = authorId) { parametersOf(authorId) }
-                            AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
-                        }
-                        composable(
-                            "series/{seriesId}/{chapterId}?page={page}",
-                            arguments = listOf(navArgument("page") { type = NavType.IntType; defaultValue = -1 }),
-                        ) { entry ->
-                            val seriesId = entry.arguments!!.getString("seriesId")!!
-                            val chapterId = entry.arguments!!.getString("chapterId")!!
-                            // A bookmark opens at its page. Otherwise the reader picks up where you left off.
-                            val page = entry.arguments!!.getInt("page", -1)
-                            val vm = koinViewModel<ReaderViewModel>(key = "$chapterId@$page") { parametersOf(seriesId, chapterId, page) }
-                            // The reader stays dark in a light app, so its bars and text keep their contrast.
-                            DarkTheme {
-                                ReaderScreen(
-                                    vm,
-                                    seriesId,
-                                    // The next chapter replaces this one, so Back leaves the reader instead of stepping through chapters.
-                                    onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}/{chapterId}?page={page}") { inclusive = true } } },
-                                    // The screen under the reader is the one that opened it: the series page, Home, Stats, or an author.
                                     onBack = { nav.popBackStack() },
+                                    onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                    onOpenSeries = { nav.navigate("series/$it") },
                                 )
+                            }
+                            composable("author/{authorId}?name={name}") { entry ->
+                                val authorId = entry.arguments!!.getString("authorId")!!
+                                val name = entry.arguments?.getString("name").orEmpty()
+                                val vm = koinViewModel<AuthorViewModel>(key = authorId) { parametersOf(authorId) }
+                                AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
+                            }
+                            composable(
+                                "series/{seriesId}/{chapterId}?page={page}",
+                                arguments = listOf(navArgument("page") { type = NavType.IntType; defaultValue = -1 }),
+                            ) { entry ->
+                                val seriesId = entry.arguments!!.getString("seriesId")!!
+                                val chapterId = entry.arguments!!.getString("chapterId")!!
+                                // A bookmark opens at its page. Otherwise the reader picks up where you left off.
+                                val page = entry.arguments!!.getInt("page", -1)
+                                val vm = koinViewModel<ReaderViewModel>(key = "$chapterId@$page") { parametersOf(seriesId, chapterId, page) }
+                                // The reader stays dark in a light app, so its bars and text keep their contrast.
+                                DarkTheme {
+                                    ReaderScreen(
+                                        vm,
+                                        seriesId,
+                                        // The next chapter replaces this one, so Back leaves the reader instead of stepping through chapters.
+                                        onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}/{chapterId}?page={page}") { inclusive = true } } },
+                                        // The screen under the reader is the one that opened it: the series page, Home, Stats, or an author.
+                                        onBack = { nav.popBackStack() },
+                                    )
+                                }
                             }
                         }
                     }
                 }
+                // A new install picks its basics first. With the lock on, the app stays covered until you unlock it.
+                if (!settings.setupDone) {
+                    FirstRunSetup(settings) { change -> scope.launch { app.settingsStore.update(change) } }
+                } else if (settings.appLock && AppLock.locked) {
+                    LockScreen()
+                }
             }
         }
     }
+}
+
+/** Haptic feedback that does nothing, for when you turn haptics off. */
+private object NoHaptics : HapticFeedback {
+    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
 }

@@ -5,8 +5,8 @@ import org.junit.Test
 
 class ContentRatingsTest {
     @Test
-    fun everythingShowsByDefault() {
-        assertEquals(ContentRatings, ratingsFor(Settings().contentRatings))
+    fun newInstallShowsSafeAndSuggestive() {
+        assertEquals(listOf("safe", "suggestive"), ratingsFor(Settings().contentRatings))
     }
 
     @Test

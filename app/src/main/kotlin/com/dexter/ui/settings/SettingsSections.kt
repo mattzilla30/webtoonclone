@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.dexter.data.Accent
 import com.dexter.data.ReaderBackground
 import com.dexter.data.Settings
 import com.dexter.data.ThemeMode
@@ -22,8 +23,14 @@ internal fun AppearanceSection(settings: Settings, update: ((Settings) -> Settin
         ),
         settings.theme,
     ) { choice -> update { it.copy(theme = choice) } }
-    SwitchRow("Material You colors", "Use your wallpaper colors for backgrounds. Accents stay green.", settings.dynamicColor) { on ->
+    SwitchRow("Material You colors", "Use your wallpaper colors, accents included.", settings.dynamicColor) { on ->
         update { it.copy(dynamicColor = on) }
+    }
+    if (!settings.dynamicColor) {
+        ChoiceRow("Accent color", Accent.entries.map { it to it.name }, settings.accent) { choice -> update { it.copy(accent = choice) } }
+    }
+    SwitchRow("Haptics", "A light vibration on taps, switches, and long presses.", settings.haptics) { on ->
+        update { it.copy(haptics = on) }
     }
 }
 

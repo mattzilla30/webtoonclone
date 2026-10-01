@@ -90,7 +90,9 @@ import com.dexter.data.tapAction
 import com.dexter.ui.LoadView
 import com.dexter.ui.SyncedSlider
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -108,6 +110,7 @@ private const val PRELOAD_AHEAD = 4
 private const val AUTO_RETRIES = 2
 private const val RETRY_BASE_MS = 800L
 private const val NEXT_CHAPTER_PRELOAD_AT = 3
+private const val SAVE_PROGRESS_DELAY_MS = 400L
 
 /** On a tablet a vertical strip this wide reads better than one stretched across the screen. */
 private val MAX_STRIP_WIDTH = 720.dp
@@ -187,6 +190,7 @@ fun ReaderScreen(
     }
 }
 
+@OptIn(FlowPreview::class)
 @Composable
 private fun ReaderContent(
     viewModel: ReaderViewModel,
@@ -228,8 +232,13 @@ private fun ReaderContent(
     // A new page or a new mode starts fully zoomed out.
     LaunchedEffect(position, paged) { zoom.reset() }
 
+    // Progress is saved once scrolling pauses, and once more when the reader closes, so fast scrolling does not write for every page.
     LaunchedEffect(Unit) {
-        snapshotFlow { position }.distinctUntilChanged().collect { viewModel.saveProgress(it) }
+        try {
+            snapshotFlow { position }.distinctUntilChanged().debounce(SAVE_PROGRESS_DELAY_MS).collect { viewModel.saveProgress(it) }
+        } finally {
+            viewModel.saveProgress(position)
+        }
     }
 
     // Fetch the next few pages ahead of the reader so they are ready when you arrive.

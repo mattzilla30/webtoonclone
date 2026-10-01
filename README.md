@@ -40,6 +40,16 @@ This is a personal app. The release build is signed with the debug key, so `./gr
 - Reader: keep-screen-on setting, page gap, next-chapter loading choices, and quiet retries for failed pages.
 - A two-pane series page on wide screens, 256 px covers for small tiles, and a one-week cache for the tag list.
 
+## Added during the polish loop
+
+- My Series: three sort modes (recent, A-Z, unread first), counts on list chips, a title filter, "Mark all read", animated rows, and empty states with a next step. The tab carries a badge with the number of subscribed series that have unread chapters.
+- Series page: status, year, demographic and language under the author, "N new" on the Continue button, and shares that include the title.
+- Reader: a separate dimming and background per series, a screen direction lock, the series title in the top bar, and an option to save the next chapter while you read.
+- Search: removable chips for active filters and a helpful empty state.
+- Home and Updates: pull to refresh, a shuffle button on the hero, and a bell on subscribed series in Updates.
+- Settings: a daily reading goal, clear reading history, share your library as text, a link to Android's notification settings, and the app version.
+- A bold D app icon, a Downloads launcher shortcut, and haptic feedback on key toggles.
+
 ## Settings
 
 My Series has a gear icon that opens Settings:

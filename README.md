@@ -49,7 +49,7 @@ This is a personal app. The release build is signed with the debug key, so `./gr
 - Downloads: a confirmation before Remove all. The series info dialog can copy the title or the MangaDex link.
 - Home and Updates: pull to refresh, a shuffle button on the hero, a bell on subscribed series in Updates, and a "Subscribed only" filter.
 - Settings: a daily reading goal, clear reading history, reset reader options, share your library as text, a link to Android's notification settings, and the app version.
-- A bold D app icon, a Downloads launcher shortcut, and haptic feedback on chips, toggles, page jumps, episode buttons and double-tap zoom.
+- An open-book app icon, a Downloads launcher shortcut, and haptic feedback on chips, toggles, page jumps, episode buttons and double-tap zoom.
 
 ## Settings
 

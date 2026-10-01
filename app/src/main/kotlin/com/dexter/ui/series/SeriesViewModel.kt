@@ -1,6 +1,6 @@
 package com.dexter.ui.series
 
-import android.annotation.SuppressLint
+import android.app.Application
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -48,8 +48,7 @@ class SeriesViewModel(
     private val seriesCache: SeriesCacheStore,
     private val settingsStore: SettingsStore,
     private val downloads: DownloadStore,
-    @SuppressLint("StaticFieldLeak") // The application context lives as long as the process.
-    private val context: Context,
+    private val context: Application,
 ) : ViewModel() {
     private val _state = MutableStateFlow<Load<SeriesPage>>(Load.Loading)
     val state: StateFlow<Load<SeriesPage>> = _state

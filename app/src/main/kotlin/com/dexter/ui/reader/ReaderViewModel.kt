@@ -1,6 +1,6 @@
 package com.dexter.ui.reader
 
-import android.annotation.SuppressLint
+import android.app.Application
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -60,8 +60,7 @@ class ReaderViewModel(
     private val seriesCache: SeriesCacheStore,
     private val downloads: DownloadStore,
     private val stats: StatsStore,
-    @SuppressLint("StaticFieldLeak") // The application context lives as long as the process.
-    private val context: Context,
+    private val context: Application,
 ) : ViewModel() {
     /** The settings as this series' reader sees them, with its own dimming and background when it has them. */
     val settings: StateFlow<Settings> = settingsStore.settings

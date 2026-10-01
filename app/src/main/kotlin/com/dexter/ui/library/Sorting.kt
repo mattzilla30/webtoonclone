@@ -26,6 +26,7 @@ fun sortModeOf(alphabetical: Boolean, unreadFirst: Boolean): LibrarySort = when 
  */
 fun sortSaved(items: List<SavedSeries>, mode: LibrarySort, hasUnread: (SavedSeries) -> Boolean = { false }): List<SavedSeries> = when (mode) {
     LibrarySort.Recent -> items
-    LibrarySort.Alphabetical -> items.sortedBy { it.title.lowercase() }
+    // Lowercase each title once, not on every comparison.
+    LibrarySort.Alphabetical -> items.map { it to it.title.lowercase() }.sortedBy { it.second }.map { it.first }
     LibrarySort.UnreadFirst -> items.sortedByDescending { hasUnread(it) }
 }

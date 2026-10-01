@@ -27,7 +27,9 @@ import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
@@ -70,6 +72,7 @@ import com.dexter.ui.iconTap
 import com.dexter.ui.series.hasUnreadChapters
 import com.dexter.ui.timeAgo
 import kotlinx.coroutines.delay
+import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
 
 @Composable
@@ -90,21 +93,29 @@ fun LibraryScreen(
     val selected = remember { mutableStateListOf<String>() }
     val sortMode = sortModeOf(library.sortAlphabetical, library.sortUnreadFirst)
     val collection = collectionFilter?.takeIf { tab == LibraryList.Lists && it in library.collections }
-    val tabItems = when {
-        collection != null -> library.collections.getValue(collection)
-        tab == LibraryList.Lists && statusFilter == null -> (library.lists + library.collections.values.flatten()).distinctBy { it.id }
-        else -> listFor(library, tab)
+    val tabItems = remember(library, tab, collection, statusFilter) {
+        when {
+            collection != null -> library.collections.getValue(collection)
+            tab == LibraryList.Lists && statusFilter == null -> (library.lists + library.collections.values.flatten()).distinctBy { it.id }
+            else -> listFor(library, tab)
+        }
     }
-    val lastReadNumber = { series: SavedSeries -> library.recent.firstOrNull { it.id == series.id }?.chapterNumber }
-    val items = sortSaved(
-        filterSaved(
-            if (tab == LibraryList.Lists && collection == null) tabItems.filter { statusFilter == null || it.status?.name == statusFilter } else tabItems,
-            query,
-            unreadOnly && subscribedTab,
-        ) { hasUnreadChapters(it.knownChapterNumber, lastReadNumber(it)) },
-        sortMode,
-        hasUnread = { hasUnreadChapters(it.knownChapterNumber, lastReadNumber(it)) },
-    )
+    val items = remember(library, tabItems, tab, collection, statusFilter, query, unreadOnly, sortMode) {
+        // One pass over the read list, so each series looks up its last chapter without scanning it again.
+        val lastRead = HashMap<String, String?>()
+        for (read in library.recent) lastRead.putIfAbsent(read.id, read.chapterNumber)
+        val unread = { series: SavedSeries -> hasUnreadChapters(series.knownChapterNumber, lastRead[series.id]) }
+        sortSaved(
+            filterSaved(
+                if (tab == LibraryList.Lists && collection == null) tabItems.filter { statusFilter == null || it.status?.name == statusFilter } else tabItems,
+                query,
+                unreadOnly && subscribedTab,
+                unread,
+            ),
+            sortMode,
+            hasUnread = unread,
+        )
+    }
 
     var undo by remember { mutableStateOf<UndoState?>(null) }
 
@@ -113,7 +124,7 @@ fun LibraryScreen(
             AppTopBar(
                 stringResource(R.string.my_series),
                 actions = {
-                    androidx.compose.material3.FilledTonalIconToggleButton(
+                    FilledTonalIconToggleButton(
                         checked = library.notificationsEnabled,
                         onCheckedChange = { viewModel.setNotifications(it) },
                     ) {
@@ -123,14 +134,14 @@ fun LibraryScreen(
                         )
                     }
                     if (items.size > 1) {
-                        androidx.compose.material3.IconButton(onClick = {
+                        IconButton(onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
                             onOpenSeries(items.random().id)
                         }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Pick one at random")
                         }
                     }
-                    androidx.compose.material3.IconButton(onClick = onOpenSearch) {
+                    IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
                     }
                 },
@@ -275,7 +286,7 @@ fun LibraryScreen(
                                         series.status?.let { Text(it.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
                                     }
                                     series.chapterNumber?.let {
-                                        val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(java.time.Instant.ofEpochMilli(series.at)) else ""
+                                        val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(Instant.ofEpochMilli(series.at)) else ""
                                         Text("Ep. $it$readAt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }

@@ -2,6 +2,7 @@ package com.dexter.ui.reader
 
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.view.HapticFeedbackConstants
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -325,7 +326,7 @@ private fun ReaderContent(
                         }
                     },
                     onDoubleTap = { offset ->
-                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         zoom.toggle(offset, container)
                     },
                 )
@@ -449,13 +450,13 @@ private fun ReaderContent(
                                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.chapters))
                             }
                             IconButton(onClick = {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 onOpenChapter(page.prevId!!)
                             }, enabled = page.prevId != null, colors = barIcons) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_episode))
                             }
                             IconButton(onClick = {
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 onOpenChapter(page.nextId!!)
                             }, enabled = page.nextId != null, colors = barIcons) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.next_episode))
@@ -484,7 +485,7 @@ private fun ReaderContent(
                     TextButton(
                         enabled = target != null && target in 1..count,
                         onClick = {
-                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                             scope.launch { goToPage((target ?: 1) - 1) }
                             jumpTo = null
                         },

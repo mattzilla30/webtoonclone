@@ -147,7 +147,8 @@ fun SeriesScreen(
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LoadView(state, onRetry = viewModel::load) { page ->
             val summary = page.detail.summary
-            val readable = page.chapters.filter { it.externalUrl == null }
+            val readable = remember(page.chapters) { page.chapters.filter { it.externalUrl == null } }
+            val listItems = remember(page.chapters) { groupByVolume(page.chapters) }
             // With older chapters still unloaded, the oldest loaded one is not Episode 1.
             val startAt = if (page.hasMore) readable.firstOrNull() else readable.lastOrNull()
             val listState = rememberLazyListState()
@@ -434,7 +435,6 @@ fun SeriesScreen(
                         }
                     }
                 }
-                val listItems = groupByVolume(page.chapters)
                 items(listItems, key = { item -> if (item is ChapterListItem.Entry) item.chapter.id else "volume-${(item as ChapterListItem.VolumeHeader).label}" }) { item ->
                     when (item) {
                         is ChapterListItem.VolumeHeader -> Text(

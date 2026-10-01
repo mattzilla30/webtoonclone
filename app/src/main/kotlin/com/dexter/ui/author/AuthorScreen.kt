@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,7 +57,7 @@ fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, o
             name.ifBlank { "Author" },
             onBack,
             actions = {
-                androidx.compose.material3.ToggleButton(
+                ToggleButton(
                     checked = following,
                     onCheckedChange = {
                         haptics.performHapticFeedback(if (it) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)

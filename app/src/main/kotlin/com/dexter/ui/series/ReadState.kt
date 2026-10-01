@@ -1,5 +1,7 @@
 package com.dexter.ui.series
 
+import com.dexter.data.Chapter
+
 /**
  * True when [number] is at or before the last chapter you opened. Chapter numbers can be
  * fractional ("12.5"), so this compares them as numbers. Unnumbered chapters such as "Oneshot"
@@ -25,14 +27,18 @@ fun hasUnreadChapters(knownNumber: String?, lastReadNumber: String?): Boolean {
  * The chapter that becomes "last read" when you mark [chapter] and everything after it unread: the
  * next older readable chapter. The list is newest first, so older chapters come later in it.
  */
-fun previousReadable(chapters: List<com.dexter.data.Chapter>, chapter: com.dexter.data.Chapter): com.dexter.data.Chapter? =
-    chapters.dropWhile { it.id != chapter.id }.drop(1).firstOrNull { it.externalUrl == null }
+fun previousReadable(chapters: List<Chapter>, chapter: Chapter): Chapter? {
+    val at = chapters.indexOfFirst { it.id == chapter.id }
+    if (at < 0) return null
+    for (index in at + 1 until chapters.size) if (chapters[index].externalUrl == null) return chapters[index]
+    return null
+}
 
 /**
  * How many readable chapters come after the last one you read. The list is newest first, so the
  * unread ones are always among the chapters loaded first. Zero when nothing has been read yet.
  */
-fun unreadChapterCount(chapters: List<com.dexter.data.Chapter>, lastReadNumber: String?): Int {
+fun unreadChapterCount(chapters: List<Chapter>, lastReadNumber: String?): Int {
     val last = lastReadNumber?.toDoubleOrNull() ?: return 0
     return chapters.count { it.externalUrl == null && (it.number.toDoubleOrNull() ?: return@count false) > last }
 }

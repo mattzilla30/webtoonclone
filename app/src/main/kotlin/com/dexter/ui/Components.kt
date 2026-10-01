@@ -27,11 +27,16 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -54,6 +59,13 @@ import coil3.compose.AsyncImage
 import com.dexter.R
 import com.dexter.data.SeriesSummary
 import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 fun compact(n: Int): String = when {
     n >= 1_000_000 -> "%.1fM".format(n / 1_000_000.0)
@@ -178,20 +190,20 @@ fun PickTile(
 }
 
 /** "5 min ago", "3 h ago", "2 d ago", or a date for anything older than a month. */
-fun timeAgo(iso: String, now: java.time.Instant = java.time.Instant.now()): String {
-    val time = runCatching { java.time.OffsetDateTime.parse(iso).toInstant() }.getOrNull() ?: return ""
+fun timeAgo(iso: String, now: Instant = Instant.now()): String {
+    val time = runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrNull() ?: return ""
     return timeAgo(time, now)
 }
 
-fun timeAgo(time: java.time.Instant, now: java.time.Instant = java.time.Instant.now()): String {
-    val minutes = java.time.Duration.between(time, now).toMinutes().coerceAtLeast(0)
+fun timeAgo(time: Instant, now: Instant = Instant.now()): String {
+    val minutes = Duration.between(time, now).toMinutes().coerceAtLeast(0)
     return when {
         minutes < 1 -> "just now"
         minutes < 60 -> "$minutes min ago"
         minutes < 60 * 24 -> "${minutes / 60} h ago"
         minutes < 60 * 24 * 30 -> "${minutes / (60 * 24)} d ago"
-        else -> java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
-            .format(java.time.LocalDate.ofInstant(time, java.time.ZoneId.systemDefault()))
+        else -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+            .format(LocalDate.ofInstant(time, ZoneId.systemDefault()))
     }
 }
 
@@ -220,7 +232,7 @@ fun OfflineBanner(savedAt: Long, what: String, onRetry: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
-            "Offline. Showing $what saved ${timeAgo(java.time.Instant.ofEpochMilli(savedAt))}. Tap to retry.",
+            "Offline. Showing $what saved ${timeAgo(Instant.ofEpochMilli(savedAt))}. Tap to retry.",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
@@ -235,7 +247,7 @@ fun AppTopBar(
     subtitle: String? = null,
     actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
 ) {
-    androidx.compose.material3.TopAppBar(
+    TopAppBar(
         title = {
             Column {
                 Text(title, style = MaterialTheme.typography.headlineSmallEmphasized)
@@ -246,7 +258,7 @@ fun AppTopBar(
         },
         navigationIcon = {
             if (onBack != null) {
-                androidx.compose.material3.IconButton(onClick = onBack) {
+                IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
             }
@@ -259,9 +271,9 @@ fun AppTopBar(
 /** A slider that follows [value] from outside and reports changes, built on the state-based Slider. */
 @Composable
 fun SyncedSlider(value: Float, onValueChange: (Float) -> Unit, valueRange: ClosedFloatingPointRange<Float>, modifier: Modifier = Modifier) {
-    val state = androidx.compose.runtime.remember { androidx.compose.material3.SliderState(value, 0, valueRange) }
-    androidx.compose.runtime.LaunchedEffect(value) { if (state.value != value) state.value = value }
-    androidx.compose.material3.Slider(state = state, onValueChange = onValueChange, modifier = modifier)
+    val state = remember { SliderState(value, 0, valueRange) }
+    LaunchedEffect(value) { if (state.value != value) state.value = value }
+    Slider(state = state, onValueChange = onValueChange, modifier = modifier)
 }
 
 /** A small button that scrolls [listState] back to the top once the list is a few rows down. Place it in a Box over the list. */

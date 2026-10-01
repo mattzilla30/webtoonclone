@@ -278,3 +278,14 @@ fun ConfirmDialog(title: String, text: String, confirmLabel: String, onConfirm: 
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
+
+/** A rounded card row, as used in lists of settings and shortcuts. It is tappable when [onClick] is given. */
+@Composable
+fun CardRow(onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    val modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+    if (onClick != null) {
+        Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = modifier, content = content)
+    } else {
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = modifier, content = content)
+    }
+}

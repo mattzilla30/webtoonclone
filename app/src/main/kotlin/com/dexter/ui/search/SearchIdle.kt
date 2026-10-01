@@ -23,7 +23,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,6 +42,7 @@ import com.dexter.data.SavedSearch
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
+import com.dexter.ui.CardRow
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
 
@@ -64,12 +64,7 @@ internal fun Idle(
         }
         // Titles that match what is being typed, before the browse lists.
         items(suggestions, key = { it.id }) { series ->
-            Surface(
-                onClick = { onOpenSeries(series.id) },
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-            ) {
+            CardRow(onClick = { onOpenSeries(series.id) }) {
                 Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Cover(series.coverUrl, series.title, Modifier.width(40.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.extraSmall), contentScale = ContentScale.Crop, thumb = true)
                     Column(Modifier.padding(start = 12.dp)) {

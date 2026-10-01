@@ -40,6 +40,7 @@ import com.dexter.data.ContentTags
 import com.dexter.data.Formats
 import com.dexter.data.Genres
 import com.dexter.data.Themes
+import com.dexter.ui.CardRow
 import com.dexter.ui.ChoiceChip
 
 @Composable
@@ -50,11 +51,7 @@ internal fun SectionTitle(text: String) {
 @Composable
 internal fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val haptics = LocalHapticFeedback.current
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-    ) {
+    CardRow {
         Row(
             Modifier.toggleable(
                 value = checked,
@@ -86,11 +83,7 @@ internal fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChan
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-    ) {
+    CardRow {
         Column(Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -103,7 +96,7 @@ internal fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, select
 /** An hour of the day (0 to 23) with minus and plus buttons that wrap around midnight. */
 @Composable
 internal fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+    CardRow {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             FilledTonalIconButton(onClick = { onChange((hour + 23) % 24) }) { Text("\u2212", style = MaterialTheme.typography.titleMediumEmphasized) }
@@ -155,6 +148,6 @@ internal fun InfoRow(
     if (onClick != null) {
         Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { content() }
     } else {
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { content() }
+        CardRow { content() }
     }
 }

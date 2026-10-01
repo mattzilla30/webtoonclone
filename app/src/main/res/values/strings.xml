@@ -68,6 +68,8 @@
     <string name="most_read">Most read</string>
     <string name="downloads">Downloads</string>
     <string name="remove_all">Remove all</string>
+    <string name="remove_all_downloads_title">Remove all downloads?</string>
+    <string name="remove_all_downloads_text">This deletes %1$s of saved chapters from this device. You can download them again later.</string>
     <string name="filter_by_title">Filter by title</string>
     <string name="save_this_search">Save this search</string>
     <string name="save">Save</string>

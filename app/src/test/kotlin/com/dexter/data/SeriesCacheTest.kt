@@ -1,6 +1,5 @@
 package com.dexter.data
 
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -11,34 +10,27 @@ class SeriesCacheTest {
         savedAt = savedAt,
     )
 
-    private fun ids(list: List<CachedSeries>) = list.map { it.detail.summary.id }
-
     @Test
-    fun theNewestSeriesGoesFirst() {
-        assertEquals(listOf("c", "a", "b"), ids(mergeCache(listOf(cached("a"), cached("b")), cached("c"))))
+    fun eachSeriesAndLanguageGetsItsOwnFile() {
+        assertEquals("abc_en.json", cacheFileName("abc", "en"))
+        assertEquals(false, cacheFileName("abc", "en") == cacheFileName("abc", "es-la"))
     }
 
     @Test
-    fun reopeningASeriesReplacesItsOldCopy() {
-        val merged = mergeCache(listOf(cached("a", 1), cached("b", 1)), cached("b", 2))
-        assertEquals(listOf("b", "a"), ids(merged))
-        assertEquals(2L, merged.first().savedAt)
+    fun theOldestFilesDropOffAtTheLimit() {
+        val files = (1..MAX_CACHED_SERIES + 2).map { "s$it.json" to it.toLong() }
+        assertEquals(listOf("s2.json", "s1.json"), cacheFilesToDrop(files))
     }
 
     @Test
-    fun theOldestSeriesDropOffAtTheLimit() {
-        val old = (1..MAX_CACHED_SERIES).map { cached("s$it") }
-        val merged = mergeCache(old, cached("new"))
-        assertEquals(MAX_CACHED_SERIES, merged.size)
-        assertEquals("new", merged.first().detail.summary.id)
-        assertEquals(false, "s$MAX_CACHED_SERIES" in ids(merged))
+    fun nothingDropsBelowTheLimit() {
+        assertEquals(emptyList<String>(), cacheFilesToDrop(listOf("a.json" to 1L, "b.json" to 2L)))
     }
 
     @Test
     fun aSavedSeriesReadsBackIdentically() {
-        val json = Json { ignoreUnknownKeys = true }
         val original = cached("a")
-        val back = json.decodeFromString<CachedSeries>(json.encodeToString(CachedSeries.serializer(), original))
+        val back = StoredJson.decodeFromString(CachedSeries.serializer(), StoredJson.encodeToString(CachedSeries.serializer(), original))
         assertEquals(original, back)
     }
 }

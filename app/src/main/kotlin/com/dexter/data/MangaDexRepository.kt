@@ -1,14 +1,14 @@
 package com.dexter.data
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -406,8 +406,7 @@ class MangaDexRepository(
         val saver = dataSaver
         val key = "$chapterId:${if (saver) "saver" else "full"}"
         if (!forceRefresh) pageUrls.get(key)?.let { return it }
-        val body = fetch("$API/at-home/server/$chapterId".toHttpUrl())
-        val home = json.decodeFromString<AtHomeDto>(body)
+        val home = fetchJson<AtHomeDto>("$API/at-home/server/$chapterId".toHttpUrl())
         val chapter = home.chapter
         val urls = if (saver && chapter.dataSaver.isNotEmpty()) {
             chapter.dataSaver.map { "${home.baseUrl}/data-saver/${chapter.hash}/$it" }
@@ -452,10 +451,9 @@ class MangaDexRepository(
         emptyMap()
     }
 
-    private suspend fun fetch(url: HttpUrl): String = http.get(url)
-
-    /** Fetches [url] and decodes it off the main thread, since a page of chapters or series is a lot of JSON. */
-    private suspend inline fun <reified T> fetchJson(url: HttpUrl): T = withContext(Dispatchers.Default) { json.decodeFromString<T>(http.get(url)) }
+    /** Fetches [url] and decodes it as it streams in, on the network thread, so the main thread never sees the JSON. */
+    @OptIn(ExperimentalSerializationApi::class)
+    private suspend inline fun <reified T> fetchJson(url: HttpUrl): T = http.get(url) { source -> json.decodeFromStream<T>(source.inputStream()) }
 
     private fun MangaDto.toSummary(): SeriesSummary {
         val file = relationships.firstOrNull { it.type == "cover_art" }?.attributes?.fileName

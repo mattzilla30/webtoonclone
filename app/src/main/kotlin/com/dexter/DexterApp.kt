@@ -15,6 +15,7 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.ProgressStore
 import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SettingsStore
+import com.dexter.di.BASE_CLIENT
 import com.dexter.di.appModule
 import com.dexter.notify.AutoBackupWorker
 import com.dexter.notify.NewChaptersWorker
@@ -32,6 +33,7 @@ import okio.Path.Companion.toOkioPath
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
+import org.koin.core.qualifier.named
 import java.io.File
 
 private const val IMAGE_CACHE_BYTES = 250L * 1024 * 1024
@@ -52,6 +54,8 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val seriesCache: SeriesCacheStore by inject()
     val downloadStore: DownloadStore by inject()
     val backupService: BackupService by inject()
+    private val baseClient: OkHttpClient by inject(named(BASE_CLIENT))
+    private val imageReporter: ImageReporter by inject()
 
     override fun onCreate() {
         super.onCreate()
@@ -80,8 +84,8 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
 
     /** Page and cover images. Loads from MangaDex@Home servers are reported when allowed. */
     override fun newImageLoader(context: Context): ImageLoader {
-        val client = OkHttpClient.Builder()
-            .addInterceptor(ImageReportInterceptor(ImageReporter()::send) { reportImageLoads })
+        val client = baseClient.newBuilder()
+            .addInterceptor(ImageReportInterceptor(imageReporter::send) { reportImageLoads })
             // A chapter's pages come from one image server. The default of 5 at a time holds back the pages being prefetched.
             .dispatcher(Dispatcher().apply { maxRequestsPerHost = IMAGE_REQUESTS_PER_HOST })
             .build()

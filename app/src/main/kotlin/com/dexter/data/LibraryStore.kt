@@ -63,20 +63,17 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     private val fresh: Flow<LibraryData> = flow {
         ensureMigrated()
         emitAll(
-            combine(
-                dao.observe(LibraryList.Recent.key),
-                dao.observe(LibraryList.Subscribed.key),
-                dao.observe(LibraryList.Lists.key),
-                dao.observeSearches(),
-                scalars,
-            ) { recent, subscribed, lists, searches, scalar ->
+            // One query reads all three lists. Room reruns a query on any write to its table, so three separate
+            // queries meant three reads per change where one does.
+            combine(dao.observeAll(), dao.observeSearches(), scalars) { rows, searches, scalar ->
+                val byList = rows.groupBy({ it.listName }, { it.toSaved() })
                 scalar.copy(
-                    recent = recent.map { it.toSaved() },
-                    subscribed = subscribed.map { it.toSaved() },
-                    lists = lists.map { it.toSaved() },
+                    recent = byList[LibraryList.Recent.key].orEmpty(),
+                    subscribed = byList[LibraryList.Subscribed.key].orEmpty(),
+                    lists = byList[LibraryList.Lists.key].orEmpty(),
                     searches = searches.map { it.term },
                 )
-            }.distinctUntilChanged(), // A write to one list re-runs every list's query, so drop repeats of the same library.
+            }.distinctUntilChanged(), // A write that changes nothing visible, such as a rewrite with the same rows, draws nothing.
         )
     }
 

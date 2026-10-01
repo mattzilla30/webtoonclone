@@ -133,7 +133,7 @@ fun HomeScreen(
                     home.hero?.let { hero -> item { Hero(hero, onOpenSearch, onShuffle = viewModel::retry) { onOpenSeries(hero.id) } } }
 
                     if (recent.isNotEmpty()) {
-                        item { SectionHeader("Continue Reading") }
+                        item(contentType = "header") { SectionHeader("Continue Reading") }
                         item {
                             val carousel = rememberCarouselState { recent.size }
                             HorizontalUncontainedCarousel(
@@ -167,14 +167,14 @@ fun HomeScreen(
                         }
                     }
 
-                    item { SectionHeader("New Series") }
-                    items(home.newSeries, key = { it.id }) { series ->
+                    item(contentType = "header") { SectionHeader("New Series") }
+                    items(home.newSeries, key = { it.id }, contentType = { "new-series" }) { series ->
                         NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
                     }
 
-                    item { SectionHeader("Today's Picks") }
+                    item(contentType = "header") { SectionHeader("Today's Picks") }
                     val pickRows = home.picks.chunked(columns)
-                    items(pickRows, key = { it.first().id }) { rowSeries ->
+                    items(pickRows, key = { it.first().id }, contentType = { "picks" }) { rowSeries ->
                         Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             rowSeries.forEach { series ->
                                 PickTile(

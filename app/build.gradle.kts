@@ -46,6 +46,12 @@ android {
 
     buildFeatures { compose = true }
 
+    // The dependency list Google Play reads is of no use to a personal build, so it stays out of the APK.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     lint {
         // The app ships arm64-v8a only, by design, so the missing x86_64 support is expected.
         disable += "ChromeOsAbiSupport"
@@ -59,6 +65,12 @@ kotlin {
         // Material 3 Expressive is marked experimental while it settles. The whole app uses it.
         optIn.add("androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
     }
+}
+
+// The app's data classes never change after they are made, and neither do the lists inside them. Telling the
+// Compose compiler so lets a screen skip redrawing when the data it was handed is the same as last time.
+composeCompiler {
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose-stability.conf"))
 }
 
 dependencies {

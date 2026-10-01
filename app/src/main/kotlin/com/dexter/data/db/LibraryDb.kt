@@ -46,8 +46,9 @@ data class SearchEntity(
 
 @Dao
 interface LibraryDao {
-    @Query("SELECT * FROM saved_series WHERE listName = :list ORDER BY position")
-    fun observe(list: String): Flow<List<SavedSeriesEntity>>
+    /** Every saved series in every list, in list order. One query feeds all three lists. */
+    @Query("SELECT * FROM saved_series ORDER BY listName, position")
+    fun observeAll(): Flow<List<SavedSeriesEntity>>
 
     @Query("SELECT * FROM saved_series WHERE listName = :list ORDER BY position")
     suspend fun get(list: String): List<SavedSeriesEntity>

@@ -37,7 +37,7 @@ fun SeriesGrid(series: List<SeriesSummary>, loadingMore: Boolean, onLoadMore: ()
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = listState) {
-            items(rows, key = { it.first().id }) { pair ->
+            items(rows, key = { it.first().id }, contentType = { "tiles" }) { pair ->
                 Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
                     repeat(columns - pair.size) { Box(Modifier.weight(1f)) }

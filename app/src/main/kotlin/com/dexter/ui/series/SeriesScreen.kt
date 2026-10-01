@@ -365,7 +365,12 @@ fun SeriesScreen(
                         }
                     }
                 }
-                items(listItems, key = { item -> if (item is ChapterListItem.Entry) item.chapter.id else "volume-${(item as ChapterListItem.VolumeHeader).label}" }) { item ->
+                items(
+                    listItems,
+                    key = { item -> if (item is ChapterListItem.Entry) item.chapter.id else "volume-${(item as ChapterListItem.VolumeHeader).label}" },
+                    // Headings and chapter rows recycle separately, so a scrolled-off row is reused for another row.
+                    contentType = { item -> if (item is ChapterListItem.Entry) 0 else 1 },
+                ) { item ->
                     when (item) {
                         is ChapterListItem.VolumeHeader -> Text(
                             item.label,

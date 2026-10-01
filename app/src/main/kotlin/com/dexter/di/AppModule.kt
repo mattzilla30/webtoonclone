@@ -33,12 +33,19 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
 
+/** The plain client the others are built from. */
+const val BASE_CLIENT = "base"
+
 /**
  * Everything the app builds once, and how each screen's view model is made. Series, reader, and
  * author view models take their ids as parameters when a screen asks for them.
  */
 val appModule = module {
-    single<OkHttpClient> { cachingClient(File(androidContext().cacheDir, "api")) }
+    // One connection pool and thread pool under every client. Page images, downloads, and reports go to the same
+    // image servers, so a connection one opens, another reuses instead of paying for a new TLS handshake.
+    single(named(BASE_CLIENT)) { OkHttpClient() }
+    single<OkHttpClient> { cachingClient(File(androidContext().cacheDir, "api"), get(named(BASE_CLIENT))) }
+    single { ImageReporter(get(named(BASE_CLIENT))) }
     single { SettingsStore(androidContext()) }
     single {
         val settings = get<SettingsStore>()
@@ -50,8 +57,8 @@ val appModule = module {
     }
     single { LibraryStore(androidContext(), get()) }
     single(named("downloads")) {
-        OkHttpClient.Builder()
-            .addInterceptor(ImageReportInterceptor(ImageReporter()::send) { (androidApplication() as DexterApp).reportImageLoads })
+        get<OkHttpClient>(named(BASE_CLIENT)).newBuilder()
+            .addInterceptor(ImageReportInterceptor(get<ImageReporter>()::send) { (androidApplication() as DexterApp).reportImageLoads })
             .build()
     }
     single { StatsStore(get()) }

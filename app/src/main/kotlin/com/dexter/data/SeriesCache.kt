@@ -1,17 +1,13 @@
 package com.dexter.data
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
-
-private val Context.seriesCacheDataStore by preferencesDataStore(name = "series_cache")
-private val ENTRIES = stringPreferencesKey("entries")
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
+import java.io.File
 
 /** How many series pages are kept, and how many chapters of each. */
 const val MAX_CACHED_SERIES = 10
@@ -28,26 +24,45 @@ data class CachedSeries(
     val language: String = "en",
 )
 
-/** Puts [added] first and drops any older copy of the same series, keeping at most [max]. */
-fun mergeCache(old: List<CachedSeries>, added: CachedSeries, max: Int = MAX_CACHED_SERIES): List<CachedSeries> =
-    (listOf(added) + old.filter { it.detail.summary.id != added.detail.summary.id }).take(max)
+/** The file name for one series in one language. Series ids are UUIDs and language codes are letters and dashes. */
+fun cacheFileName(seriesId: String, language: String): String = "${seriesId}_$language.json"
 
-/** The most recently opened series pages, kept on the device. */
+/** Of [files] as (name, last saved time), the ones past the newest [max], which the cache deletes. */
+fun cacheFilesToDrop(files: List<Pair<String, Long>>, max: Int = MAX_CACHED_SERIES): List<String> =
+    files.sortedByDescending { it.second }.drop(max).map { it.first }
+
+/**
+ * The most recently opened series pages, one small file each. Opening a chapter or a series reads only the
+ * file for that series, where the old single store decoded every saved series to find one.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 class SeriesCacheStore(private val context: Context) {
     private val json = StoredJson
-    private val serializer = ListSerializer(CachedSeries.serializer())
+    private val dir = File(context.filesDir, "series_cache")
 
-    suspend fun save(series: CachedSeries) {
-        context.seriesCacheDataStore.edit { prefs ->
-            val old = prefs[ENTRIES]?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }.orEmpty()
-            prefs[ENTRIES] = json.encodeToString(serializer, mergeCache(old, series))
-        }
+    @Volatile private var oldStoreRemoved = false
+
+    suspend fun save(series: CachedSeries) = withContext(Dispatchers.IO) {
+        removeOldStore()
+        dir.mkdirs()
+        val target = File(dir, cacheFileName(series.detail.summary.id, series.language))
+        val temp = File(dir, target.name + ".part")
+        temp.outputStream().buffered().use { json.encodeToStream(CachedSeries.serializer(), series, it) }
+        if (!temp.renameTo(target)) temp.delete()
+        val files = dir.listFiles { file -> file.name.endsWith(".json") }.orEmpty().map { it.name to it.lastModified() }
+        cacheFilesToDrop(files).forEach { File(dir, it).delete() }
     }
 
-    /** Reads and decodes the saved pages off the main thread, since the copy holds every saved series. */
-    suspend fun load(seriesId: String, language: String = "en"): CachedSeries? = withContext(Dispatchers.Default) {
-        val raw = context.seriesCacheDataStore.data.first()[ENTRIES] ?: return@withContext null
-        val all = runCatching { json.decodeFromString(serializer, raw) }.getOrNull() ?: return@withContext null
-        all.firstOrNull { it.detail.summary.id == seriesId && it.language == language }
+    suspend fun load(seriesId: String, language: String = "en"): CachedSeries? = withContext(Dispatchers.IO) {
+        val file = File(dir, cacheFileName(seriesId, language))
+        if (!file.exists()) return@withContext null
+        runCatching { file.inputStream().buffered().use { json.decodeFromStream(CachedSeries.serializer(), it) } }.getOrNull()
+    }
+
+    /** The cache used to live in one preferences file. It is only a cache, so the old copy is deleted, not moved. */
+    private fun removeOldStore() {
+        if (oldStoreRemoved) return
+        File(context.filesDir, "datastore/series_cache.preferences_pb").delete()
+        oldStoreRemoved = true
     }
 }

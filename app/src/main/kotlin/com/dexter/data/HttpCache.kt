@@ -22,9 +22,9 @@ fun cacheControlFor(encodedPath: String): String = when {
     else -> "public, max-age=$API_MAX_AGE_SECONDS"
 }
 
-/** An HTTP client that keeps API responses for a minute in [directory]. */
-fun cachingClient(directory: File): OkHttpClient =
-    OkHttpClient.Builder()
+/** An HTTP client that keeps API responses for a minute in [directory]. Built on [base], so it shares its connections. */
+fun cachingClient(directory: File, base: OkHttpClient = OkHttpClient()): OkHttpClient =
+    base.newBuilder()
         .cache(Cache(directory, CACHE_BYTES))
         .addNetworkInterceptor(
             Interceptor { chain ->

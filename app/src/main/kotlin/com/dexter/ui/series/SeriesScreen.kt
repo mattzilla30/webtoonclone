@@ -1,6 +1,7 @@
 package com.dexter.ui.series
 
 import android.Manifest
+import android.content.ClipData
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -63,6 +64,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -74,6 +76,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -105,6 +109,7 @@ import com.dexter.ui.formatChapterDate
 import com.dexter.ui.iconTap
 import com.dexter.ui.timeAgo
 import com.dexter.ui.windowWidthDp
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
@@ -659,6 +664,13 @@ private fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOpe
             }
             TextButton(onClick = onOpenCovers) { Text(stringResource(R.string.covers)) }
             TextButton(onClick = { onOpenLink("https://mangadex.org/title/${detail.summary.id}") }) { Text("Open on MangaDex") }
+            val clipboard = LocalClipboard.current
+            val scope = rememberCoroutineScope()
+            TextButton(
+                onClick = {
+                    scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("Title", detail.summary.title))) }
+                },
+            ) { Text("Copy title") }
             if (detail.links.isNotEmpty()) {
                 Text(stringResource(R.string.links), style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(top = 12.dp))
                 detail.links.forEach { link ->

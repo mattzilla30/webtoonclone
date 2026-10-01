@@ -48,6 +48,11 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     private val _pending = MutableStateFlow<Backup?>(null)
     val pending: StateFlow<Backup?> = _pending
 
+    /** Shows [text] in the screen's message dialog. */
+    fun showMessage(text: String) {
+        _message.value = text
+    }
+
     fun clearMessage() {
         _message.value = null
     }

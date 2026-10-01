@@ -246,7 +246,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 subtitle = "A list of your titles to send to a friend or keep in a note.",
                 onClick = {
                     val text = libraryText(library)
-                    if (text.isNotBlank()) {
+                    if (text.isBlank()) {
+                        viewModel.showMessage("Your library is empty. Read, subscribe to, or list a series first.")
+                    } else {
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, text)

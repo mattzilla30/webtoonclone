@@ -18,6 +18,12 @@ class LibraryTextTest {
     }
 
     @Test
+    fun aLibraryWithOnlyRecentReadsStillShares() {
+        val library = LibraryData(recent = listOf(SavedSeries("1", "zebra"), SavedSeries("2", "Apple")))
+        assertEquals("Recently read (2)\n- Apple\n- zebra", libraryText(library))
+    }
+
+    @Test
     fun emptyLibraryIsEmptyText() {
         assertEquals("", libraryText(LibraryData()))
     }

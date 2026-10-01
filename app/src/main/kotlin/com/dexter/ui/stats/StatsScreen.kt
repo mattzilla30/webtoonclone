@@ -71,10 +71,10 @@ fun StatsScreen(viewModel: StatsViewModel, onBack: () -> Unit) {
                     Figure("Best streak", current.longestStreakDays.toString())
                     Figure("Per day (30 days)", "%.1f".format(current.averagePerDay))
                 }
-                Text(stringResource(R.string.this_week), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                Text(stringResource(R.string.this_week), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
                 DayBars(current)
                 if (current.topSeries.isNotEmpty()) {
-                    Text(stringResource(R.string.most_read), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+                    Text(stringResource(R.string.most_read), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
                     current.topSeries.forEach { (title, count) ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))

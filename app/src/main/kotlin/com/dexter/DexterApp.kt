@@ -82,7 +82,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     /** Page and cover images. Loads from MangaDex@Home servers are reported when allowed. */
     override fun newImageLoader(context: Context): ImageLoader {
         val client = OkHttpClient.Builder()
-            .addInterceptor(ImageReportInterceptor(ImageReporter()) { reportImageLoads })
+            .addInterceptor(ImageReportInterceptor(ImageReporter()::send) { reportImageLoads })
             // A chapter's pages come from one image server. The default of 5 at a time holds back the pages being prefetched.
             .dispatcher(Dispatcher().apply { maxRequestsPerHost = IMAGE_REQUESTS_PER_HOST })
             .build()

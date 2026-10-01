@@ -69,4 +69,32 @@ class ImageReportTest {
         assertTrue(obj["success"]!!.jsonPrimitive.boolean)
         assertEquals(42L, obj["bytes"]!!.jsonPrimitive.long)
     }
+
+    private fun sentBy(failure: Boolean, cancel: Boolean): List<ImageReport> {
+        val sent = mutableListOf<ImageReport>()
+        val client = okhttp3.OkHttpClient.Builder()
+            .addInterceptor(ImageReportInterceptor({ sent += it }) { true })
+            .addInterceptor(
+                okhttp3.Interceptor { chain ->
+                    if (cancel) chain.call().cancel()
+                    if (failure) throw java.io.IOException("boom")
+                    response(chain.request(), 200, "x")
+                },
+            )
+            .build()
+        runCatching { client.newCall(request("https://abc.def.mangadex.network/data/1.jpg")).execute().close() }
+        return sent
+    }
+
+    @Test
+    fun aFailedLoadIsReported() {
+        val sent = sentBy(failure = true, cancel = false)
+        assertEquals(1, sent.size)
+        assertFalse(sent.single().success)
+    }
+
+    @Test
+    fun aCancelledLoadIsNotReportedAsAFailure() {
+        assertTrue(sentBy(failure = true, cancel = true).isEmpty())
+    }
 }

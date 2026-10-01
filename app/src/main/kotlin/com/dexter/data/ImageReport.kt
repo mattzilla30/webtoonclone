@@ -71,7 +71,7 @@ class ImageReporter(private val client: OkHttpClient = OkHttpClient()) {
 
 /** Reports page image loads from MangaDex@Home servers, when [enabled] says so. */
 class ImageReportInterceptor(
-    private val reporter: ImageReporter,
+    private val send: (ImageReport) -> Unit,
     private val enabled: () -> Boolean,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -81,10 +81,11 @@ class ImageReportInterceptor(
         fun elapsed() = (System.nanoTime() - start) / 1_000_000
         try {
             val response = chain.proceed(request)
-            reportFor(request, response, elapsed())?.let(reporter::send)
+            reportFor(request, response, elapsed())?.let(send)
             return response
         } catch (e: IOException) {
-            failureReportFor(request, elapsed())?.let(reporter::send)
+            // A load the app dropped on purpose, such as a prefetch for a chapter you left, is not a server failure.
+            if (!chain.call().isCanceled()) failureReportFor(request, elapsed())?.let(send)
             throw e
         }
     }

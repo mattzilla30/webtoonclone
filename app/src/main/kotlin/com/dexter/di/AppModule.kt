@@ -48,7 +48,7 @@ val appModule = module {
     single { LibraryStore(androidContext(), get()) }
     single(named("downloads")) {
         OkHttpClient.Builder()
-            .addInterceptor(ImageReportInterceptor(ImageReporter()) { (androidApplication() as DexterApp).reportImageLoads })
+            .addInterceptor(ImageReportInterceptor(ImageReporter()::send) { (androidApplication() as DexterApp).reportImageLoads })
             .build()
     }
     single { StatsStore(get()) }

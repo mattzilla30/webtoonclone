@@ -106,6 +106,24 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         "Synced. $here new subscriptions here, $there new follows on MangaDex."
     }
 
+    /** Opens the AniList sign-in page through [open]. The browser sends you back to the app when it is done. */
+    fun signInAniList(clientId: String, open: (String) -> Unit) {
+        viewModelScope.launch(LogFailures) { open(app.trackers.aniListSignInUrl(clientId)) }
+    }
+
+    /** Opens the MyAnimeList sign-in page through [open]. */
+    fun signInMal(clientId: String, open: (String) -> Unit) {
+        viewModelScope.launch(LogFailures) { open(app.trackers.malSignInUrl(clientId)) }
+    }
+
+    fun signOutAniList() {
+        viewModelScope.launch(LogFailures) { app.trackers.signOutAniList() }
+    }
+
+    fun signOutMal() {
+        viewModelScope.launch(LogFailures) { app.trackers.signOutMal() }
+    }
+
     fun signOutMangaDex() {
         viewModelScope.launch(LogFailures) { app.mangaDexAccount.signOut() }
     }

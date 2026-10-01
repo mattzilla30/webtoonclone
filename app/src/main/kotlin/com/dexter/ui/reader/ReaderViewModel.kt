@@ -23,6 +23,7 @@ import com.dexter.data.SeriesDetail
 import com.dexter.data.Settings
 import com.dexter.data.SettingsStore
 import com.dexter.data.StatsStore
+import com.dexter.data.Trackers
 import com.dexter.data.applyLookChange
 import com.dexter.data.detectReadingMode
 import com.dexter.data.effectiveLook
@@ -100,6 +101,7 @@ class ReaderViewModel(
     private val stats: StatsStore,
     private val imageExport: ImageExport,
     private val account: MangaDexAccount,
+    private val trackers: Trackers,
     private val context: Application,
 ) : ViewModel() {
     /** The settings as this series' reader sees them, with its own dimming and background when it has them. */
@@ -277,6 +279,8 @@ class ReaderViewModel(
                 recordRecent(segment.chapter)
                 // A read marker on MangaDex too, when you are signed in with them on.
                 catching { account.markRead(seriesId, listOf(segment.chapter.id)) }
+                // AniList and MyAnimeList progress, for the trackers you signed in to.
+                catching { trackers.pushProgress(seriesId, segment.chapter.number) }
             }
             saveNextChapter(segment, settings)
             // With the setting on, opening a chapter deletes the saved copy of the one before it.

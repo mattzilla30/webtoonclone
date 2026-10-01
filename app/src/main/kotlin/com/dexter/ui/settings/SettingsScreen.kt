@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.ContentRatings
@@ -331,6 +332,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                     onSync = viewModel::syncMangaDex,
                     onSignOut = viewModel::signOutMangaDex,
                     onReadMarkers = viewModel::setReadMarkers,
+                )
+
+                TrackingSection(
+                    accounts = accounts,
+                    onAniList = { id -> viewModel.signInAniList(id) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+                    onMal = { id -> viewModel.signInMal(id) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+                    onSignOutAniList = viewModel::signOutAniList,
+                    onSignOutMal = viewModel::signOutMal,
                 )
 
                 SectionTitle("Backup")

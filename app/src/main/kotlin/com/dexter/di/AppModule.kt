@@ -16,6 +16,7 @@ import com.dexter.data.ProgressStore
 import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SettingsStore
 import com.dexter.data.StatsStore
+import com.dexter.data.Trackers
 import com.dexter.data.cachingClient
 import com.dexter.data.db.AppDatabase
 import com.dexter.ui.author.AuthorViewModel
@@ -73,6 +74,7 @@ val appModule = module {
     single { AccountStore(androidContext()) }
     // Signed-in calls skip the response cache, so your account's data is never written to disk.
     single { MangaDexAccount(get(), get(named(BASE_CLIENT)), get(), get()) }
+    single { Trackers(get(), get(named(BASE_CLIENT)), get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get(), get()) }
@@ -82,6 +84,6 @@ val appModule = module {
     viewModel { StatsViewModel(get(), get()) }
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }
     viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
-    viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), params.get<Int>(2), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
+    viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), params.get<Int>(2), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
     viewModel { params -> AuthorViewModel(params.get<String>(0), get(), get(), get()) }
 }

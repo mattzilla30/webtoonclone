@@ -38,6 +38,15 @@
                 <data android:pathPrefix="/manga/" />
                 <data android:pathPrefix="/chapter/" />
             </intent-filter>
+            <!-- AniList and MyAnimeList return here after you sign in. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dexter" />
+                <data android:host="anilist" />
+                <data android:host="mal" />
+            </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
         <receiver

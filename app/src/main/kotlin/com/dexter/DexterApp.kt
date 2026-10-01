@@ -17,6 +17,7 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.ProgressStore
 import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SettingsStore
+import com.dexter.data.Trackers
 import com.dexter.di.BASE_CLIENT
 import com.dexter.di.appModule
 import com.dexter.notify.AutoBackupWorker
@@ -60,6 +61,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val backupService: BackupService by inject()
     val accountStore: AccountStore by inject()
     val mangaDexAccount: MangaDexAccount by inject()
+    val trackers: Trackers by inject()
     private val baseClient: OkHttpClient by inject(named(BASE_CLIENT))
     private val imageReporter: ImageReporter by inject()
 

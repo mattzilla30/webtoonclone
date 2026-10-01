@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewTreeObserver
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivity
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -92,6 +94,7 @@ import com.dexter.ui.theme.isDark
 import com.dexter.ui.updates.UpdatesScreen
 import com.dexter.ui.updates.UpdatesViewModel
 import com.dexter.ui.windowWidthDp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -123,6 +126,23 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pending = readPending(intent)
+        finishSignIn(intent)
+    }
+
+    /** AniList and MyAnimeList send you back to dexter://anilist or dexter://mal after signing in. */
+    private fun finishSignIn(intent: Intent) {
+        val uri = intent.data?.takeIf { it.scheme == "dexter" } ?: return
+        val app = application as DexterApp
+        lifecycleScope.launch {
+            val message = try {
+                app.trackers.handleRedirect(uri)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                "Sign-in did not finish. Try again from Settings."
+            }
+            message?.let { Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show() }
+        }
     }
 
     override fun onStart() {
@@ -151,6 +171,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
         )
         pending = readPending(intent)
+        finishSignIn(intent)
         val app = application as DexterApp
         setContent {
             val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = app.settingsStore.latest)

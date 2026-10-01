@@ -45,6 +45,11 @@ data class Accounts(
     /** Tracker media ids by MangaDex series id, so each series is looked up once. */
     val aniListIds: Map<String, Int> = emptyMap(),
     val malIds: Map<String, Int> = emptyMap(),
+    /** A MyAnimeList sign-in under way in the browser: the app's client id and the PKCE verifier it sent. */
+    val malPendingClientId: String? = null,
+    val malVerifier: String? = null,
+    /** The AniList client id of a sign-in under way in the browser. */
+    val aniListPendingClientId: String? = null,
 )
 
 private val Context.accountsDataStore by preferencesDataStore(name = "accounts")

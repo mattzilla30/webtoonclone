@@ -21,7 +21,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.dexter.data.ANILIST_REDIRECT
+import com.dexter.data.Accounts
+import com.dexter.data.MAL_REDIRECT
 import com.dexter.data.MangaDexLogin
+import com.dexter.data.TrackerLogin
 
 /** Sign in to MangaDex with your own API client, or, signed in, sync and choose what is sent. */
 @Composable
@@ -87,4 +91,53 @@ internal fun CredentialField(label: String, value: String, secret: Boolean = fal
         keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.Password else KeyboardType.Text, autoCorrectEnabled = false),
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/** AniList and MyAnimeList: sign in with an app you registered there, or sign out. */
+@Composable
+internal fun TrackingSection(
+    accounts: Accounts,
+    onAniList: (clientId: String) -> Unit,
+    onMal: (clientId: String) -> Unit,
+    onSignOutAniList: () -> Unit,
+    onSignOutMal: () -> Unit,
+) {
+    SectionTitle("Tracking")
+    TrackerRow(
+        name = "AniList",
+        login = accounts.aniList,
+        help = "Create a client at anilist.co under Settings, Developer, with the redirect URL $ANILIST_REDIRECT, then enter its id.",
+        onSignIn = onAniList,
+        onSignOut = onSignOutAniList,
+    )
+    TrackerRow(
+        name = "MyAnimeList",
+        login = accounts.myAnimeList,
+        help = "Create an app at myanimelist.net under Account, API, with the type Android and the redirect URL $MAL_REDIRECT, then enter its client id.",
+        onSignIn = onMal,
+        onSignOut = onSignOutMal,
+    )
+}
+
+@Composable
+private fun TrackerRow(name: String, login: TrackerLogin?, help: String, onSignIn: (String) -> Unit, onSignOut: () -> Unit) {
+    if (login != null) {
+        InfoRow(
+            title = "$name: " + login.userName.ifBlank { "signed in" },
+            subtitle = "Chapters you open move the series' progress forward there.",
+            action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } },
+        )
+        return
+    }
+    Searchable(name, "tracking", "sign in", "progress") {
+        var clientId by rememberSaveable(name) { mutableStateOf("") }
+        Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(name, style = MaterialTheme.typography.bodyLarge)
+            Text(help, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            CredentialField("Client id", clientId) { clientId = it }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                FilledTonalButton(enabled = clientId.isNotBlank(), onClick = { onSignIn(clientId) }) { Text("Sign in to $name") }
+            }
+        }
+    }
 }

@@ -108,6 +108,8 @@ dependencies {
 val ktlintFiles = arrayOf("src/**/*.kt", "*.kts")
 
 tasks.register<JavaExec>("ktlintCheck") {
+    // Formatting rewrites the sources, so it finishes first when both run in one build.
+    mustRunAfter("ktlintFormat")
     group = "verification"
     description = "Checks Kotlin code style with ktlint."
     classpath = ktlint
@@ -122,3 +124,6 @@ tasks.register<JavaExec>("ktlintFormat") {
     mainClass.set("com.pinterest.ktlint.Main")
     args("-F", *ktlintFiles)
 }
+
+// The same goes for anything that reads the sources: format them before they are compiled.
+tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach { mustRunAfter("ktlintFormat") }

@@ -2,7 +2,9 @@ package com.dexter.data
 
 import com.dexter.data.db.AppDatabase
 import com.dexter.data.db.ReadEventEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
@@ -35,13 +37,14 @@ fun computeStats(events: List<ReadEventEntity>, today: LocalDate, zone: ZoneId =
         streak++
         cursor = cursor.minusDays(1)
     }
+    val last30 = within(30)
     return ReadingStats(
         total = events.size,
         last7Days = within(7),
-        last30Days = within(30),
+        last30Days = last30,
         streakDays = streak,
         longestStreakDays = longestStreak(days.keys),
-        averagePerDay = within(30) / 30.0,
+        averagePerDay = last30 / 30.0,
         perDay = (6L downTo 0L).map { today.minusDays(it).let { day -> day to (days[day] ?: 0) } },
         topSeries = events.groupingBy { it.seriesTitle }.eachCount().entries
             .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
@@ -51,7 +54,7 @@ fun computeStats(events: List<ReadEventEntity>, today: LocalDate, zone: ZoneId =
 }
 
 class StatsStore(private val db: AppDatabase) {
-    val stats: Flow<ReadingStats> get() = db.stats().observe().map { computeStats(it, LocalDate.now()) }
+    val stats: Flow<ReadingStats> get() = db.stats().observe().map { computeStats(it, LocalDate.now()) }.flowOn(Dispatchers.Default)
 
     suspend fun recordRead(chapterId: String, seriesId: String, seriesTitle: String) {
         db.stats().insert(ReadEventEntity(chapterId, seriesId, seriesTitle, System.currentTimeMillis()))

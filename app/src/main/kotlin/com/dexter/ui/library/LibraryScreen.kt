@@ -30,8 +30,8 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -71,7 +71,7 @@ fun LibraryScreen(
     var collectionFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var unreadOnly by rememberSaveable { mutableStateOf(false) }
-    val selected = remember { mutableStateListOf<String>() }
+    val selected = remember { mutableStateSetOf<String>() }
     val sortMode = sortModeOf(library.sortAlphabetical, library.sortUnreadFirst)
     val collection = collectionFilter?.takeIf { tab == LibraryList.Lists && it in library.collections }
     // Every series in a list or collection, once each. Used for the "All" chip and its tab.

@@ -26,6 +26,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dexter.R
 import com.dexter.ui.AppTopBar
+import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
@@ -53,6 +57,7 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
     val loadingMore by viewModel.loadingMore.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
     val subscribedIds by viewModel.subscribedIds.collectAsState()
+    var subscribedOnly by rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         AppTopBar(stringResource(R.string.updates))
@@ -60,7 +65,8 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
             haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
             viewModel.load()
         }, modifier = Modifier.fillMaxSize()) {
-            LoadView(state, onRetry = viewModel::load) { entries ->
+            LoadView(state, onRetry = viewModel::load) { allEntries ->
+                val entries = if (subscribedOnly) allEntries.filter { it.series.id in subscribedIds } else allEntries
                 val listState = rememberLazyListState()
 
                 // Load the next page once the last few rows are on screen.
@@ -74,6 +80,23 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
                 LazyColumn(Modifier.fillMaxSize(), state = listState) {
                     offlineSavedAt?.let { savedAt ->
                         item { OfflineBanner(savedAt, "updates", onRetry = viewModel::load) }
+                    }
+                    if (subscribedIds.isNotEmpty()) {
+                        item {
+                            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                ChoiceChip("Subscribed only", subscribedOnly) { subscribedOnly = !subscribedOnly }
+                            }
+                        }
+                    }
+                    if (subscribedOnly && entries.isEmpty() && !loadingMore) {
+                        item {
+                            Text(
+                                "None of the latest updates are from series you subscribed to.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp),
+                            )
+                        }
                     }
                     items(entries, key = { it.series.id }) { entry ->
                         Surface(

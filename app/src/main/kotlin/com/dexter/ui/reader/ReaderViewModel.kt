@@ -23,6 +23,7 @@ import com.dexter.data.resolveMode
 import com.dexter.data.withSeriesLook
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
+import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -131,7 +132,7 @@ class ReaderViewModel(
         previewed = true
         // A saved chapter opens from the device, so there is nothing to preload.
         if (downloads.isSaved(next)) return emptyList()
-        return runCatching { repository.pages(next) }.getOrDefault(emptyList()).take(count)
+        return catching { repository.pages(next) }.getOrDefault(emptyList()).take(count)
     }
 
     fun load(forceRefresh: Boolean = false) {
@@ -144,7 +145,7 @@ class ReaderViewModel(
                     val preferredGroup = settingsStore.current().preferredGroups[seriesId]
                     val chapters = async {
                         // With no connection, the chapters saved on this device are the list.
-                        runCatching { repository.allChapters(seriesId, preferredGroup) }
+                        catching { repository.allChapters(seriesId, preferredGroup) }
                             .getOrElse { error -> downloads.chaptersOf(seriesId).ifEmpty { throw error } }
                     }
                     val pages = async { downloads.pagesOf(chapterId) ?: repository.pages(chapterId, forceRefresh) }
@@ -183,7 +184,7 @@ class ReaderViewModel(
     /** Reads the series' tags and language from the saved copy, or from MangaDex when there is none. */
     private suspend fun detectMode(): ReadingMode {
         val detail = seriesCache.load(seriesId, repository.language)?.detail
-            ?: runCatching { repository.series(seriesId) }.getOrNull()
+            ?: catching { repository.series(seriesId) }.getOrNull()
         return if (detail != null) detectReadingMode(detail.tags, detail.originalLanguage) else ReadingMode.Vertical
     }
 
@@ -205,7 +206,7 @@ class ReaderViewModel(
             val (title, cover) = if (known != null) {
                 known.title to known.coverUrl
             } else {
-                val summary = runCatching { repository.series(seriesId).summary }.getOrNull() ?: return@launch
+                val summary = catching { repository.series(seriesId).summary }.getOrNull() ?: return@launch
                 summary.title to summary.coverUrl
             }
             libraryStore.recordRecent(SavedSeries(seriesId, title, cover, chapterId, chapter.number))

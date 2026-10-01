@@ -10,6 +10,7 @@ import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
 import com.dexter.ui.Load
+import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -43,7 +44,7 @@ class HomeViewModel(
             if (becauseFor == last.id && becauseState.value != null) return@launch
             val detail = seriesCache.load(last.id, repository.language)?.detail ?: return@launch
             val known = (library.recent + library.subscribed + library.lists).map { it.id }.toSet()
-            val like = runCatching { repository.similar(last.id, detail.tags, limit = 14) }.getOrNull().orEmpty().filter { it.id !in known }
+            val like = catching { repository.similar(last.id, detail.tags, limit = 14) }.getOrNull().orEmpty().filter { it.id !in known }
             becauseFor = last.id
             becauseState.value = if (like.isEmpty()) null else last.title to like.take(10)
         }
@@ -76,7 +77,7 @@ class HomeViewModel(
         viewModelScope.launch {
             val already = series.id in subscribedIds.value
             // Same lookup as the background check, so only later chapters notify.
-            val newest = if (already) null else runCatching { repository.latestChapter(series.id) }.getOrNull()
+            val newest = if (already) null else catching { repository.latestChapter(series.id) }.getOrNull()
             libraryStore.toggleSubscribed(
                 SavedSeries(
                     series.id,
@@ -118,7 +119,7 @@ class HomeViewModel(
     fun refreshNewSeries() {
         val current = (_state.value as? Load.Ready)?.value ?: return
         viewModelScope.launch {
-            val fresh = runCatching { repository.newSeries() }.getOrNull() ?: return@launch
+            val fresh = catching { repository.newSeries() }.getOrNull() ?: return@launch
             if (fresh.map { it.id } != current.newSeries.map { it.id }) {
                 val latest = (_state.value as? Load.Ready)?.value ?: return@launch
                 _state.value = Load.Ready(latest.copy(newSeries = fresh))
@@ -138,14 +139,14 @@ class HomeViewModel(
                 val content = repository.home()
                 _state.value = Load.Ready(content)
                 _offlineSavedAt.value = null
-                runCatching { libraryStore.saveHome(content) }
+                catching { libraryStore.saveHome(content) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // A silent refresh keeps the old content when the network fails. A first load falls
                 // back to the last saved home, and shows the error only when nothing is saved.
                 if (_state.value !is Load.Ready) {
-                    val saved = runCatching { libraryStore.loadHome() }.getOrNull()
+                    val saved = catching { libraryStore.loadHome() }.getOrNull()
                     if (saved != null) {
                         _offlineSavedAt.value = saved.savedAt
                         _state.value = Load.Ready(saved.content)

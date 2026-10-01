@@ -7,6 +7,7 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
 import com.dexter.data.UpdateEntry
 import com.dexter.ui.Load
+import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -61,12 +62,12 @@ class UpdatesViewModel(
                 val entries = repository.latestUpdates(0)
                 _offlineSavedAt.value = null
                 _state.value = Load.Ready(entries)
-                runCatching { offline.saveUpdates(entries) }
+                catching { offline.saveUpdates(entries) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // Fall back to the last first page, if there is one.
-                val saved = runCatching { offline.loadUpdates() }.getOrNull()
+                val saved = catching { offline.loadUpdates() }.getOrNull()
                 if (saved != null) {
                     _offlineSavedAt.value = saved.savedAt
                     _state.value = Load.Ready(saved.entries)

@@ -99,3 +99,15 @@ fun SkeletonList(rows: Int = 8) {
         }
     }
 }
+
+/**
+ * Like runCatching, but a cancelled coroutine still cancels. Plain runCatching turns the cancellation into a
+ * failure, and the caller would carry on, for example by showing results for a search you already replaced.
+ */
+inline fun <T> catching(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (e: kotlinx.coroutines.CancellationException) {
+    throw e
+} catch (e: Throwable) {
+    Result.failure(e)
+}

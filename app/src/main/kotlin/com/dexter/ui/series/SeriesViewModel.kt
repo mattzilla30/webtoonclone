@@ -21,6 +21,7 @@ import com.dexter.data.chaptersToDownload
 import com.dexter.data.relationLabel
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
+import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -100,7 +101,7 @@ class SeriesViewModel(
     /** Saves the next [count] unread chapters after the last one you read, or every unread one when null. */
     fun downloadUnread(detail: SeriesDetail, count: Int?) {
         viewModelScope.launch {
-            val all = runCatching { repository.allChapters(seriesId, settingsStore.current().preferredGroups[seriesId]) }.getOrNull() ?: return@launch
+            val all = catching { repository.allChapters(seriesId, settingsStore.current().preferredGroups[seriesId]) }.getOrNull() ?: return@launch
             val last = lastRead.value?.chapterNumber
             chaptersToDownload(all.asReversed(), last, downloaded.value, count).forEach { download(detail, it) }
         }
@@ -189,7 +190,7 @@ class SeriesViewModel(
         viewModelScope.launch {
             // Start from the newest chapter now, so only chapters that come later notify. This uses
             // the same lookup as the background check, since the chapter list orders differently.
-            val newest = runCatching { repository.latestChapter(seriesId) }.getOrNull()
+            val newest = catching { repository.latestChapter(seriesId) }.getOrNull()
             libraryStore.toggleSubscribed(
                 SavedSeries(
                     seriesId,
@@ -227,12 +228,12 @@ class SeriesViewModel(
                 _state.value = Load.Ready(ready)
                 loadSimilar(ready.detail)
                 val saved = CachedSeries(ready.detail, ready.chapters.take(MAX_CACHED_CHAPTERS), System.currentTimeMillis(), repository.language)
-                runCatching { seriesCache.save(saved) }
+                catching { seriesCache.save(saved) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // Fall back to the last copy of this series, if you opened it before.
-                val saved = runCatching { seriesCache.load(seriesId, repository.language) }.getOrNull()
+                val saved = catching { seriesCache.load(seriesId, repository.language) }.getOrNull()
                 if (saved != null) {
                     nextOffset = null
                     _offlineSavedAt.value = saved.savedAt
@@ -279,12 +280,12 @@ class SeriesViewModel(
         _similar.value = emptyList()
         relatedState.value = emptyList()
         relatedJob = viewModelScope.launch {
-            val list = runCatching { repository.relatedSeries(detail.relations) }.getOrElse { if (it is CancellationException) throw it else emptyList() }
+            val list = catching { repository.relatedSeries(detail.relations) }.getOrDefault(emptyList())
             val kinds = detail.relations.associate { it.id to relationLabel(it.kind) }
             relatedState.value = list.map { (kinds[it.id] ?: "Related") to it }
         }
         similarJob = viewModelScope.launch {
-            _similar.value = runCatching { repository.similar(seriesId, detail.tags) }.getOrElse { if (it is CancellationException) throw it else emptyList() }
+            _similar.value = catching { repository.similar(seriesId, detail.tags) }.getOrDefault(emptyList())
         }
     }
 

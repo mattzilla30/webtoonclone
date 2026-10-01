@@ -7,6 +7,7 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.Order
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Load
+import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -31,7 +32,7 @@ class AuthorViewModel(
         viewModelScope.launch {
             val shown = (state.value as? Load.Ready)?.value.orEmpty().map { it.id }
             // Series beyond the first page count as seen too, so following never floods you with old ones.
-            val newest = runCatching { repository.browse(order = Order.Newest, authorId = authorId, limit = 30).map { it.id } }.getOrDefault(emptyList())
+            val newest = catching { repository.browse(order = Order.Newest, authorId = authorId, limit = 30).map { it.id } }.getOrDefault(emptyList())
             library.toggleAuthor(authorId, name, (shown + newest).distinct())
         }
     }

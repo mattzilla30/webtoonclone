@@ -11,6 +11,7 @@ import com.dexter.data.SearchFilters
 import com.dexter.data.SeriesSummary
 import com.dexter.data.searchKey
 import com.dexter.ui.Load
+import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -60,7 +61,7 @@ class SearchViewModel(
         .distinctUntilChanged()
         .mapLatest { text ->
             if (!shouldSuggest(text)) emptyList()
-            else runCatching { repository.browse(title = text.trim(), limit = 5) }.getOrDefault(emptyList())
+            else catching { repository.browse(title = text.trim(), limit = 5) }.getOrDefault(emptyList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -168,7 +169,7 @@ class SearchViewModel(
     fun openRandom(onFound: (String) -> Unit) {
         _message.value = null
         viewModelScope.launch {
-            val series = runCatching { repository.randomSeries() }.getOrNull()
+            val series = catching { repository.randomSeries() }.getOrNull()
             if (series != null) onFound(series.id) else _message.value = "Could not find a series. Try again."
         }
     }
@@ -249,14 +250,14 @@ class SearchViewModel(
             val first = fetch(0)
             _offlineSavedAt.value = null
             endReached = first.isEmpty()
-            if (first.isNotEmpty()) runCatching { offline.saveSearch(key, first) }
+            if (first.isNotEmpty()) catching { offline.saveSearch(key, first) }
             currentCoroutineContext().ensureActive()
             Load.Ready(first)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             // Fall back to the last first page of this same search, if there is one.
-            val saved = runCatching { offline.loadSearch(key) }.getOrNull()
+            val saved = catching { offline.loadSearch(key) }.getOrNull()
             if (saved != null) {
                 _offlineSavedAt.value = saved.savedAt
                 endReached = true

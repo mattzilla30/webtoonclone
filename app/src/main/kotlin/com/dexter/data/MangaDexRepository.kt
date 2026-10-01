@@ -48,6 +48,13 @@ class MangaDexRepository(private val client: OkHttpClient) {
     /** The content ratings to list, as MangaDex names them. Sorted so a change is easy to spot. */
     @Volatile var contentRatings: List<String> = ContentRatings
 
+    /** Chapters you can read in the app, in your language, the most recently readable first. */
+    private fun HttpUrl.Builder.newestReadable(): HttpUrl.Builder = apply {
+        addQueryParameter("includeExternalUrl", "0")
+        addQueryParameter("translatedLanguage[]", language)
+        addQueryParameter("order[readableAt]", "desc")
+    }
+
     private fun HttpUrl.Builder.ratings(): HttpUrl.Builder = apply { contentRatings.forEach { addQueryParameter("contentRating[]", it) } }
 
     /** Your blocks, read on the network threads. */
@@ -155,9 +162,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val url = "$API/manga/$seriesId/feed".toHttpUrl().newBuilder()
             .ratings()
             .addQueryParameter("limit", "1")
-            .addQueryParameter("includeExternalUrl", "0")
-            .addQueryParameter("translatedLanguage[]", language)
-            .addQueryParameter("order[readableAt]", "desc")
+            .newestReadable()
             .build()
         val dto = fetchJson<ChapterListDto>(url).data.firstOrNull() ?: return null
         return dto.toChapter()
@@ -168,9 +173,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val url = "$API/chapter".toHttpUrl().newBuilder()
             .addQueryParameter("limit", UPDATES_PAGE.toString())
             .addQueryParameter("offset", (page * UPDATES_PAGE).toString())
-            .addQueryParameter("includeExternalUrl", "0")
-            .addQueryParameter("translatedLanguage[]", language)
-            .addQueryParameter("order[readableAt]", "desc")
+            .newestReadable()
             .ratings()
             .build()
         val feed = fetchJson<ChapterListDto>(url).data
@@ -195,9 +198,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
     suspend fun readablePicks(limit: Int): List<SeriesSummary> {
         val url = "$API/chapter".toHttpUrl().newBuilder()
             .addQueryParameter("limit", "100")
-            .addQueryParameter("includeExternalUrl", "0")
-            .addQueryParameter("translatedLanguage[]", language)
-            .addQueryParameter("order[readableAt]", "desc")
+            .newestReadable()
             .ratings()
             .build()
         val feed = fetchJson<ChapterListDto>(url).data

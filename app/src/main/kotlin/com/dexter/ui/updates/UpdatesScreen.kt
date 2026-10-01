@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -64,7 +65,9 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
             viewModel.load()
         }, modifier = Modifier.fillMaxSize()) {
             LoadView(state, onRetry = viewModel::load) { allEntries ->
-                val entries = if (subscribedOnly) allEntries.filter { it.series.id in subscribedIds } else allEntries
+                val entries = remember(allEntries, subscribedOnly, subscribedIds) {
+                    if (subscribedOnly) allEntries.filter { it.series.id in subscribedIds } else allEntries
+                }
                 val listState = rememberLazyListState()
 
                 // Load the next page once the last few rows are on screen.

@@ -53,7 +53,7 @@ This is a personal app. The release build is signed with the debug key, so `./gr
 
 ## Settings
 
-My Series has a gear icon that opens Settings:
+Settings is the last tab in the bottom bar:
 
 - Theme: dark (the default), true black, light, or follow the system. Material You colors are optional.
 - Data saver, reader background, volume-key scrolling, and reporting page loads to MangaDex.
@@ -64,11 +64,10 @@ My Series has a gear icon that opens Settings:
 ## Code style
 
 ```
-./gradlew :app:ktlintCheck    # report problems
-./gradlew :app:ktlintFormat   # fix them
+./gradlew :app:ktlintFormat :app:ktlintCheck   # fix, then report what is left
 ```
 
-The rules are in `.editorconfig`.
+The rules are in `.editorconfig`. ktlint does not remove unused imports, so check for them when moving code.
 
 ## Live API test
 
@@ -77,6 +76,13 @@ LIVE=true ./gradlew :app:testDebugUnitTest
 ```
 
 Calls every MangaDex endpoint the app uses. The default build skips it.
+
+## How it works
+
+- Every ViewModel that loads over the network keeps its job and cancels the previous one before starting another, so a slow old request cannot overwrite newer results. `MangaDexHttp` cancels the HTTP call when its coroutine is cancelled.
+- The library lives in Room. `LibraryStore.data` shares one set of queries between all screens. Use `LibraryStore.current()` for a read that must see the latest writes.
+- JSON from the API and from saved copies is decoded on `Dispatchers.Default`, not the main thread.
+- Settings are one JSON value in DataStore, decoded once per change.
 
 ## Layout
 

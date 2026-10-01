@@ -12,11 +12,8 @@ import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class UpdatesViewModel(
@@ -25,9 +22,7 @@ class UpdatesViewModel(
     libraryStore: LibraryStore,
 ) : ViewModel() {
     /** Ids of the series you subscribe to, so their rows can carry a marker. */
-    val subscribedIds: StateFlow<Set<String>> = libraryStore.data
-        .map { lib -> lib.subscribed.mapTo(mutableSetOf()) { it.id } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val subscribedIds: StateFlow<Set<String>> = libraryStore.stateOf(viewModelScope) { lib -> lib.subscribed.mapTo(mutableSetOf()) { it.id } }
 
     /** When the list is a saved copy because the network failed, the time it was saved. */
     private val _offlineSavedAt = MutableStateFlow<Long?>(null)

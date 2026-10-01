@@ -15,12 +15,10 @@ import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
@@ -51,17 +49,13 @@ class HomeViewModel(
     }
 
     /** Series you read recently, newest first, for the Continue Reading row. */
-    val recent: StateFlow<List<SavedSeries>> = libraryStore.data
-        .map { lib -> lib.recent.filter { it.chapterId != null }.take(10) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val recent: StateFlow<List<SavedSeries>> = libraryStore.stateOf(viewModelScope) { lib -> lib.recent.filter { it.chapterId != null }.take(10) }
 
     private val _state = MutableStateFlow<Load<HomeContent>>(Load.Loading)
     val state: StateFlow<Load<HomeContent>> = _state
 
     /** Ids of series you subscribe to, so tiles can show a marker. */
-    val subscribedIds: StateFlow<Set<String>> = libraryStore.data
-        .map { lib -> lib.subscribed.map { it.id }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val subscribedIds: StateFlow<Set<String>> = libraryStore.stateOf(viewModelScope) { lib -> lib.subscribed.map { it.id }.toSet() }
 
     private val _toast = MutableStateFlow<String?>(null)
 

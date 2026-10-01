@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -86,6 +88,10 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     /** The last library the app saw, or an empty one before the first read. Screens start from it so they do not flash empty. */
     val latest: LibraryData get() = data.replayCache.firstOrNull() ?: LibraryData()
+
+    /** A part of the library as a StateFlow that starts from the last library the app saw, so it does not flash its empty state. */
+    fun <T> stateOf(scope: CoroutineScope, transform: (LibraryData) -> T): StateFlow<T> =
+        data.map(transform).stateIn(scope, SharingStarted.WhileSubscribed(5_000), transform(latest))
 
     /** One fresh read of the library, straight from the database. */
     suspend fun current(): LibraryData = fresh.first()

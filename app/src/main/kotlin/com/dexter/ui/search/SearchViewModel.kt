@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -99,8 +98,7 @@ class SearchViewModel(
         }
     }
 
-    val savedSearches: StateFlow<List<SavedSearch>> = library.data.map { it.savedSearches }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val savedSearches: StateFlow<List<SavedSearch>> = library.stateOf(viewModelScope) { it.savedSearches }
 
     /** Whether the results on screen can be saved: there is a search, tag, or filter behind them. */
     val canSave: Boolean get() = request != null
@@ -130,8 +128,7 @@ class SearchViewModel(
     private var page = 0
     private var endReached = false
 
-    val recentSearches: StateFlow<List<String>> = library.data.map { it.searches }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val recentSearches: StateFlow<List<String>> = library.stateOf(viewModelScope) { it.searches }
 
     var query = ""
         private set

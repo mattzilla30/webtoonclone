@@ -1,7 +1,6 @@
 package com.dexter.ui.series
 
 import android.app.Application
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dexter.data.CachedSeries
@@ -65,17 +64,12 @@ class SeriesViewModel(
     private var moreJob: Job? = null
 
     /** The chapter this device read last, which may be older than the loaded pages. */
-    val lastRead: StateFlow<SavedSeries?> = libraryStore.data
-        .map { lib -> lib.recent.firstOrNull { it.id == seriesId && it.chapterId != null } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val lastRead: StateFlow<SavedSeries?> = libraryStore.stateOf(viewModelScope) { lib -> lib.recent.firstOrNull { it.id == seriesId && it.chapterId != null } }
 
-    val subscribed: StateFlow<Boolean> = libraryStore.data.map { lib -> lib.subscribed.any { it.id == seriesId } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val subscribed: StateFlow<Boolean> = libraryStore.stateOf(viewModelScope) { lib -> lib.subscribed.any { it.id == seriesId } }
 
     /** Whether new chapters of this series notify. Always true until you switch it off. */
-    val notifyEnabled: StateFlow<Boolean> = libraryStore.data
-        .map { lib -> lib.subscribed.firstOrNull { it.id == seriesId }?.notify ?: true }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val notifyEnabled: StateFlow<Boolean> = libraryStore.stateOf(viewModelScope) { lib -> lib.subscribed.firstOrNull { it.id == seriesId }?.notify ?: true }
 
     /** Ids of this series' chapters saved on the device. */
     val downloaded: StateFlow<Set<String>> = downloads.saved
@@ -108,14 +102,10 @@ class SeriesViewModel(
     }
 
     /** The reading list this series is in, or null when it is in none. */
-    val status: StateFlow<ReadingStatus?> = libraryStore.data
-        .map { lib -> lib.lists.firstOrNull { it.id == seriesId }?.status }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val status: StateFlow<ReadingStatus?> = libraryStore.stateOf(viewModelScope) { lib -> lib.lists.firstOrNull { it.id == seriesId }?.status }
 
     /** Names of your collections, with whether this series is in each. */
-    val collections: StateFlow<Map<String, Boolean>> = libraryStore.data
-        .map { lib -> lib.collections.mapValues { (_, members) -> members.any { it.id == seriesId } } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    val collections: StateFlow<Map<String, Boolean>> = libraryStore.stateOf(viewModelScope) { lib -> lib.collections.mapValues { (_, members) -> members.any { it.id == seriesId } } }
 
     fun toggleCollection(detail: SeriesDetail, name: String) {
         viewModelScope.launch {

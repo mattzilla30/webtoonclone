@@ -12,10 +12,8 @@ import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** The series one author or artist worked on, most followed first, loaded a page at a time. */
@@ -24,9 +22,7 @@ class AuthorViewModel(
     private val repository: MangaDexRepository,
     private val library: LibraryStore,
 ) : ViewModel() {
-    val following: StateFlow<Boolean> = library.data
-        .map { data -> data.followedAuthors.any { it.id == authorId } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val following: StateFlow<Boolean> = library.stateOf(viewModelScope) { data -> data.followedAuthors.any { it.id == authorId } }
 
     fun toggleFollow(name: String) {
         viewModelScope.launch {

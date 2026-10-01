@@ -47,7 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -76,6 +78,7 @@ fun LibraryScreen(
     onOpenSearch: () -> Unit,
 ) {
     val library by viewModel.library.collectAsState()
+    val haptics = LocalHapticFeedback.current
     var tabKey by rememberSaveable { mutableStateOf(LibraryList.Recent.key) }
     val tab = LibraryList.entries.firstOrNull { it.key == tabKey } ?: LibraryList.Recent
     val subscribedTab = tab == LibraryList.Subscribed
@@ -188,7 +191,10 @@ fun LibraryScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("${items.size} series", style = MaterialTheme.typography.labelLargeEmphasized, color = MaterialTheme.colorScheme.primary)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { viewModel.setSort(sortMode.next()) }) { Text(sortMode.label) }
+                    TextButton(onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        viewModel.setSort(sortMode.next())
+                    }) { Text(sortMode.label) }
                     TextButton(
                         enabled = selected.isNotEmpty(),
                         onClick = {

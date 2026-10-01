@@ -544,6 +544,7 @@ private fun EpisodeRow(
     onOpenUpload: (Chapter) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
     Box {
         Surface(
             shape = MaterialTheme.shapes.medium,
@@ -553,7 +554,15 @@ private fun EpisodeRow(
                 .padding(horizontal = 16.dp, vertical = 3.dp)
                 .alpha(if (read) 0.55f else 1f)
                 .clip(MaterialTheme.shapes.medium)
-                .combinedClickable(onClick = onClick, onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty() || chapter.externalUrl == null) ({ menu = true }) else null),
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty() || chapter.externalUrl == null) (
+                        {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menu = true
+                        }
+                    ) else null,
+                ),
         ) {
             Row(
                 Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

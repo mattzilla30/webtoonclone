@@ -9,7 +9,6 @@ import com.dexter.data.SavedSeries
 import com.dexter.ui.series.hasUnreadChapters
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -54,7 +53,7 @@ class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
     /** Marks every subscribed series with new chapters as read up to its newest known chapter. */
     fun markAllRead() {
         viewModelScope.launch {
-            val library = store.data.first()
+            val library = store.current()
             val lastRead = library.recent.associate { it.id to it.chapterNumber }
             library.subscribed
                 .filter { it.knownChapterId != null && hasUnreadChapters(it.knownChapterNumber, lastRead[it.id]) }

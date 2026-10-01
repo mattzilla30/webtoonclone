@@ -36,7 +36,7 @@ class HomeViewModel(
     /** Finds series like the one you read last. Skips series you already have, and does nothing when nothing changed. */
     fun refreshBecause() {
         viewModelScope.launch {
-            val library = libraryStore.data.first()
+            val library = libraryStore.current()
             val last = library.recent.firstOrNull { it.chapterId != null } ?: return@launch
             if (becauseFor == last.id && becauseState.value != null) return@launch
             val detail = seriesCache.load(last.id, repository.language)?.detail ?: return@launch

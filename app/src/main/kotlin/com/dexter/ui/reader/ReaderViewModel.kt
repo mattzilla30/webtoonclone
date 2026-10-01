@@ -160,7 +160,7 @@ class ReaderViewModel(
                             total = list.size,
                             startPage = saved?.takeIf { it.chapterId == chapterId }?.page ?: 0,
                             seriesTitle = seriesCache.load(seriesId, repository.language)?.detail?.summary?.title
-                                ?: libraryStore.data.first().knownSeries(seriesId)?.title,
+                                ?: libraryStore.current().knownSeries(seriesId)?.title,
                         ),
                     ).also {
                         recordRecent(chapter)
@@ -186,7 +186,7 @@ class ReaderViewModel(
         viewModelScope.launch {
             val current = settingsStore.current()
             if (!current.autoDownloadNext || downloads.isSaved(next.id) || next.id in downloads.active.value) return@launch
-            val known = libraryStore.data.first().knownSeries(seriesId) ?: return@launch
+            val known = libraryStore.current().knownSeries(seriesId) ?: return@launch
             DownloadWorker.enqueue(context, downloads, seriesId, known.title, known.coverUrl, next, current.downloadWifiOnly)
         }
     }
@@ -194,7 +194,7 @@ class ReaderViewModel(
     private fun recordRecent(chapter: Chapter) {
         viewModelScope.launch {
             // Reuse the title and cover you already saved. Only a first read asks MangaDex for them.
-            val known = libraryStore.data.first().knownSeries(seriesId)
+            val known = libraryStore.current().knownSeries(seriesId)
             val (title, cover) = if (known != null) {
                 known.title to known.coverUrl
             } else {

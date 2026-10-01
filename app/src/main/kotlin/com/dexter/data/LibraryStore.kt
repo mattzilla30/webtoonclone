@@ -10,13 +10,18 @@ import com.dexter.data.db.AppDatabase
 import com.dexter.data.db.SearchEntity
 import com.dexter.data.db.toEntity
 import com.dexter.data.db.toSaved
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -50,7 +55,7 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
         .distinctUntilChanged()
         .map { raw -> decode(raw) }
 
-    val data: Flow<LibraryData> = flow {
+    private val fresh: Flow<LibraryData> = flow {
         ensureMigrated()
         emitAll(
             combine(
@@ -69,6 +74,17 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
             },
         )
     }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * The library as it changes. Every screen that watches it shares one set of database queries, which
+     * stop five seconds after the last screen leaves. Use [current] for a read that must see the latest writes.
+     */
+    val data: Flow<LibraryData> = fresh.shareIn(scope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+
+    /** One fresh read of the library, straight from the database. */
+    suspend fun current(): LibraryData = fresh.first()
 
     private val migration = Mutex()
     private var migrated = false

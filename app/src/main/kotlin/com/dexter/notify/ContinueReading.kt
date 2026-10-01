@@ -14,7 +14,6 @@ import com.dexter.DexterApp
 import com.dexter.MainActivity
 import com.dexter.R
 import com.dexter.data.SavedSeries
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 private const val CONTINUE_SHORTCUT = "continue"
@@ -68,7 +67,7 @@ private fun launchIntent(context: Context, intent: Intent): PendingIntent =
 class ContinueWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         // The widget redraws from the saved library. The read is short and local.
-        val last = runBlocking { (context.applicationContext as DexterApp).libraryStore.data.first() }
+        val last = runBlocking { (context.applicationContext as DexterApp).libraryStore.current() }
             .recent.firstOrNull { it.chapterId != null }
         appWidgetIds.forEach { manager.updateAppWidget(it, widgetViews(context, last)) }
     }

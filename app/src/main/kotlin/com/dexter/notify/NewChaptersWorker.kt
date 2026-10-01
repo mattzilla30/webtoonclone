@@ -57,7 +57,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         if (settings.quietHours && isQuietHour(LocalTime.now().hour, settings.quietStartHour, settings.quietEndHour)) {
             return Result.success()
         }
-        val library = app.libraryStore.data.first()
+        val library = app.libraryStore.current()
         val subscribed = library.subscribed
         var failed = false
         val found = mutableListOf<NewChapter>()

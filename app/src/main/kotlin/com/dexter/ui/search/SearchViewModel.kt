@@ -136,7 +136,7 @@ class SearchViewModel(
     init {
         // Start from the sort you chose last time.
         viewModelScope.launch {
-            val saved = runCatching { Order.valueOf(library.data.first().searchOrder) }.getOrNull()
+            val saved = runCatching { Order.valueOf(library.current().searchOrder) }.getOrNull()
             if (saved != null && request == null) _sort.value = saved
         }
     }

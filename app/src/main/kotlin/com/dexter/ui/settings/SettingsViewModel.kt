@@ -14,7 +14,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -106,7 +105,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     /** Removes every series from the Recent list. Subscriptions, lists, and collections stay. */
     fun clearHistory() {
         viewModelScope.launch {
-            val ids = app.libraryStore.data.first().recent.mapTo(mutableSetOf()) { it.id }
+            val ids = app.libraryStore.current().recent.mapTo(mutableSetOf()) { it.id }
             app.libraryStore.removeRecent(ids)
             _message.value = "Reading history cleared"
         }

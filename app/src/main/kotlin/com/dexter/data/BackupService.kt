@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 const val AUTO_BACKUP_FILE = "dexter-backup.json"
@@ -18,7 +17,7 @@ class BackupService(
 ) {
     suspend fun create(): Backup = Backup(
         savedAt = System.currentTimeMillis(),
-        library = library.data.first(),
+        library = library.current(),
         settings = settings.current(),
         progress = progress.export(),
     )

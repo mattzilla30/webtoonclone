@@ -215,8 +215,12 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("includes[]", "cover_art")
             .addQueryParameter("includes[]", "author")
             .build()
-        val manga = fetchJson<MangaOneDto>(url).data
-        val stat = statsOne(id)
+        // The statistics do not depend on the series, so both requests go out together.
+        val (manga, stat) = coroutineScope {
+            val manga = async { fetchJson<MangaOneDto>(url).data }
+            val stat = async { statsOne(id) }
+            manga.await() to stat.await()
+        }
         val summary = manga.toSummary().copy(follows = stat?.follows)
         return SeriesDetail(
             summary = summary,

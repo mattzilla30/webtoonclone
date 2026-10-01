@@ -30,7 +30,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,6 +48,7 @@ import com.dexter.ui.timeAgo
 
 @Composable
 fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
+    val haptics = LocalHapticFeedback.current
     val state by viewModel.state.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
@@ -53,7 +56,10 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
 
     Column(Modifier.fillMaxSize()) {
         AppTopBar(stringResource(R.string.updates))
-        PullToRefreshBox(isRefreshing = state is Load.Loading, onRefresh = viewModel::load, modifier = Modifier.fillMaxSize()) {
+        PullToRefreshBox(isRefreshing = state is Load.Loading, onRefresh = {
+            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+            viewModel.load()
+        }, modifier = Modifier.fillMaxSize()) {
             LoadView(state, onRetry = viewModel::load) { entries ->
                 val listState = rememberLazyListState()
 

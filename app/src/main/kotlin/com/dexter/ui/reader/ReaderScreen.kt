@@ -12,8 +12,6 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,12 +25,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -43,19 +38,12 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -73,7 +61,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -84,30 +71,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil3.SingletonImageLoader
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
 import coil3.request.ImageRequest
 import com.dexter.R
-import com.dexter.data.Chapter
 import com.dexter.data.ReaderBackground
 import com.dexter.data.ReaderOrientation
 import com.dexter.data.ReadingMode
 import com.dexter.data.Settings
 import com.dexter.data.TapAction
 import com.dexter.data.tapAction
-import com.dexter.ui.ChoiceChip
 import com.dexter.ui.LoadView
 import com.dexter.ui.SyncedSlider
-import com.dexter.ui.iconTap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -570,134 +551,6 @@ private fun EndOfChapter(page: ReaderPage, textColor: Color, onOpenChapter: (Str
                 onClick = { onOpenChapter(page.nextId) },
                 modifier = Modifier.padding(top = 16.dp).heightIn(min = ButtonDefaults.MediumContainerHeight),
             ) { Text("Next episode") }
-        }
-    }
-}
-
-/** Every readable chapter, oldest first, opened at the current one. Tapping one jumps to it. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChapterPicker(chapters: List<Chapter>, currentId: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = chapters.indexOfFirst { it.id == currentId }.coerceAtLeast(0))
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(stringResource(R.string.chapters), style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        LazyColumn(Modifier.heightIn(max = 480.dp), state = listState) {
-            itemsIndexed(chapters, key = { _, c -> c.id }) { _, chapter ->
-                val current = chapter.id == currentId
-                Surface(
-                    onClick = { onSelect(chapter.id) },
-                    color = if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                    contentColor = if (current) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-                ) {
-                    Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                        Text(
-                            buildString {
-                                append("Ep. ${chapter.number}")
-                                if (chapter.title.isNotBlank()) append(" · ${chapter.title}")
-                            },
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        chapter.group?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private val modeLabels = listOf(
-    ReadingMode.Auto to "Auto",
-    ReadingMode.Vertical to "Vertical strip",
-    ReadingMode.PagedLtr to "Pages, left to right",
-    ReadingMode.PagedRtl to "Pages, right to left",
-)
-
-/** Reading mode, dimming, background, auto-scroll speed, and volume-key paging, saved as you change them. */
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
-private fun ReaderOptions(
-    settings: Settings,
-    mode: ReadingMode,
-    chosenMode: ReadingMode,
-    seriesLook: Boolean,
-    onSeriesLook: (Boolean) -> Unit,
-    onChange: ((Settings) -> Settings) -> Unit,
-    onMode: (ReadingMode) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-            Text(stringResource(R.string.reader_options), style = MaterialTheme.typography.titleLargeEmphasized)
-
-            Text(stringResource(R.string.reading_mode_for_this_series), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
-            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                modeLabels.forEach { (value, label) -> ChoiceChip(label, chosenMode == value) { onMode(value) } }
-            }
-
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Separate look for this series", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                Switch(checked = seriesLook, onCheckedChange = onSeriesLook)
-            }
-
-            Text(stringResource(R.string.dimming), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
-            SyncedSlider(
-                value = settings.readerDim.toFloat(),
-                onValueChange = { value -> onChange { it.copy(readerDim = value.roundToInt()) } },
-                valueRange = 0f..70f,
-            )
-
-            Text(stringResource(R.string.background), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
-            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReaderBackground.entries.forEach { choice ->
-                    ChoiceChip(choice.name, settings.readerBackground == choice) { onChange { it.copy(readerBackground = choice) } }
-                }
-            }
-
-            if (mode == ReadingMode.Vertical) {
-                Text(stringResource(R.string.auto_scroll), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
-                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    (0..5).forEach { speed ->
-                        ChoiceChip(if (speed == 0) "Off" else speed.toString(), settings.autoScrollLevel == speed) {
-                            onChange { it.copy(autoScrollLevel = speed) }
-                        }
-                    }
-                }
-            }
-
-            if (mode == ReadingMode.Vertical) {
-                Text(stringResource(R.string.space_between_pages), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
-                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(0 to "None", 8 to "Small", 24 to "Large").forEach { (gap, label) ->
-                        ChoiceChip(label, settings.pageGap == gap) { onChange { it.copy(pageGap = gap) } }
-                    }
-                }
-            }
-
-            Text("Screen direction", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
-            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReaderOrientation.entries.forEach { choice ->
-                    ChoiceChip(choice.name, settings.readerOrientation == choice) { onChange { it.copy(readerOrientation = choice) } }
-                }
-            }
-
-            Text(stringResource(R.string.load_next_chapter_ahead), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
-            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0 to "Off", 3 to "First pages", 100 to "Whole chapter").forEach { (count, label) ->
-                    ChoiceChip(label, settings.prefetchPages == count) { onChange { it.copy(prefetchPages = count) } }
-                }
-            }
-
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.keep_screen_on), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                Switch(checked = settings.keepScreenOn, onCheckedChange = { on -> onChange { it.copy(keepScreenOn = on) } })
-            }
-
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (mode == ReadingMode.Vertical) "Volume keys scroll" else "Volume keys turn pages", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                Switch(checked = settings.volumeKeys, onCheckedChange = { on -> onChange { it.copy(volumeKeys = on) } })
-            }
         }
     }
 }

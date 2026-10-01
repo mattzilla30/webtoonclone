@@ -1,6 +1,5 @@
 package com.dexter.ui.reader
 
-import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.view.HapticFeedbackConstants
 import androidx.activity.compose.LocalActivity
@@ -12,7 +11,6 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,28 +24,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CornerSize
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,20 +50,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
 import coil3.request.ImageRequest
-import com.dexter.R
 import com.dexter.data.ReaderBackground
 import com.dexter.data.ReaderOrientation
 import com.dexter.data.ReadingMode
@@ -88,7 +65,6 @@ import com.dexter.data.Settings
 import com.dexter.data.TapAction
 import com.dexter.data.tapAction
 import com.dexter.ui.LoadView
-import com.dexter.ui.SyncedSlider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -97,7 +73,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 /** The color behind the pages, chosen in settings. */
 fun readerBackgroundColor(background: ReaderBackground): Color = when (background) {
@@ -120,7 +95,7 @@ private val AUTO_SCROLL_PX = floatArrayOf(0f, 1.5f, 3f, 5f, 8f, 12f)
 
 /** The translucent panel colour behind the reader's bars. */
 @Composable
-private fun barColor() = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f)
+internal fun barColor() = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f)
 
 @Composable
 fun ReaderScreen(
@@ -378,110 +353,28 @@ private fun ReaderContent(
             }
         }
 
-        val barIcons = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurface, disabledContentColor = Color.DarkGray)
         if (barsVisible) {
-            Surface(
-                color = barColor(),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                shape = MaterialTheme.shapes.extraLarge.copy(topStart = CornerSize(0.dp), topEnd = CornerSize(0.dp)),
-                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-            ) {
-                Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack, colors = barIcons) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
-                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text("Ep. ${page.chapter.number}", style = MaterialTheme.typography.titleMediumEmphasized)
-                        page.seriesTitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    }
-                    IconButton(onClick = onOpenOptions, colors = barIcons) {
-                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.reader_options))
-                    }
-                    IconButton(
-                        onClick = {
-                            val send = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, (page.seriesTitle?.let { "$it, Ep. ${page.chapter.number}\n" }.orEmpty()) + "https://mangadex.org/chapter/${page.chapter.id}")
-                            }
-                            context.startActivity(Intent.createChooser(send, null))
-                        },
-                        colors = barIcons,
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
-                    }
-                }
-            }
-            Surface(
-                color = barColor(),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
-                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
-            ) {
-                Column {
-                    if (count > 1) {
-                        // Right-to-left reading puts the first page on the right, so the slider runs that way too.
-                        CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LocalLayoutDirection.current) {
-                            SyncedSlider(
-                                value = position.toFloat(),
-                                onValueChange = { scope.launch { goToPage(it.roundToInt()) } },
-                                valueRange = 0f..lastIndex.toFloat(),
-                                modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp),
-                            )
-                        }
-                    }
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        TextButton(onClick = { jumpTo = (position + 1).toString() }) { Text("${position + 1} / $count", style = MaterialTheme.typography.labelLarge) }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { showChapters = true }, colors = barIcons) {
-                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.chapters))
-                            }
-                            IconButton(onClick = {
-                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                onOpenChapter(page.prevId!!)
-                            }, enabled = page.prevId != null, colors = barIcons) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_episode))
-                            }
-                            IconButton(onClick = {
-                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                onOpenChapter(page.nextId!!)
-                            }, enabled = page.nextId != null, colors = barIcons) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.next_episode))
-                            }
-                        }
-                    }
-                }
-            }
+            ReaderTopBar(page, onBack, onOpenOptions, Modifier.align(Alignment.TopCenter))
+            ReaderBottomBar(
+                page = page,
+                position = position,
+                count = count,
+                rtl = rtl,
+                onSeek = { scope.launch { goToPage(it) } },
+                onJump = { jumpTo = (position + 1).toString() },
+                onChapters = { showChapters = true },
+                onOpenChapter = onOpenChapter,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
 
         jumpTo?.let { typed ->
-            val target = typed.toIntOrNull()
-            AlertDialog(
-                onDismissRequest = { jumpTo = null },
-                title = { Text("Go to page") },
-                text = {
-                    OutlinedTextField(
-                        value = typed,
-                        onValueChange = { jumpTo = it.filter(Char::isDigit).take(4) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        supportingText = { Text("1 to $count") },
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        enabled = target != null && target in 1..count,
-                        onClick = {
-                            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                            scope.launch { goToPage((target ?: 1) - 1) }
-                            jumpTo = null
-                        },
-                    ) { Text("Go") }
-                },
-                dismissButton = { TextButton(onClick = { jumpTo = null }) { Text("Cancel") } },
+            GoToPageDialog(
+                typed = typed,
+                count = count,
+                onChange = { jumpTo = it },
+                onGo = { index -> scope.launch { goToPage(index) } },
+                onDismiss = { jumpTo = null },
             )
         }
 

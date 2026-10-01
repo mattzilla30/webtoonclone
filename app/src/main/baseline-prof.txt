@@ -15,6 +15,7 @@ HSPLcom/dexter/ui/theme/ThemeKt;->*(**)**
 HSPLcom/dexter/ui/series/SeriesScreenKt;->*(**)**
 HSPLcom/dexter/ui/series/SeriesViewModel;->*(**)**
 HSPLcom/dexter/ui/reader/ReaderScreenKt;->*(**)**
+HSPLcom/dexter/ui/reader/ReaderBarsKt;->*(**)**
 HSPLcom/dexter/ui/reader/ReaderViewModel;->*(**)**
 HSPLcom/dexter/ui/reader/ZoomKt;->*(**)**
 HSPLcom/dexter/ui/search/SearchScreenKt;->*(**)**

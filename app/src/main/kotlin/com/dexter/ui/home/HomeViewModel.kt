@@ -11,6 +11,8 @@ import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -94,11 +96,11 @@ class HomeViewModel(
 
     init {
         // A new content language changes every title and cover, so the home screen loads again.
-        viewModelScope.launch { repository.contentVersion.drop(1).collect { load(showSpinner = true) } }
+        viewModelScope.launch { repository.contentVersion.drop(1).collect { load(showSpinner = true, force = true) } }
     }
 
     private var seenOpen = 0
-    private var busy = false
+    private var loadJob: Job? = null
 
     /**
      * Reloads with fresh random picks when the app has been opened since the last load.
@@ -124,16 +126,21 @@ class HomeViewModel(
         }
     }
 
-    private fun load(showSpinner: Boolean) {
-        if (busy) return
-        busy = true
+    /** Loads the home screen. A load already running is left alone, unless [force] replaces it, as a language change does. */
+    private fun load(showSpinner: Boolean, force: Boolean = false) {
+        if (loadJob?.isActive == true) {
+            if (!force) return
+            loadJob?.cancel()
+        }
         if (showSpinner) _state.value = Load.Loading
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             try {
                 val content = repository.home()
                 _state.value = Load.Ready(content)
                 _offlineSavedAt.value = null
                 runCatching { libraryStore.saveHome(content) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // A silent refresh keeps the old content when the network fails. A first load falls
                 // back to the last saved home, and shows the error only when nothing is saved.
@@ -146,8 +153,6 @@ class HomeViewModel(
                         _state.value = Load.Error(friendlyError(e, "Could not load series"))
                     }
                 }
-            } finally {
-                busy = false
             }
         }
     }

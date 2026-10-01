@@ -10,6 +10,7 @@ HSPLcom/dexter/data/LibraryStore;->*(**)**
 HSPLcom/dexter/ui/home/HomeScreenKt;->*(**)**
 HSPLcom/dexter/ui/home/HomeViewModel;->*(**)**
 HSPLcom/dexter/ui/ComponentsKt;->*(**)**
+HSPLcom/dexter/ui/SeriesGridKt;->*(**)**
 HSPLcom/dexter/ui/DateFormatKt;->*(**)**
 HSPLcom/dexter/ui/CommonKt;->*(**)**
 HSPLcom/dexter/ui/theme/ThemeKt;->*(**)**

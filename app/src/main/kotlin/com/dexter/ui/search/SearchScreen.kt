@@ -3,16 +3,12 @@ package com.dexter.ui.search
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,7 +21,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -36,10 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,13 +46,10 @@ import com.dexter.R
 import com.dexter.data.Order
 import com.dexter.data.SearchFilters
 import com.dexter.data.activeFilters
-import com.dexter.ui.BackToTopButton
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.LoadView
 import com.dexter.ui.OfflineBanner
-import com.dexter.ui.PickTile
-import com.dexter.ui.adaptiveColumns
-import com.dexter.ui.windowWidthDp
+import com.dexter.ui.SeriesGrid
 
 @Composable
 fun SearchScreen(
@@ -205,35 +195,7 @@ fun SearchScreen(
                         }
                     }
                 } else {
-                    val columns = adaptiveColumns(windowWidthDp())
-                    val rows = remember(series, columns) { series.chunked(columns) }
-                    val listState = rememberLazyListState()
-
-                    // Load the next page once the last two rows are on screen.
-                    LaunchedEffect(listState, rows.size) {
-                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
-                            .collect { last -> if (last >= rows.size - 2) viewModel.loadMore() }
-                    }
-
-                    Box(Modifier.fillMaxSize()) {
-                        LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                            items(rows.size) { row ->
-                                Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    val pair = rows[row]
-                                    pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
-                                    repeat(columns - pair.size) { Box(Modifier.weight(1f)) }
-                                }
-                            }
-                            if (loadingMore) {
-                                item {
-                                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                        LoadingIndicator(Modifier.size(40.dp))
-                                    }
-                                }
-                            }
-                        }
-                        BackToTopButton(listState, Modifier.align(Alignment.BottomEnd))
-                    }
+                    SeriesGrid(series, loadingMore, onLoadMore = viewModel::loadMore, onOpenSeries = onOpenSeries)
                 }
             }
         }

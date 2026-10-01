@@ -65,7 +65,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
             modules(appModule)
         }
         // Scheduling opens WorkManager's database, so it stays off the main thread and out of the launch.
-        appScope.launch { NewChaptersWorker.schedule(this@DexterApp) }
+        appScope.launch { NewChaptersWorker.schedule(this@DexterApp, settingsStore.current().checkIntervalMinutes) }
         appScope.launch { AutoBackupWorker.sync(this@DexterApp, settingsStore.current().autoBackupFolder) }
         // Keep the parts that read settings off the main thread in step with what you choose.
         appScope.launch { runCatching { downloadStore.prune() } }

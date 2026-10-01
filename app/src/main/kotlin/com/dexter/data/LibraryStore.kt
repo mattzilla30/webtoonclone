@@ -318,6 +318,9 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     suspend fun setNotifications(enabled: Boolean) = updateScalars { it.copy(notificationsEnabled = enabled) }
 
+    /** Records that a background check finished at [at]. */
+    suspend fun markChecked(at: Long) = updateScalars { it.copy(lastCheckAt = at) }
+
     /** Replaces everything in the library with [data], for restoring a backup. */
     suspend fun replaceAll(data: LibraryData) {
         ensureMigrated()

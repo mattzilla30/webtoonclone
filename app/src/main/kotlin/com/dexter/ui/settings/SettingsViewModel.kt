@@ -10,6 +10,7 @@ import com.dexter.data.LibraryData
 import com.dexter.data.Settings
 import com.dexter.data.decodeBackup
 import com.dexter.notify.AutoBackupWorker
+import com.dexter.notify.NewChaptersWorker
 import com.dexter.ui.LogFailures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,19 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
 
     fun update(change: (Settings) -> Settings) {
         viewModelScope.launch(LogFailures) { app.settingsStore.update(change) }
+    }
+
+    /** Saves the check interval and reschedules the background check to match. */
+    fun setCheckInterval(minutes: Int) {
+        viewModelScope.launch(LogFailures) {
+            app.settingsStore.update { it.copy(checkIntervalMinutes = minutes) }
+            NewChaptersWorker.schedule(app, minutes)
+        }
+    }
+
+    fun checkNow() {
+        NewChaptersWorker.checkNow(app)
+        _message.value = "Checking for new chapters now. Notifications arrive when it finishes."
     }
 
     fun setNotifications(enabled: Boolean) {

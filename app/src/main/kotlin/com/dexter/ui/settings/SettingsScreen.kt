@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.ContentRatings
 import com.dexter.data.Languages
+import com.dexter.data.ReadingStatus
 import com.dexter.data.formatBytes
 import com.dexter.data.libraryText
 import com.dexter.data.resetReaderSettings
@@ -44,6 +45,8 @@ import com.dexter.notify.CHANNEL_ID
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.ConfirmDialog
+import com.dexter.ui.timeAgo
+import java.time.Instant
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
@@ -184,9 +187,39 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
             SectionTitle("Notifications")
             SwitchRow(
                 "New chapter notifications",
-                "Check subscribed series about every 30 minutes. You can also silence one series on its page.",
+                "Check subscribed series in the background. You can also silence one series on its page.",
                 library.notificationsEnabled,
             ) { on -> viewModel.setNotifications(on) }
+            ChoiceRow(
+                "Check every",
+                listOf(15 to "15 min", 30 to "30 min", 60 to "1 hour", 360 to "6 hours", 720 to "12 hours"),
+                settings.checkIntervalMinutes,
+            ) { minutes -> viewModel.setCheckInterval(minutes) }
+            InfoRow(
+                title = "Check now",
+                subtitle = if (library.lastCheckAt == 0L) "No check has finished yet." else "Last check: ${timeAgo(Instant.ofEpochMilli(library.lastCheckAt))}",
+                action = { TextButton(onClick = viewModel::checkNow) { Text("Check") } },
+            )
+            Text("Keep these quiet", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+            FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ReadingStatus.entries.forEach { status ->
+                    val muted = status in settings.mutedStatuses
+                    ChoiceChip(status.label, muted) {
+                        viewModel.update { it.copy(mutedStatuses = if (muted) it.mutedStatuses - status else it.mutedStatuses + status) }
+                    }
+                }
+                library.collections.keys.sorted().forEach { name ->
+                    val muted = name in settings.mutedCollections
+                    ChoiceChip(name, muted) {
+                        viewModel.update { it.copy(mutedCollections = if (muted) it.mutedCollections - name else it.mutedCollections + name) }
+                    }
+                }
+            }
+            Text(
+                "Series with a selected status or in a selected collection never notify.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             SwitchRow("Combine into one notification", "One summary for all new chapters found in a check.", settings.notificationDigest) { on ->
                 viewModel.update { it.copy(notificationDigest = on) }
             }

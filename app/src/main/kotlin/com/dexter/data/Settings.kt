@@ -138,6 +138,12 @@ data class Settings(
     val pageTransition: PageTransition = PageTransition.Slide,
     /** Read without recording history, positions, or stats. */
     val incognito: Boolean = false,
+    /** Minutes between background checks for new chapters. Android allows 15 at the least. */
+    val checkIntervalMinutes: Int = 30,
+    /** Reading statuses whose series never notify, such as Dropped. */
+    val mutedStatuses: Set<ReadingStatus> = emptySet(),
+    /** Collections whose series never notify. */
+    val mutedCollections: Set<String> = emptySet(),
 )
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
@@ -178,4 +184,13 @@ class SettingsStore(private val context: Context) {
         lastDecoded = raw to settings
         return settings
     }
+}
+
+/** True when [seriesId] sits in a reading status or collection you muted, so its new chapters stay quiet. */
+fun isMuted(seriesId: String, library: LibraryData, settings: Settings): Boolean {
+    if (settings.mutedStatuses.isNotEmpty()) {
+        val status = library.lists.firstOrNull { it.id == seriesId }?.status
+        if (status != null && status in settings.mutedStatuses) return true
+    }
+    return settings.mutedCollections.any { name -> library.collections[name]?.any { it.id == seriesId } == true }
 }

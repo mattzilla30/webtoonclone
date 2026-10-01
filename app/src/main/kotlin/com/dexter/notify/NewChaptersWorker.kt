@@ -8,19 +8,27 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import androidx.core.content.ContextCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import coil3.SingletonImageLoader
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.toBitmap
 import com.dexter.DexterApp
 import com.dexter.MainActivity
 import com.dexter.data.Order
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
+import com.dexter.data.isMuted
 import com.dexter.data.isWorthRetrying
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -30,6 +38,8 @@ import java.util.concurrent.TimeUnit
 /** The notification channel for new chapters. Settings links to its system page. */
 const val CHANNEL_ID = "new_chapters"
 private const val WORK_NAME = "new-chapters"
+private const val NOW_WORK_NAME = "new-chapters-now"
+private const val COVER_PX = 256
 private const val GROUP_KEY = "new_chapters_group"
 private const val DIGEST_ID = 1
 private const val FULL_CHECK_MS = 6L * 60 * 60 * 1000
@@ -103,7 +113,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             if (newestUpload != null) marks[series.id] = newestUpload
             val knownId = series.knownChapterId
-            if (latest != null && knownId != null && latest.id != knownId && library.notificationsEnabled && series.notify) {
+            if (latest != null && knownId != null && latest.id != knownId && library.notificationsEnabled && series.notify && !isMuted(series.id, library, settings)) {
                 found += NewChapter(series, latest.id, latest.number)
             }
             // First sighting only records the chapter, so old chapters never notify. With
@@ -152,6 +162,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
         }
         post(found, settings.notificationDigest)
+        app.libraryStore.markChecked(System.currentTimeMillis())
         return if (failed) Result.retry() else Result.success()
     }
 
@@ -203,7 +214,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         )
     }
 
-    private fun post(found: List<NewChapter>, digest: Boolean) {
+    private suspend fun post(found: List<NewChapter>, digest: Boolean) {
         if (found.isEmpty()) return
         val manager = notifier() ?: return
         if (digest) {
@@ -224,8 +235,29 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         }
     }
 
-    private fun single(item: NewChapter): Notification {
+    /** The series cover, small enough for a notification, or null when it does not load. */
+    private suspend fun cover(url: String?): Bitmap? {
+        if (url == null) return null
+        val context = applicationContext
+        val request = ImageRequest.Builder(context).data(url).size(COVER_PX).build()
+        return (SingletonImageLoader.get(context).execute(request) as? SuccessResult)?.image?.toBitmap()
+    }
+
+    private suspend fun single(item: NewChapter): Notification {
         val series = item.series
+        val download = PendingIntent.getBroadcast(
+            applicationContext,
+            ("dl:" + series.id).hashCode(),
+            Intent(applicationContext, DownloadActionReceiver::class.java).apply {
+                action = ACTION_DOWNLOAD
+                putExtra(EXTRA_SERIES_ID, series.id)
+                putExtra(EXTRA_CHAPTER_ID, item.chapterId)
+                putExtra(EXTRA_CHAPTER_NUMBER, item.number)
+                putExtra(EXTRA_TITLE, series.title)
+                putExtra(EXTRA_COVER, series.coverUrl)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         val markRead = PendingIntent.getBroadcast(
             applicationContext,
             series.id.hashCode(),
@@ -238,26 +270,36 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val read = opensApp(series.id.hashCode()) {
+            putExtra(EXTRA_SERIES_ID, series.id)
+            putExtra(EXTRA_CHAPTER_ID, item.chapterId)
+        }
         return newBuilder(series.title)
             .setContentText("Chapter ${item.number} is out")
-            .setContentIntent(
-                opensApp(series.id.hashCode()) {
-                    putExtra(EXTRA_SERIES_ID, series.id)
-                    putExtra(EXTRA_CHAPTER_ID, item.chapterId)
-                },
-            )
+            .setLargeIcon(cover(series.coverUrl))
+            .setContentIntent(read)
             .setGroup(GROUP_KEY)
+            .addAction(Notification.Action.Builder(null, "Read now", read).build())
+            .addAction(Notification.Action.Builder(null, "Download", download).build())
             .addAction(Notification.Action.Builder(null, "Mark read", markRead).build())
             .build()
     }
 
     companion object {
-        /** Runs every 30 minutes on any network, unless the battery is low. Safe to call on every launch. */
-        fun schedule(context: Context) {
+        /** Checks once now, whatever the schedule, on any network. */
+        fun checkNow(context: Context) {
+            val request = OneTimeWorkRequestBuilder<NewChaptersWorker>()
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(NOW_WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+        }
+
+        /** Runs every [minutes] on any network, unless the battery is low. Safe to call on every launch. */
+        fun schedule(context: Context, minutes: Int) {
             // Create the channel up front, so its system settings page exists before the first notification.
             context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(NotificationChannel(CHANNEL_ID, "New chapters", NotificationManager.IMPORTANCE_DEFAULT))
-            val request = PeriodicWorkRequestBuilder<NewChaptersWorker>(30, TimeUnit.MINUTES)
+            val request = PeriodicWorkRequestBuilder<NewChaptersWorker>(minutes.coerceAtLeast(15).toLong(), TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)

@@ -8,6 +8,8 @@ import com.dexter.data.Order
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,17 +45,22 @@ class AuthorViewModel(
     private var page = 0
     private var endReached = false
 
+    private var loadJob: Job? = null
+
     init { load() }
 
     fun load() {
+        loadJob?.cancel()
         _state.value = Load.Loading
         page = 0
         endReached = false
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             _state.value = try {
                 val first = repository.browse(page = 0, order = Order.Popular, authorId = authorId, withStats = true)
                 endReached = first.isEmpty()
                 Load.Ready(first)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Load.Error(friendlyError(e, "Could not load this author"))
             }
@@ -71,6 +78,8 @@ class AuthorViewModel(
                 val seen = current.mapTo(mutableSetOf()) { it.id }
                 endReached = more.isEmpty()
                 _state.value = Load.Ready(current + more.filter { it.id !in seen })
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Keep the list as is. Scrolling again retries.
             } finally {

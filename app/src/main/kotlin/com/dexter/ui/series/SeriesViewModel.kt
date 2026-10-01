@@ -22,6 +22,8 @@ import com.dexter.data.relationLabel
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +60,8 @@ class SeriesViewModel(
 
     private var nextOffset: Int? = 0
     private val seen = mutableSetOf<String>()
+    private var loadJob: Job? = null
+    private var moreJob: Job? = null
 
     /** The chapter this device read last, which may be older than the loaded pages. */
     val lastRead: StateFlow<SavedSeries?> = libraryStore.data
@@ -203,9 +207,13 @@ class SeriesViewModel(
     val offlineSavedAt: StateFlow<Long?> = _offlineSavedAt
 
     fun load() {
+        // A reload replaces the page, so an older load or a chapter page still loading must not land on top of it.
+        moreJob?.cancel()
+        loadJob?.cancel()
+        _loadingMore.value = false
         _state.value = Load.Loading
         seen.clear()
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             try {
                 val group = settingsStore.current().preferredGroups[seriesId]
                 val ready = coroutineScope {
@@ -220,6 +228,8 @@ class SeriesViewModel(
                 loadSimilar(ready.detail)
                 val saved = CachedSeries(ready.detail, ready.chapters.take(MAX_CACHED_CHAPTERS), System.currentTimeMillis(), repository.language)
                 runCatching { seriesCache.save(saved) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Fall back to the last copy of this series, if you opened it before.
                 val saved = runCatching { seriesCache.load(seriesId, repository.language) }.getOrNull()
@@ -278,13 +288,15 @@ class SeriesViewModel(
         val current = (_state.value as? Load.Ready)?.value ?: return
         if (_loadingMore.value) return
         _loadingMore.value = true
-        viewModelScope.launch {
+        moreJob = viewModelScope.launch {
             try {
                 val page = repository.chapterPage(seriesId, offset, seen, settingsStore.current().preferredGroups[seriesId])
                 nextOffset = page.nextOffset
                 _state.value = Load.Ready(
                     current.copy(chapters = current.chapters + page.chapters, hasMore = page.nextOffset != null),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Keep the list as is. Scrolling again retries.
             } finally {

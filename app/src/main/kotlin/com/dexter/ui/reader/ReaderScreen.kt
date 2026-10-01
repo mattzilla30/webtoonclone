@@ -221,6 +221,7 @@ private fun ReaderContent(
     val count = page.pages.size
     val lastIndex = (count - 1).coerceAtLeast(0)
     val context = LocalContext.current
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     var barsVisible by remember { mutableStateOf(true) }
     var showChapters by remember { mutableStateOf(false) }
@@ -444,10 +445,16 @@ private fun ReaderContent(
                             IconButton(onClick = { showChapters = true }, colors = barIcons) {
                                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.chapters))
                             }
-                            IconButton(onClick = { onOpenChapter(page.prevId!!) }, enabled = page.prevId != null, colors = barIcons) {
+                            IconButton(onClick = {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                onOpenChapter(page.prevId!!)
+                            }, enabled = page.prevId != null, colors = barIcons) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_episode))
                             }
-                            IconButton(onClick = { onOpenChapter(page.nextId!!) }, enabled = page.nextId != null, colors = barIcons) {
+                            IconButton(onClick = {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                onOpenChapter(page.nextId!!)
+                            }, enabled = page.nextId != null, colors = barIcons) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.next_episode))
                             }
                         }
@@ -471,7 +478,6 @@ private fun ReaderContent(
                     )
                 },
                 confirmButton = {
-                    val view = LocalView.current
                     TextButton(
                         enabled = target != null && target in 1..count,
                         onClick = {

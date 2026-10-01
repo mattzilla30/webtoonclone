@@ -168,16 +168,15 @@ fun HomeScreen(
                     }
 
                     item { SectionHeader("New Series") }
-                    items(home.newSeries.size) { i ->
-                        val series = home.newSeries[i]
+                    items(home.newSeries, key = { it.id }) { series ->
                         NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
                     }
 
                     item { SectionHeader("Today's Picks") }
                     val pickRows = home.picks.chunked(columns)
-                    items(pickRows.size) { row ->
+                    items(pickRows, key = { it.first().id }) { rowSeries ->
                         Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            pickRows[row].forEach { series ->
+                            rowSeries.forEach { series ->
                                 PickTile(
                                     series,
                                     { onOpenSeries(series.id) },
@@ -186,7 +185,7 @@ fun HomeScreen(
                                     onLongClick = { toggleSubscribe(series) },
                                 )
                             }
-                            repeat(columns - pickRows[row].size) { Box(Modifier.weight(1f)) }
+                            repeat(columns - rowSeries.size) { Box(Modifier.weight(1f)) }
                         }
                     }
 

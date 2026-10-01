@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,7 +19,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -131,7 +131,7 @@ internal fun InfoRow(
     title: String,
     subtitle: String? = null,
     onClick: (() -> Unit)? = null,
-    action: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    action: @Composable RowScope.() -> Unit = {},
 ) {
     val content: @Composable () -> Unit = {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -145,9 +145,5 @@ internal fun InfoRow(
             if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
         }
     }
-    if (onClick != null) {
-        Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { content() }
-    } else {
-        CardRow { content() }
-    }
+    CardRow(onClick) { content() }
 }

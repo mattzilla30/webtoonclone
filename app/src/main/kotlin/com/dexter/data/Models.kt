@@ -173,5 +173,9 @@ data class LibraryData(
     val fullCheckAt: Long = 0,
 ) {
     /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
-    fun knownSeries(id: String): SavedSeries? = (recent + subscribed + lists + collections.values.flatten()).firstOrNull { it.id == id }
+    fun knownSeries(id: String): SavedSeries? =
+        recent.firstOrNull { it.id == id }
+            ?: subscribed.firstOrNull { it.id == id }
+            ?: lists.firstOrNull { it.id == id }
+            ?: collections.values.firstNotNullOfOrNull { members -> members.firstOrNull { it.id == id } }
 }

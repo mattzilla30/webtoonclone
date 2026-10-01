@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.runtime.Composable
@@ -36,9 +37,8 @@ fun SeriesGrid(series: List<SeriesSummary>, loadingMore: Boolean, onLoadMore: ()
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = listState) {
-            items(rows.size) { row ->
+            items(rows, key = { it.first().id }) { pair ->
                 Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val pair = rows[row]
                     pair.forEach { PickTile(it, { onOpenSeries(it.id) }, Modifier.weight(1f)) }
                     repeat(columns - pair.size) { Box(Modifier.weight(1f)) }
                 }

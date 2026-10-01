@@ -35,6 +35,21 @@ fun previousReadable(chapters: List<Chapter>, chapter: Chapter): Chapter? {
 }
 
 /**
+ * [previousReadable] for every chapter at once, keyed by chapter id. The series page draws one row per
+ * chapter, so this saves a scan of the whole list for each row on screen.
+ */
+fun previousReadableMap(chapters: List<Chapter>): Map<String, Chapter?> {
+    val result = HashMap<String, Chapter?>(chapters.size * 2)
+    var previous: Chapter? = null
+    // Oldest first, so the readable chapter seen last is the next older one.
+    for (chapter in chapters.asReversed()) {
+        result[chapter.id] = previous
+        if (chapter.externalUrl == null) previous = chapter
+    }
+    return result
+}
+
+/**
  * How many readable chapters come after the last one you read. The list is newest first, so the
  * unread ones are always among the chapters loaded first. Zero when nothing has been read yet.
  */

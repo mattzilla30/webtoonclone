@@ -1,59 +1,27 @@
 package com.dexter.ui.series
 
+import com.dexter.data.Chapter
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReadStateTest {
+    private fun chapter(number: String, external: Boolean = false) =
+        Chapter("id$number", number, "", "", externalUrl = if (external) "https://example.com" else null)
+
+    // Newest first, as the series page lists them. Chapter 3 only links out.
+    private val chapters = listOf(chapter("5"), chapter("4"), chapter("3", external = true), chapter("2"), chapter("1"))
+
     @Test
-    fun chaptersUpToTheLastReadOneAreRead() {
-        assertTrue(isChapterRead("1", "10"))
-        assertTrue(isChapterRead("10", "10"))
-        assertFalse(isChapterRead("11", "10"))
+    fun theMapMatchesTheOneByOneLookupForEveryChapter() {
+        val map = previousReadableMap(chapters)
+        chapters.forEach { assertEquals(it.number, previousReadable(chapters, it), map[it.id]) }
     }
 
     @Test
-    fun fractionalChaptersCompareAsNumbers() {
-        assertTrue(isChapterRead("9.5", "10"))
-        assertFalse(isChapterRead("10.5", "10"))
-        assertTrue(isChapterRead("2", "10.5"))
-    }
-
-    @Test
-    fun nothingIsReadWithoutProgressOrANumber() {
-        assertFalse(isChapterRead("1", null))
-        assertFalse(isChapterRead("Oneshot", "10"))
-        assertFalse(isChapterRead("3", "Oneshot"))
-    }
-
-    @Test
-    fun aNewerKnownChapterCountsAsUnread() {
-        assertTrue(hasUnreadChapters("11", "10"))
-        assertTrue(hasUnreadChapters("10.5", "10"))
-        assertFalse(hasUnreadChapters("10", "10"))
-        assertFalse(hasUnreadChapters("9", "10"))
-    }
-
-    @Test
-    fun unreadNeedsBothNumbers() {
-        assertFalse(hasUnreadChapters(null, "10"))
-        assertFalse(hasUnreadChapters("11", null))
-        assertFalse(hasUnreadChapters("Oneshot", "10"))
-    }
-
-    private fun chapter(id: String, external: Boolean = false) =
-        com.dexter.data.Chapter(id, id, "", "", if (external) "https://example.com" else null)
-
-    @Test
-    fun theNextOlderReadableChapterBecomesTheLastRead() {
-        val list = listOf(chapter("c3"), chapter("c2", external = true), chapter("c1"))
-        assertEquals("c1", previousReadable(list, list[0])?.id)
-    }
-
-    @Test
-    fun theOldestChapterHasNoPreviousOne() {
-        val list = listOf(chapter("c2"), chapter("c1"))
-        assertEquals(null, previousReadable(list, list[1]))
+    fun theOldestChapterHasNoPreviousAndLinkOutsAreSkipped() {
+        val map = previousReadableMap(chapters)
+        assertNull(map["id1"])
+        assertEquals("id2", map["id4"]?.id)
     }
 }

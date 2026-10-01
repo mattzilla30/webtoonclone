@@ -12,6 +12,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -106,14 +107,16 @@ fun isDark(mode: ThemeMode, systemDark: Boolean): Boolean = when (mode) {
 fun DexterTheme(settings: Settings = Settings(), content: @Composable () -> Unit) {
     val dark = isDark(settings.theme, isSystemInDarkTheme())
     val context = LocalContext.current
-    val scheme: ColorScheme = when {
-        settings.dynamicColor && dark -> dynamicDarkColorScheme(context).let {
-            if (settings.theme == ThemeMode.Black) it.copy(background = Color.Black, surface = Color.Black) else it
+    val scheme: ColorScheme = remember(settings.theme, settings.dynamicColor, dark, context) {
+        when {
+            settings.dynamicColor && dark -> dynamicDarkColorScheme(context).let {
+                if (settings.theme == ThemeMode.Black) it.copy(background = Color.Black, surface = Color.Black) else it
+            }
+            settings.dynamicColor -> dynamicLightColorScheme(context)
+            !dark -> Light
+            settings.theme == ThemeMode.Black -> Black
+            else -> DarkScheme
         }
-        settings.dynamicColor -> dynamicLightColorScheme(context)
-        !dark -> Light
-        settings.theme == ThemeMode.Black -> Black
-        else -> DarkScheme
     }
     MaterialExpressiveTheme(
         colorScheme = scheme,

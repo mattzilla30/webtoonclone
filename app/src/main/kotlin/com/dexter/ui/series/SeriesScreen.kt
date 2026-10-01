@@ -123,6 +123,8 @@ fun SeriesScreen(
             val summary = page.detail.summary
             val readable = remember(page.chapters) { page.chapters.filter { it.externalUrl == null } }
             val listItems = remember(page.chapters) { groupByVolume(page.chapters) }
+            val previousOf = remember(page.chapters) { previousReadableMap(page.chapters) }
+            val unreadCount = remember(page.chapters, lastRead?.chapterNumber) { unreadChapterCount(page.chapters, lastRead?.chapterNumber) }
             // With older chapters still unloaded, the oldest loaded one is not Episode 1.
             val startAt = if (page.hasMore) readable.firstOrNull() else readable.lastOrNull()
             val listState = rememberLazyListState()
@@ -354,10 +356,7 @@ fun SeriesScreen(
                         ) {
                             Text(
                                 when {
-                                    resumeId != null -> {
-                                        val unread = unreadChapterCount(page.chapters, lastRead?.chapterNumber)
-                                        "Continue Ep. ${lastRead?.chapterNumber}" + if (unread > 0) " \u00b7 $unread new" else ""
-                                    }
+                                    resumeId != null -> "Continue Ep. ${lastRead?.chapterNumber}" + if (unreadCount > 0) " \u00b7 $unreadCount new" else ""
                                     page.hasMore -> "Latest Ep. ${startAt!!.number}"
                                     else -> "Episode ${startAt!!.number}"
                                 },
@@ -378,7 +377,7 @@ fun SeriesScreen(
                         is ChapterListItem.Entry -> {
                             val chapter = item.chapter
                             val readable = chapter.externalUrl == null
-                            val previous = previousReadable(page.chapters, chapter)
+                            val previous = previousOf[chapter.id]
                             EpisodeRow(
                                 chapter,
                                 summary.coverUrl,

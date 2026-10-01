@@ -11,6 +11,7 @@ import com.dexter.data.ProgressStore
 import com.dexter.data.ReadingMode
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesCacheStore
+import com.dexter.data.SeriesDetail
 import com.dexter.data.Settings
 import com.dexter.data.SettingsStore
 import com.dexter.data.StatsStore
@@ -153,7 +154,10 @@ class ReaderViewModel(
                             .getOrElse { error -> downloads.chaptersOf(seriesId).ifEmpty { throw error } }
                     }
                     val pages = async { downloads.pagesOf(chapterId) ?: repository.pages(chapterId, forceRefresh) }
-                    val detection = async { detectMode() }
+                    // The saved copy and the library are each read once, and shared by everything below that needs them.
+                    val cached = async { catching { seriesCache.load(seriesId, repository.language) }.getOrNull()?.detail }
+                    val known = async { libraryStore.current().knownSeries(seriesId) }
+                    val detection = async { detectMode(cached.await()) }
                     val saved = progressStore.observe(seriesId).first()
                     var list = chapters.await()
                     // A chapter newer than the kept list, such as one opened from a notification, needs a fresh list.
@@ -172,12 +176,11 @@ class ReaderViewModel(
                             total = list.size,
                             startPage = saved?.takeIf { it.chapterId == chapterId }?.page ?: 0,
                             startFraction = saved?.takeIf { it.chapterId == chapterId }?.fraction ?: 0f,
-                            seriesTitle = seriesCache.load(seriesId, repository.language)?.detail?.summary?.title
-                                ?: libraryStore.current().knownSeries(seriesId)?.title,
+                            seriesTitle = cached.await()?.summary?.title ?: known.await()?.title,
                         ),
                     ).also {
-                        recordRecent(chapter)
-                        saveNextChapter(list.getOrNull(index + 1))
+                        recordRecent(chapter, known.await())
+                        saveNextChapter(list.getOrNull(index + 1), known.await())
                     }
                 }
             } catch (e: CancellationException) {
@@ -192,28 +195,25 @@ class ReaderViewModel(
     private suspend fun readableChapters(preferredGroup: String?, fresh: Boolean): List<Chapter> =
         repository.allChapters(seriesId, preferredGroup, fresh).filter { it.externalUrl == null }
 
-    /** Reads the series' tags and language from the saved copy, or from MangaDex when there is none. */
-    private suspend fun detectMode(): ReadingMode {
-        val detail = seriesCache.load(seriesId, repository.language)?.detail
-            ?: catching { repository.series(seriesId) }.getOrNull()
+    /** Reads the series' tags and language from the saved copy [cached], or from MangaDex when there is none. */
+    private suspend fun detectMode(cached: SeriesDetail?): ReadingMode {
+        val detail = cached ?: catching { repository.series(seriesId) }.getOrNull()
         return if (detail != null) detectReadingMode(detail.tags, detail.originalLanguage) else ReadingMode.Vertical
     }
 
     /** With the setting on, queues the next chapter for saving, unless it is already saved or on its way. */
-    private fun saveNextChapter(next: Chapter?) {
-        if (next == null) return
+    private fun saveNextChapter(next: Chapter?, known: SavedSeries?) {
+        if (next == null || known == null) return
         viewModelScope.launch(LogFailures) {
             val current = settingsStore.current()
             if (!current.autoDownloadNext || downloads.isSaved(next.id) || next.id in downloads.active.value) return@launch
-            val known = libraryStore.current().knownSeries(seriesId) ?: return@launch
             DownloadWorker.enqueue(context, downloads, seriesId, known.title, known.coverUrl, next, current.downloadWifiOnly)
         }
     }
 
-    private fun recordRecent(chapter: Chapter) {
+    private fun recordRecent(chapter: Chapter, known: SavedSeries?) {
         viewModelScope.launch(LogFailures) {
             // Reuse the title and cover you already saved. Only a first read asks MangaDex for them.
-            val known = libraryStore.current().knownSeries(seriesId)
             val (title, cover) = if (known != null) {
                 known.title to known.coverUrl
             } else {

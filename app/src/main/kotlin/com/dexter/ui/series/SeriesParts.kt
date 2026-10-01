@@ -141,8 +141,10 @@ internal fun EpisodeRow(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                     )
+                    // Parsing the date once per chapter, not once per draw of the row.
+                    val date = remember(chapter.publishedAt) { formatChapterDate(chapter.publishedAt) }
                     Text(
-                        listOfNotNull(formatChapterDate(chapter.publishedAt), chapter.group, if (saved) "Saved" else if (saving) "Saving..." else null).joinToString(" · "),
+                        listOfNotNull(date, chapter.group, if (saved) "Saved" else if (saving) "Saving..." else null).joinToString(" · "),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

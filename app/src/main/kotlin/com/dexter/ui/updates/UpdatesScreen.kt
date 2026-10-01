@@ -133,7 +133,8 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
                                                 modifier = Modifier.size(18.dp),
                                             )
                                         }
-                                        Text(timeAgo(entry.publishedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        val ago = remember(entry.publishedAt) { timeAgo(entry.publishedAt) }
+                                        Text(ago, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }

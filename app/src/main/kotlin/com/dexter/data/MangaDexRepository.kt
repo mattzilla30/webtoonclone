@@ -21,7 +21,9 @@ private const val RANDOM_TRIES = 12
 private const val PAGE_URL_TTL_MS = 10L * 60 * 1000
 private const val UPDATES_PAGE = 50
 private const val SIMILAR_MINIMUM = 4
-private const val UPLOADS_PAGE = 100
+
+/** The most ids one request may look up. */
+private const val IDS_PAGE = 100
 private const val CHAPTER_LIST_TTL_MS = 5L * 60 * 1000
 
 enum class Order(val param: String) {
@@ -212,7 +214,7 @@ class MangaDexRepository(
     suspend fun latestUploads(ids: List<String>): Map<String, String?> {
         ensureSettings()
         val result = HashMap<String, String?>()
-        for (chunk in ids.chunked(UPLOADS_PAGE)) {
+        for (chunk in ids.chunked(IDS_PAGE)) {
             val url = "$API/manga".toHttpUrl().newBuilder()
                 .addQueryParameter("limit", chunk.size.toString())
                 .apply {
@@ -357,7 +359,7 @@ class MangaDexRepository(
     /** Summaries of related series, in the order MangaDex lists them. Series with nothing to read in your language are left out. */
     suspend fun relatedSeries(relations: List<SeriesRelation>): List<SeriesSummary> {
         if (relations.isEmpty()) return emptyList()
-        val byId = browse(ids = relations.map { it.id }, limit = relations.size.coerceAtMost(PAGE_SIZE)).associateBy { it.id }
+        val byId = browse(ids = relations.map { it.id }, limit = relations.size.coerceAtMost(IDS_PAGE)).associateBy { it.id }
         return relations.mapNotNull { byId[it.id] }
     }
 

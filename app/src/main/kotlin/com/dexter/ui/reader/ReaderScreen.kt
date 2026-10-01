@@ -471,9 +471,11 @@ private fun ReaderContent(
                     )
                 },
                 confirmButton = {
+                    val view = LocalView.current
                     TextButton(
                         enabled = target != null && target in 1..count,
                         onClick = {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
                             scope.launch { goToPage((target ?: 1) - 1) }
                             jumpTo = null
                         },

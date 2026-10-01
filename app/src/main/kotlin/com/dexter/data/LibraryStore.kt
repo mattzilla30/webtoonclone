@@ -253,7 +253,12 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     private suspend fun modify(list: LibraryList, change: (List<SavedSeries>) -> List<SavedSeries>) {
         ensureMigrated()
-        db.withTransaction { writeList(list, change(dao.get(list.key).map { it.toSaved() })) }
+        db.withTransaction {
+            val before = dao.get(list.key).map { it.toSaved() }
+            val after = change(before)
+            // A change that leaves the list as it was writes nothing, so no screen redraws for it.
+            if (after != before) writeList(list, after)
+        }
     }
 
     private suspend fun writeList(list: LibraryList, items: List<SavedSeries>) {

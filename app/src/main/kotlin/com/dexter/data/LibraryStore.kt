@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -81,7 +82,10 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
      * The library as it changes. Every screen that watches it shares one set of database queries, which
      * stop five seconds after the last screen leaves. Use [current] for a read that must see the latest writes.
      */
-    val data: Flow<LibraryData> = fresh.shareIn(scope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+    val data: SharedFlow<LibraryData> = fresh.shareIn(scope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+
+    /** The last library the app saw, or an empty one before the first read. Screens start from it so they do not flash empty. */
+    val latest: LibraryData get() = data.replayCache.firstOrNull() ?: LibraryData()
 
     /** One fresh read of the library, straight from the database. */
     suspend fun current(): LibraryData = fresh.first()

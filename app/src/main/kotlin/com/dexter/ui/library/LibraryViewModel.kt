@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 
 class LibraryViewModel(private val store: LibraryStore) : ViewModel() {
     val library: StateFlow<LibraryData> = store.data
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryData())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), store.latest)
 
     fun restore(list: LibraryList, snapshot: List<SavedSeries>) {
         viewModelScope.launch { store.restore(list, snapshot) }

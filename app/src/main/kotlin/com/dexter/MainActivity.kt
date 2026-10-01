@@ -39,7 +39,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.dexter.data.LibraryData
 import com.dexter.data.ReaderBackground
 import com.dexter.data.Settings
 import com.dexter.notify.EXTRA_CHAPTER_ID
@@ -138,7 +137,7 @@ class MainActivity : ComponentActivity() {
 private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, onOpened: () -> Unit) {
     val app = LocalContext.current.applicationContext as DexterApp
     val nav = rememberNavController()
-    val library = app.libraryStore.data.collectAsStateWithLifecycle(initialValue = LibraryData())
+    val library = app.libraryStore.data.collectAsStateWithLifecycle(initialValue = app.libraryStore.latest)
     // Read inside derivedStateOf, so a library change only redraws the navigation when the badge number changes.
     val unread by remember { derivedStateOf { unreadSeriesCount(library.value) } }
     val backStackEntry by nav.currentBackStackEntryAsState()

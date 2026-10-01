@@ -36,4 +36,14 @@ class OfflineStoreTest {
         val updates = CachedUpdates(listOf(UpdateEntry(SeriesSummary("s", "T", "c", genre = "Drama"), "12", "2026-01-01T00:00:00+00:00")), 5)
         assertEquals(updates, json.decodeFromString(CachedUpdates.serializer(), json.encodeToString(CachedUpdates.serializer(), updates)))
     }
+
+    @Test
+    fun aCachedUpdatesCopyKeepsItsLanguageAndSurvivesAnUnknownValue() {
+        val updates = CachedUpdates(emptyList(), 5, language = "fr")
+        val text = StoredJson.encodeToString(CachedUpdates.serializer(), updates)
+        assertEquals("fr", StoredJson.decodeFromString(CachedUpdates.serializer(), text).language)
+        // A status name from a newer version reads as no status instead of failing the whole copy.
+        val raw = """{"entries":[{"series":{"id":"s","title":"T","coverUrl":null},"chapterNumber":"1","publishedAt":"x"}],"savedAt":1,"language":null}"""
+        assertEquals("en", StoredJson.decodeFromString(CachedUpdates.serializer(), raw).language)
+    }
 }

@@ -84,10 +84,11 @@ class SeriesViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun download(detail: SeriesDetail, chapter: Chapter) {
-        viewModelScope.launch(LogFailures) {
-            val wifiOnly = settingsStore.current().downloadWifiOnly
-            DownloadWorker.enqueue(context, downloads, seriesId, detail.summary.title, detail.summary.coverUrl, chapter, wifiOnly)
-        }
+        viewModelScope.launch(LogFailures) { enqueueDownload(detail, chapter, settingsStore.current().downloadWifiOnly) }
+    }
+
+    private fun enqueueDownload(detail: SeriesDetail, chapter: Chapter, wifiOnly: Boolean) {
+        DownloadWorker.enqueue(context, downloads, seriesId, detail.summary.title, detail.summary.coverUrl, chapter, wifiOnly)
     }
 
     fun removeDownload(chapterId: String) {
@@ -99,7 +100,8 @@ class SeriesViewModel(
         viewModelScope.launch(LogFailures) {
             val all = catching { repository.allChapters(seriesId, settingsStore.current().preferredGroups[seriesId]) }.getOrNull() ?: return@launch
             val last = lastRead.value?.chapterNumber
-            chaptersToDownload(all.asReversed(), last, downloaded.value, count).forEach { download(detail, it) }
+            val wifiOnly = settingsStore.current().downloadWifiOnly
+            chaptersToDownload(all.asReversed(), last, downloaded.value, count).forEach { enqueueDownload(detail, it, wifiOnly) }
         }
     }
 

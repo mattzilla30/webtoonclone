@@ -58,12 +58,12 @@ class UpdatesViewModel(
                 val entries = repository.latestUpdates(0)
                 _offlineSavedAt.value = null
                 _state.value = Load.Ready(entries)
-                catching { offline.saveUpdates(entries) }
+                catching { offline.saveUpdates(entries, repository.language) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // Fall back to the last first page, if there is one.
-                val saved = catching { offline.loadUpdates() }.getOrNull()
+                val saved = catching { offline.loadUpdates(repository.language) }.getOrNull()
                 if (saved != null) {
                     _offlineSavedAt.value = saved.savedAt
                     _state.value = Load.Ready(saved.entries)

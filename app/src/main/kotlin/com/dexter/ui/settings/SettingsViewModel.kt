@@ -24,7 +24,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), app.settingsStore.latest)
 
     val library: StateFlow<LibraryData> = app.libraryStore.data
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryData())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), app.libraryStore.latest)
 
     private val _cacheBytes = MutableStateFlow<Long?>(null)
 

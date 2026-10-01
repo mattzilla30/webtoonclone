@@ -60,14 +60,17 @@ fun <T> LoadView(state: Load<T>, onRetry: () -> Unit, content: @Composable (T) -
     }
 }
 
+private val RATE_LIMITED = Regex("""\b429\b""")
+private val SERVER_ERROR = Regex("""HTTP 5\d\d""")
+
 /** Turns a failure into a message a reader can act on, instead of an exception string. */
 fun friendlyError(e: Throwable, fallback: String): String {
     val message = e.message.orEmpty()
     return when {
         e is UnknownHostException || e is ConnectException || e is SocketTimeoutException ->
             "No connection. Check your internet and try again."
-        Regex("""\b429\b""").containsMatchIn(message) -> "MangaDex is busy right now. Try again in a moment."
-        Regex("""HTTP 5\d\d""").containsMatchIn(message) -> "MangaDex is having trouble. Try again in a moment."
+        RATE_LIMITED.containsMatchIn(message) -> "MangaDex is busy right now. Try again in a moment."
+        SERVER_ERROR.containsMatchIn(message) -> "MangaDex is having trouble. Try again in a moment."
         e is IOException && message.startsWith("MangaDex") -> "MangaDex could not load this. Try again."
         else -> fallback
     }

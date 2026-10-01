@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 private val Context.offlineDataStore by preferencesDataStore(name = "offline")
 private val UPDATES = stringPreferencesKey("updates")
@@ -51,7 +50,7 @@ fun mergeSearches(old: List<CachedSearch>, added: CachedSearch, max: Int = MAX_C
 
 /** First pages of Updates and searches, kept on the device for when the network fails. */
 class OfflineStore(private val context: Context) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = StoredJson
     private val searchList = ListSerializer(CachedSearch.serializer())
 
     suspend fun saveUpdates(entries: List<UpdateEntry>, language: String = "en") {

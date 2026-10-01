@@ -17,6 +17,17 @@ HSPLcom/dexter/ui/reader/ReaderScreenKt;->*(**)**
 HSPLcom/dexter/ui/reader/ReaderViewModel;->*(**)**
 HSPLcom/dexter/ui/reader/ZoomKt;->*(**)**
 HSPLcom/dexter/ui/search/SearchScreenKt;->*(**)**
+HSPLcom/dexter/data/MangaDexHttp;->*(**)**
+HSPLcom/dexter/data/ProgressStore;->*(**)**
+HSPLcom/dexter/data/ImageReportInterceptor;->*(**)**
+HSPLcom/dexter/ui/series/SeriesPartsKt;->*(**)**
+HSPLcom/dexter/ui/library/LibraryScreenKt;->*(**)**
+HSPLcom/dexter/ui/library/LibraryViewModel;->*(**)**
+HSPLcom/dexter/ui/updates/UpdatesScreenKt;->*(**)**
+HSPLcom/dexter/ui/updates/UpdatesViewModel;->*(**)**
+HSPLcom/dexter/ui/search/SearchViewModel;->*(**)**
+HSPLcom/dexter/ui/settings/SettingsScreenKt;->*(**)**
+HSPLcom/dexter/ui/settings/SettingsRowsKt;->*(**)**
 Lcom/dexter/data/SeriesSummary;
 Lcom/dexter/data/Chapter;
 Lcom/dexter/data/Settings;

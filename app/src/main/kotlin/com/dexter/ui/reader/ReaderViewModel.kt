@@ -66,7 +66,6 @@ data class ReaderPage(
     val segments: List<ChapterSegment>,
     /** Every chapter you can read here, oldest first, for the chapter list. */
     val chapters: List<Chapter>,
-    val total: Int,
     /** First page to show. Non-zero when you left this chapter partway through. */
     val startPage: Int,
     /** How far down [startPage] you were, from 0 to 1. */
@@ -74,12 +73,8 @@ data class ReaderPage(
     /** The series title, when it is known from a saved copy. */
     val seriesTitle: String? = null,
 ) {
+    /** The chapter you opened. */
     val first: ChapterSegment get() = segments.first()
-    val chapter: Chapter get() = first.chapter
-    val pages: List<String> get() = first.pages
-    val prevId: String? get() = first.prevId
-    val nextId: String? get() = first.nextId
-    val index: Int get() = first.index
 }
 
 private const val RENEW_PAGES_MS = 60_000L
@@ -227,7 +222,6 @@ class ReaderViewModel(
                         ReaderPage(
                             segments = listOf(segment(list, index, chapter, pages.await())),
                             chapters = list,
-                            total = list.size,
                             startPage = if (openAtPage >= 0) openAtPage else resume?.page ?: 0,
                             startFraction = if (openAtPage >= 0) 0f else resume?.fraction ?: 0f,
                             seriesTitle = cachedDetail?.summary?.title ?: known?.title,

@@ -48,7 +48,7 @@
             android:id="@+id/updates_chapter_1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="8dp"
+            android:layout_marginStart="8dp"
             android:textColor="#BBBBBB"
             android:textSize="12sp" />
     </LinearLayout>
@@ -76,7 +76,7 @@
             android:id="@+id/updates_chapter_2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="8dp"
+            android:layout_marginStart="8dp"
             android:textColor="#BBBBBB"
             android:textSize="12sp" />
     </LinearLayout>
@@ -104,7 +104,7 @@
             android:id="@+id/updates_chapter_3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="8dp"
+            android:layout_marginStart="8dp"
             android:textColor="#BBBBBB"
             android:textSize="12sp" />
     </LinearLayout>
@@ -132,7 +132,7 @@
             android:id="@+id/updates_chapter_4"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="8dp"
+            android:layout_marginStart="8dp"
             android:textColor="#BBBBBB"
             android:textSize="12sp" />
     </LinearLayout>

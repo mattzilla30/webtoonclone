@@ -15,8 +15,6 @@ import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
-import com.dexter.data.ProgressStore
-import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SettingsStore
 import com.dexter.data.Trackers
 import com.dexter.di.BASE_CLIENT
@@ -57,9 +55,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val apiClient: OkHttpClient by inject()
     val repository: MangaDexRepository by inject()
     val settingsStore: SettingsStore by inject()
-    val progressStore: ProgressStore by inject()
     val libraryStore: LibraryStore by inject()
-    val seriesCache: SeriesCacheStore by inject()
     val downloadStore: DownloadStore by inject()
     val backupService: BackupService by inject()
     val accountStore: AccountStore by inject()

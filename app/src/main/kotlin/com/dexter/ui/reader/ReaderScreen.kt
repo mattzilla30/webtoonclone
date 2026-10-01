@@ -148,7 +148,6 @@ internal fun barColor() = MaterialTheme.colorScheme.surfaceContainer.copy(alpha 
 @Composable
 fun ReaderScreen(
     viewModel: ReaderViewModel,
-    seriesId: String,
     onOpenChapter: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -298,7 +297,7 @@ private fun ReaderContent(
     val currentSegments by rememberUpdatedState(segments)
 
     // The place on screen. When the mode changes, the newly shown layout is moved to it first, and then follows it.
-    val startPage = page.startPage.coerceIn(0, (page.pages.size - 1).coerceAtLeast(0))
+    val startPage = page.startPage.coerceIn(0, (page.first.pages.size - 1).coerceAtLeast(0))
     var cursor by remember { mutableStateOf(Cursor(0, startPage)) }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = stripIndexOf(strip, 0, startPage))
 

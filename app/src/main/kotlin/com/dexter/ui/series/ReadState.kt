@@ -24,19 +24,9 @@ fun hasUnreadChapters(knownNumber: String?, lastReadNumber: String?): Boolean {
 }
 
 /**
- * The chapter that becomes "last read" when you mark [chapter] and everything after it unread: the
- * next older readable chapter. The list is newest first, so older chapters come later in it.
- */
-fun previousReadable(chapters: List<Chapter>, chapter: Chapter): Chapter? {
-    val at = chapters.indexOfFirst { it.id == chapter.id }
-    if (at < 0) return null
-    for (index in at + 1 until chapters.size) if (chapters[index].externalUrl == null) return chapters[index]
-    return null
-}
-
-/**
- * [previousReadable] for every chapter at once, keyed by chapter id. The series page draws one row per
- * chapter, so this saves a scan of the whole list for each row on screen.
+ * For every chapter, keyed by chapter id, the chapter that becomes "last read" when you mark it and
+ * everything after it unread: the next older readable chapter. The list is newest first. Built in one
+ * pass, so the series page does not scan the whole list for each row on screen.
  */
 fun previousReadableMap(chapters: List<Chapter>): Map<String, Chapter?> {
     val result = HashMap<String, Chapter?>(chapters.size * 2)

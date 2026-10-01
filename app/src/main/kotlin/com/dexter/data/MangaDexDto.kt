@@ -41,7 +41,7 @@ internal data class ChapterStatsDto(val statistics: Map<String, ChapterStatDto> 
 internal data class ChapterStatDto(val comments: CommentsDto? = null)
 
 @Serializable
-internal data class CommentsDto(val threadId: Long? = null, val repliesCount: Int? = null)
+internal data class CommentsDto(val threadId: Long? = null)
 
 @Serializable
 internal data class AuthorListDto(val data: List<AuthorDto> = emptyList())

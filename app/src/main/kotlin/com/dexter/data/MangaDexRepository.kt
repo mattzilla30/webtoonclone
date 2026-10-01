@@ -240,6 +240,7 @@ class MangaDexRepository(
      * Every series the MangaDex account behind [authorization] follows, a hundred per request. The
      * account's own list is shown whole, whatever your rating and block settings.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     suspend fun followed(authorization: String): List<SeriesSummary> {
         ensureSettings()
         val result = ArrayList<SeriesSummary>()

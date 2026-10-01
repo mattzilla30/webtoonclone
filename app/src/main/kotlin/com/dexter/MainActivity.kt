@@ -382,7 +382,6 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                 DarkTheme {
                                                     ReaderScreen(
                                                         vm,
-                                                        seriesId,
                                                         // The next chapter replaces this one, so Back leaves the reader instead of stepping through chapters.
                                                         onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}/{chapterId}?page={page}") { inclusive = true } } },
                                                         // The screen under the reader is the one that opened it: the series page, Home, Stats, or an author.

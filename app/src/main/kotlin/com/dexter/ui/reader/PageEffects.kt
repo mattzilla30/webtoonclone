@@ -3,6 +3,7 @@ package com.dexter.ui.reader
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.core.graphics.get
 import coil3.size.Size
 import coil3.transform.Transformation
 import com.dexter.data.ReaderFilter
@@ -37,7 +38,7 @@ class CropBorders : Transformation() {
         val width = input.width
         val height = input.height
         if (width < 16 || height < 16) return input
-        val margin = input.getPixel(0, 0)
+        val margin = input[0, 0]
         val row = IntArray(width)
         val column = IntArray(height)
         fun near(color: Int) = abs(((color shr 16) and 0xFF) - ((margin shr 16) and 0xFF)) <= MARGIN_TOLERANCE &&

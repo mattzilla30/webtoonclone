@@ -25,3 +25,11 @@ class ReadStateTest {
         assertEquals("id2", map["id4"]?.id)
     }
 }
+
+/** The slow, obvious version of [previousReadableMap] for one chapter, to check the fast one against. */
+private fun previousReadable(chapters: List<Chapter>, chapter: Chapter): Chapter? {
+    val at = chapters.indexOfFirst { it.id == chapter.id }
+    if (at < 0) return null
+    for (index in at + 1 until chapters.size) if (chapters[index].externalUrl == null) return chapters[index]
+    return null
+}

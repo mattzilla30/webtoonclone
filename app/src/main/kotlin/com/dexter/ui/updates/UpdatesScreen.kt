@@ -248,7 +248,7 @@ private fun UpdateRowItem(
                 Column(horizontalAlignment = Alignment.End) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (unread) {
-                            Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape).semantics { })
+                            Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                         }
                         if (subscribed) {
                             Icon(

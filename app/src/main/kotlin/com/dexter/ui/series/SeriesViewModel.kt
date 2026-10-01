@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.dexter.data.CachedSeries
 import com.dexter.data.Chapter
 import com.dexter.data.DownloadStore
+import com.dexter.data.ImageExport
 import com.dexter.data.LibraryStore
 import com.dexter.data.MAX_CACHED_CHAPTERS
 import com.dexter.data.MangaDexRepository
+import com.dexter.data.ProgressStore
+import com.dexter.data.ReadingProgress
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesCacheStore
@@ -53,8 +56,87 @@ class SeriesViewModel(
     private val seriesCache: SeriesCacheStore,
     private val settingsStore: SettingsStore,
     private val downloads: DownloadStore,
+    progressStore: ProgressStore,
+    private val imageExport: ImageExport,
     private val context: Application,
 ) : ViewModel() {
+    /** Where you are in the series: the chapter, page, and page count you left off at. */
+    val progress: StateFlow<ReadingProgress?> = progressStore.observe(seriesId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Your own note on this series, or empty. */
+    val note: StateFlow<String> = libraryStore.stateOf(viewModelScope) { lib -> lib.notes[seriesId].orEmpty() }
+
+    fun setNote(text: String) {
+        viewModelScope.launch(LogFailures) { libraryStore.setNote(seriesId, text) }
+    }
+
+    private val _toast = MutableStateFlow<String?>(null)
+
+    /** A short confirmation or failure, such as after saving the cover. */
+    val toast: StateFlow<String?> = _toast
+
+    fun clearToast() {
+        _toast.value = null
+    }
+
+    /** Keeps [tag] out of lists and search from now on. */
+    fun blockTag(tag: String) {
+        viewModelScope.launch(LogFailures) {
+            settingsStore.update { it.copy(blockedTags = it.blockedTags + tag) }
+            _toast.value = "$tag is blocked. Settings can unblock it."
+        }
+    }
+
+    /** Opens the chapter's discussion thread through [open], or says there is none yet. */
+    fun openComments(chapter: Chapter, open: (String) -> Unit) {
+        viewModelScope.launch(LogFailures) {
+            val url = catching { repository.chapterCommentsUrl(chapter.id) }
+            when {
+                url.isFailure -> _toast.value = "Could not look up the comments"
+                url.getOrNull() == null -> _toast.value = "No comments on Ep. ${chapter.number} yet"
+                else -> open(url.getOrNull()!!)
+            }
+        }
+    }
+
+    /** Saves [url], a cover, to Pictures/Dexter. */
+    fun saveCover(url: String, title: String) {
+        viewModelScope.launch(LogFailures) {
+            _toast.value = catching {
+                imageExport.saveToGallery(imageExport.bytes(url), "$title cover")
+                "Saved to Pictures/Dexter"
+            }.getOrElse { "Could not save the cover" }
+        }
+    }
+
+    /** Queues each of [chapters] that opens in the reader and is not saved or queued yet. */
+    fun downloadMany(detail: SeriesDetail, chapters: List<Chapter>) {
+        viewModelScope.launch(LogFailures) {
+            val wifiOnly = settingsStore.current().downloadWifiOnly
+            val skip = downloaded.value + downloading.value.keys
+            val picked = chapters.filter { it.externalUrl == null && it.id !in skip }
+            picked.forEach { enqueueDownload(detail, it, wifiOnly) }
+            _toast.value = if (picked.isEmpty()) "Those chapters are already saved" else "Queued ${picked.size} chapters"
+        }
+    }
+
+    /** Loads every remaining page of chapters, for the oldest-first order, filters, and jumping to a chapter. */
+    fun loadAll() {
+        if (allJob?.isActive == true) return
+        allJob = viewModelScope.launch(LogFailures) {
+            while (nextOffset != null && (_state.value as? Load.Ready)?.value?.hasMore == true) {
+                val before = nextOffset
+                loadMore()
+                // Each page loads in its own job. Wait for it before asking for the next.
+                moreJob?.join()
+                // A page that failed leaves the offset where it was. Stop rather than ask again and again.
+                if (nextOffset == before) break
+            }
+        }
+    }
+
+    private var allJob: Job? = null
     private val _state = MutableStateFlow<Load<SeriesPage>>(Load.Loading)
     val state: StateFlow<Load<SeriesPage>> = _state
 

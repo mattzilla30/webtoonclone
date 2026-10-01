@@ -43,6 +43,7 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
@@ -50,7 +51,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -74,6 +78,7 @@ import com.dexter.data.ChapterListItem
 import com.dexter.data.factsLine
 import com.dexter.data.groupByVolume
 import com.dexter.data.languageName
+import com.dexter.data.nextChapterEstimate
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
@@ -81,10 +86,16 @@ import com.dexter.ui.LoadView
 import com.dexter.ui.OfflineBanner
 import com.dexter.ui.PickTile
 import com.dexter.ui.RAIL_MIN_WIDTH_DP
+import com.dexter.ui.TextPromptDialog
 import com.dexter.ui.compact
 import com.dexter.ui.windowWidthDp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun SeriesScreen(
@@ -114,6 +125,20 @@ fun SeriesScreen(
     val collections by viewModel.collections.collectAsStateWithLifecycle()
     var newCollection by remember { mutableStateOf<String?>(null) }
     var showInfo by remember { mutableStateOf(false) }
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
+    val note by viewModel.note.collectAsStateWithLifecycle()
+    val toast by viewModel.toast.collectAsStateWithLifecycle()
+    var oldestFirst by rememberSaveable { mutableStateOf(false) }
+    var unreadOnly by rememberSaveable { mutableStateOf(false) }
+    var savedOnly by rememberSaveable { mutableStateOf(false) }
+    var askJump by remember { mutableStateOf(false) }
+    var pendingJump by remember { mutableStateOf<String?>(null) }
+    var selecting by remember { mutableStateOf(false) }
+    val picked = remember { mutableStateSetOf<String>() }
+    var anchor by remember { mutableStateOf<String?>(null) }
+    var editNote by remember { mutableStateOf(false) }
+    var coverOpen by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     // Notifications need permission on Android 13 and later. Ask when the user first subscribes.
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -122,7 +147,17 @@ fun SeriesScreen(
         LoadView(state, onRetry = viewModel::load) { page ->
             val summary = page.detail.summary
             val readable = remember(page.chapters) { page.chapters.filter { it.externalUrl == null } }
-            val listItems = remember(page.chapters) { groupByVolume(page.chapters) }
+            // The chapters as shown: filtered to unread or saved ones, and oldest first when chosen.
+            val shown = remember(page.chapters, oldestFirst, unreadOnly, savedOnly, lastRead?.chapterNumber, downloaded) {
+                var list = page.chapters
+                if (unreadOnly) list = list.filter { it.externalUrl == null && !isChapterRead(it.number, lastRead?.chapterNumber) }
+                if (savedOnly) list = list.filter { it.id in downloaded }
+                if (oldestFirst) list.asReversed() else list
+            }
+            val listItems = remember(shown) { groupByVolume(shown) }
+            val nextExpected = remember(page.chapters, page.detail.status) { nextChapterEstimate(page.chapters.map { it.publishedAt }, page.detail.status) }
+            // Oldest first and the saved filter need the whole list, not only the newest pages.
+            LaunchedEffect(oldestFirst, savedOnly, page.hasMore) { if ((oldestFirst || savedOnly) && page.hasMore) viewModel.loadAll() }
             val previousOf = remember(page.chapters) { previousReadableMap(page.chapters) }
             val unreadCount = remember(page.chapters, lastRead?.chapterNumber) { unreadChapterCount(page.chapters, lastRead?.chapterNumber) }
             // With older chapters still unloaded, the oldest loaded one is not Episode 1.
@@ -180,6 +215,33 @@ fun SeriesScreen(
                     dismissButton = { TextButton(onClick = { newCollection = null }) { Text(stringResource(R.string.cancel)) } },
                 )
             }
+            if (editNote) {
+                TextPromptDialog(
+                    title = "Your note",
+                    initial = note,
+                    confirmLabel = "Save",
+                    onConfirm = viewModel::setNote,
+                    onDismiss = { editNote = false },
+                    singleLine = false,
+                )
+            }
+            if (askJump) {
+                TextPromptDialog(
+                    title = "Go to chapter",
+                    initial = "",
+                    confirmLabel = "Go",
+                    onConfirm = { typed -> pendingJump = typed.trim() },
+                    onDismiss = { askJump = false },
+                )
+            }
+            if (coverOpen) {
+                CoverViewer(
+                    url = summary.coverUrl,
+                    title = summary.title,
+                    onSave = { url -> viewModel.saveCover(url, summary.title) },
+                    onDismiss = { coverOpen = false },
+                )
+            }
             if (showInfo) {
                 InfoDialog(
                     page.detail,
@@ -197,7 +259,11 @@ fun SeriesScreen(
                 }
                 item {
                     Box(Modifier.fillMaxWidth().height(340.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                        Cover(summary.coverUrl, summary.title, Modifier.fillMaxSize())
+                        Cover(
+                            summary.coverUrl,
+                            summary.title,
+                            Modifier.fillMaxSize().clickable(enabled = summary.coverUrl != null, onClickLabel = "Open the cover") { coverOpen = true },
+                        )
                         Box(
                             Modifier.fillMaxSize().background(
                                 Brush.verticalGradient(
@@ -244,6 +310,13 @@ fun SeriesScreen(
                                 },
                             )
                             Text(factsLine(page.detail), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            nextExpected?.let { day ->
+                                Text(
+                                    if (day.isAfter(LocalDate.now())) "Next chapter likely around ${day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}" else "Next chapter expected any day",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 summary.follows?.let {
                                     Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
@@ -292,17 +365,21 @@ fun SeriesScreen(
                                 onHide = viewModel::hideSeries,
                             )
                         }
+                        OutlinedButton(onClick = { editNote = true }) { Text(if (note.isBlank()) "Add note" else "Edit note") }
                         Box {
                             OutlinedButton(onClick = { downloadMenu = true }) { Text("Save") }
                             DownloadMenu(expanded = downloadMenu, onDismiss = { downloadMenu = false }) { count -> viewModel.downloadUnread(page.detail, count) }
                         }
                     }
                 }
+                if (note.isNotBlank()) {
+                    item { NoteCard(note, onEdit = { editNote = true }) }
+                }
                 if (summary.description.isNotBlank()) {
                     item { Description(summary.description) }
                 }
                 if (page.detail.tags.isNotEmpty()) {
-                    item { TagChips(page.detail.tags, onOpenTag) }
+                    item { TagChips(page.detail.tags, onOpenTag, onBlockTag = viewModel::blockTag) }
                 }
                 if (related.isNotEmpty()) {
                     item {
@@ -356,7 +433,11 @@ fun SeriesScreen(
                         ) {
                             Text(
                                 when {
-                                    resumeId != null -> "Continue Ep. ${lastRead?.chapterNumber}" + if (unreadCount > 0) " \u00b7 $unreadCount new" else ""
+                                    resumeId != null -> buildString {
+                                        append("Continue Ep. ${lastRead?.chapterNumber}")
+                                        progress?.takeIf { it.chapterId == resumeId && it.total > 0 }?.let { append(" \u00b7 page ${it.page + 1} of ${it.total}") }
+                                        if (unreadCount > 0) append(" \u00b7 $unreadCount new")
+                                    }
                                     page.hasMore -> "Latest Ep. ${startAt!!.number}"
                                     else -> "Episode ${startAt!!.number}"
                                 },
@@ -364,6 +445,36 @@ fun SeriesScreen(
                             )
                         }
                     }
+                }
+                item(key = "controls") {
+                    ChapterControls(
+                        unreadOnly = unreadOnly,
+                        savedOnly = savedOnly,
+                        oldestFirst = oldestFirst,
+                        selecting = selecting,
+                        pickedCount = picked.size,
+                        onUnreadOnly = { unreadOnly = it },
+                        onSavedOnly = { savedOnly = it },
+                        onOldestFirst = { oldestFirst = it },
+                        onJump = { askJump = true },
+                        onSelecting = { on ->
+                            selecting = on
+                            if (!on) picked.clear()
+                        },
+                        onPickAll = { picked.addAll(shown.filter { it.externalUrl == null }.map { it.id }) },
+                        onSavePicked = {
+                            viewModel.downloadMany(page.detail, shown.filter { it.id in picked })
+                            selecting = false
+                            picked.clear()
+                        },
+                        onMarkPickedRead = {
+                            shown.filter { it.id in picked && it.externalUrl == null }
+                                .maxByOrNull { it.number.toDoubleOrNull() ?: Double.MIN_VALUE }
+                                ?.let { viewModel.markReadUpTo(it, page.detail) }
+                            selecting = false
+                            picked.clear()
+                        },
+                    )
                 }
                 items(
                     listItems,
@@ -401,6 +512,25 @@ fun SeriesScreen(
                                 onPreferGroup = viewModel::setPreferredGroup,
                                 onBlockGroup = viewModel::blockGroup,
                                 onOpenUpload = { upload -> open(upload) },
+                                selecting = selecting,
+                                picked = chapter.id in picked,
+                                onToggle = {
+                                    if (chapter.id in picked) picked.remove(chapter.id) else picked.add(chapter.id)
+                                    anchor = chapter.id
+                                },
+                                onRangeTo = {
+                                    // Picks every chapter between the last one tapped and this one.
+                                    val from = shown.indexOfFirst { it.id == anchor }.takeIf { it >= 0 } ?: shown.indexOfFirst { it.id == chapter.id }
+                                    val to = shown.indexOfFirst { it.id == chapter.id }
+                                    shown.subList(minOf(from, to), maxOf(from, to) + 1).filter { it.externalUrl == null }.forEach { picked.add(it.id) }
+                                    anchor = chapter.id
+                                },
+                                onStartSelecting = {
+                                    selecting = true
+                                    picked.add(chapter.id)
+                                    anchor = chapter.id
+                                },
+                                onComments = { viewModel.openComments(chapter) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
                             )
                         }
                     }
@@ -414,8 +544,24 @@ fun SeriesScreen(
                 }
                 item { Spacer(Modifier.height(32.dp)) }
             }
+            // Go to a typed chapter number. It may sit in a page not loaded yet, so the whole list loads first.
+            val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
+            LaunchedEffect(pendingJump, listItems) {
+                val wanted = pendingJump ?: return@LaunchedEffect
+                val at = listItems.indexOfFirst { it is ChapterListItem.Entry && (it.chapter.number == wanted || it.chapter.number.toDoubleOrNull() == wanted.toDoubleOrNull()) }
+                when {
+                    at >= 0 -> {
+                        // Items before the chapters: the header rows on a narrow screen, then the resume button and the controls.
+                        val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
+                        listState.animateScrollToItem(before + 2 + at)
+                        pendingJump = null
+                    }
+                    page.hasMore -> viewModel.loadAll()
+                    else -> pendingJump = null
+                }
+            }
             // On a wide screen the description sits beside the chapter list, so both scroll on their own.
-            if (windowWidthDp() >= RAIL_MIN_WIDTH_DP) {
+            if (wide) {
                 Row(Modifier.fillMaxSize()) {
                     LazyColumn(Modifier.weight(0.42f).fillMaxSize(), content = headerContent)
                     LazyColumn(Modifier.weight(0.58f).fillMaxSize(), state = listState, content = chapterContent)
@@ -427,5 +573,16 @@ fun SeriesScreen(
                 }
             }
         }
+        toast?.let { message ->
+            LaunchedEffect(message) {
+                delay(3.seconds)
+                viewModel.clearToast()
+            }
+            Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) { Text(message) }
+        }
     }
 }
+
+/** How many list items come before the chapters on a narrow screen. It must match the header built above. */
+private fun headerItemCount(offline: Boolean, note: Boolean, description: Boolean, tags: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
+    listOf(offline, true, true, note, description, tags, related, similar, noChapters).count { it }

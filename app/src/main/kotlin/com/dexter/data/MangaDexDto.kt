@@ -35,6 +35,15 @@ internal data class MangaAttributesDto(
 )
 
 @Serializable
+internal data class ChapterStatsDto(val statistics: Map<String, ChapterStatDto> = emptyMap())
+
+@Serializable
+internal data class ChapterStatDto(val comments: CommentsDto? = null)
+
+@Serializable
+internal data class CommentsDto(val threadId: Long? = null, val repliesCount: Int? = null)
+
+@Serializable
 internal data class AuthorListDto(val data: List<AuthorDto> = emptyList())
 
 @Serializable

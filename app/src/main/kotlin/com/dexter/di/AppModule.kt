@@ -4,6 +4,7 @@ import androidx.room.Room
 import com.dexter.DexterApp
 import com.dexter.data.BackupService
 import com.dexter.data.DownloadStore
+import com.dexter.data.ImageExport
 import com.dexter.data.ImageReportInterceptor
 import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
@@ -65,6 +66,7 @@ val appModule = module {
     single { DownloadStore(androidContext(), get(), get(named("downloads"))) }
     single { SeriesCacheStore(androidContext()) }
     single { OfflineStore(androidContext()) }
+    single { ImageExport(androidContext(), get(named(BASE_CLIENT))) }
     single { BackupService(androidContext(), get(), get(), get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
@@ -74,7 +76,7 @@ val appModule = module {
     viewModel { DownloadsViewModel(get()) }
     viewModel { StatsViewModel(get(), get()) }
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }
-    viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), androidApplication()) }
+    viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
     viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
     viewModel { params -> AuthorViewModel(params.get<String>(0), get(), get(), get()) }
 }

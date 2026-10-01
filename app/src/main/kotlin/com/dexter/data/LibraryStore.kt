@@ -266,6 +266,12 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     suspend fun setLibraryGrid(on: Boolean) = updateScalars { it.copy(libraryGrid = on) }
 
+    /** Keeps [text] as your note on a series. Blank text removes the note. */
+    suspend fun setNote(seriesId: String, text: String) = updateScalars { data ->
+        val note = text.trim()
+        data.copy(notes = if (note.isEmpty()) data.notes - seriesId else data.notes + (seriesId to note))
+    }
+
     suspend fun setLibrarySort(name: String) = updateScalars { it.copy(librarySort = name) }
 
     suspend fun removeFromCollection(name: String, ids: Set<String>) = updateScalars { data ->

@@ -502,6 +502,13 @@ class MangaDexRepository(
         ).also { tagIndex = it }
     }
 
+    /** The forum thread where readers discuss a chapter, or null when nobody has started one yet. */
+    suspend fun chapterCommentsUrl(chapterId: String): String? {
+        ensureSettings()
+        val thread = fetchJson<ChapterStatsDto>("$API/statistics/chapter/$chapterId".toHttpUrl()).statistics[chapterId]?.comments?.threadId
+        return thread?.let { "https://forums.mangadex.org/threads/$it" }
+    }
+
     /** Authors and artists whose name contains [name], best matches first. */
     suspend fun searchAuthors(name: String, limit: Int = 5): List<AuthorSummary> {
         ensureSettings()

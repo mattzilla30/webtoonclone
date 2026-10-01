@@ -45,6 +45,16 @@
         <receiver
             android:name=".notify.DownloadActionReceiver"
             android:exported="false" />
+        <!-- Shares a saved or copied page image with other apps, read-only, one file at a time. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <!-- WorkManager's foreground service, declared as a data sync so the download worker may use it. -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

@@ -214,6 +214,8 @@ data class LibraryData(
     val libraryGrid: Boolean = false,
     /** The My Series sort, as a LibrarySort name. Null falls back to the two older sort flags. */
     val librarySort: String? = null,
+    /** Your own note on a series, by series id. */
+    val notes: Map<String, String> = emptyMap(),
 ) {
     /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
     fun knownSeries(id: String): SavedSeries? =

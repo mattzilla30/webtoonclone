@@ -6,6 +6,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,14 +15,17 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,16 +41,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil3.compose.AsyncImage
 import com.dexter.R
 import com.dexter.data.Chapter
 import com.dexter.data.ReadingStatus
@@ -54,6 +67,8 @@ import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.formatChapterDate
+import com.dexter.ui.reader.ZoomState
+import com.dexter.ui.reader.zoomGestures
 import kotlinx.coroutines.launch
 
 /** Shows three lines. Tapping toggles the full text, with a hint only when text is cut off. */
@@ -106,26 +121,46 @@ internal fun EpisodeRow(
     onPreferGroup: (String?) -> Unit,
     onBlockGroup: (String) -> Unit,
     onOpenUpload: (Chapter) -> Unit,
+    selecting: Boolean = false,
+    picked: Boolean = false,
+    onToggle: () -> Unit = {},
+    onRangeTo: () -> Unit = {},
+    onStartSelecting: () -> Unit = {},
+    onComments: () -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     Box {
         Surface(
             shape = MaterialTheme.shapes.medium,
-            color = if (read) MaterialTheme.colorScheme.surfaceContainerLowest else MaterialTheme.colorScheme.surfaceContainerLow,
+            color = when {
+                picked -> MaterialTheme.colorScheme.secondaryContainer
+                read -> MaterialTheme.colorScheme.surfaceContainerLowest
+                else -> MaterialTheme.colorScheme.surfaceContainerLow
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 3.dp)
                 .alpha(if (read) 0.55f else 1f)
                 .clip(MaterialTheme.shapes.medium)
+                // While selecting, a tap picks the chapter and a long press picks every chapter up to it.
                 .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = if (onMarkRead != null || chapter.alternates.isNotEmpty() || chapter.externalUrl == null) (
-                        {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            menu = true
-                        }
-                    ) else null,
+                    onClick = if (selecting) onToggle else onClick,
+                    onLongClick = when {
+                        selecting -> (
+                            {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onRangeTo()
+                            }
+                        )
+                        else -> (
+                            {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                menu = true
+                            }
+                        )
+                    },
+                    onLongClickLabel = if (selecting) "Select up to here" else "More",
                 ),
         ) {
             Row(
@@ -154,6 +189,10 @@ internal fun EpisodeRow(
             }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            if (chapter.externalUrl == null) {
+                DropdownMenuItem(text = { Text("Select") }, onClick = { menu = false; onStartSelecting() })
+            }
+            DropdownMenuItem(text = { Text("Comments") }, onClick = { menu = false; onComments() })
             if (onMarkRead != null) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.mark_read_up_to_here)) }, onClick = { menu = false; onMarkRead() })
             }
@@ -195,16 +234,137 @@ fun savingLabel(saved: Boolean, progress: Float?): String? = when {
     else -> "Queued"
 }
 
-/** The series' tags. Tapping one searches it. */
-@OptIn(ExperimentalLayoutApi::class)
+/** The series' tags. Tapping one searches it, and a long press offers to block it. */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
-internal fun TagChips(tags: List<String>, onOpenTag: (String) -> Unit) {
+internal fun TagChips(tags: List<String>, onOpenTag: (String) -> Unit, onBlockTag: (String) -> Unit) {
+    val haptics = LocalHapticFeedback.current
     FlowRow(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        tags.forEach { tag -> ChoiceChip(tag, selected = false) { onOpenTag(tag) } }
+        tags.forEach { tag ->
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.clip(MaterialTheme.shapes.small).combinedClickable(
+                        onClick = { onOpenTag(tag) },
+                        onLongClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menu = true
+                        },
+                        onLongClickLabel = "Block this tag",
+                    ),
+                ) {
+                    Text(tag, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Search $tag") }, onClick = { menu = false; onOpenTag(tag) })
+                    DropdownMenuItem(text = { Text("Block $tag") }, onClick = { menu = false; onBlockTag(tag) })
+                }
+            }
+        }
+    }
+}
+
+/** Your note on the series. Tapping it edits it. */
+@Composable
+internal fun NoteCard(note: String, onEdit: () -> Unit) {
+    Surface(
+        onClick = onEdit,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text("Your note", style = MaterialTheme.typography.labelLargeEmphasized)
+            Text(note, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
+}
+
+/** Filters and order for the chapter list, going to a chapter, and picking chapters to save or mark read. */
+@Composable
+internal fun ChapterControls(
+    unreadOnly: Boolean,
+    savedOnly: Boolean,
+    oldestFirst: Boolean,
+    selecting: Boolean,
+    pickedCount: Int,
+    onUnreadOnly: (Boolean) -> Unit,
+    onSavedOnly: (Boolean) -> Unit,
+    onOldestFirst: (Boolean) -> Unit,
+    onJump: () -> Unit,
+    onSelecting: (Boolean) -> Unit,
+    onPickAll: () -> Unit,
+    onSavePicked: () -> Unit,
+    onMarkPickedRead: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ChoiceChip("Unread", unreadOnly) { onUnreadOnly(!unreadOnly) }
+            ChoiceChip("Saved", savedOnly) { onSavedOnly(!savedOnly) }
+            ChoiceChip(if (oldestFirst) "Oldest first" else "Newest first", oldestFirst) { onOldestFirst(!oldestFirst) }
+            TextButton(onClick = onJump) { Text("Go to\u2026") }
+            TextButton(onClick = { onSelecting(!selecting) }) { Text(if (selecting) "Done" else "Select") }
+        }
+        if (selecting) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (pickedCount == 0) "Tap chapters, or press and hold to pick a range" else "$pickedCount picked",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+                TextButton(onClick = onPickAll) { Text("All") }
+                TextButton(enabled = pickedCount > 0, onClick = onSavePicked) { Text("Save") }
+                TextButton(enabled = pickedCount > 0, onClick = onMarkPickedRead) { Text("Mark read") }
+            }
+        }
+    }
+}
+
+/** The cover full screen, with pinch and double-tap zoom, and a button to save it. */
+@Composable
+internal fun CoverViewer(url: String?, title: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    if (url == null) return
+    val zoom = remember { ZoomState() }
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(
+            Modifier.fillMaxSize().background(Color.Black)
+                .onSizeChanged { size = it }
+                .pointerInput(Unit) { detectTapGestures(onDoubleTap = { zoom.toggle(it, size) }) }
+                .zoomGestures(zoom) { size },
+        ) {
+            AsyncImage(
+                model = url,
+                contentDescription = "$title cover",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = zoom.scale
+                    scaleY = zoom.scale
+                    translationX = zoom.offsetX
+                    translationY = zoom.offsetY
+                },
+            )
+            Row(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { onSave(url) }) { Text("Save") }
+                FilledTonalButton(onClick = onDismiss) { Text("Close") }
+            }
+        }
     }
 }
 

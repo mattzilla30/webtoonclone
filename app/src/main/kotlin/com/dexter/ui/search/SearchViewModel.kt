@@ -12,8 +12,12 @@ import com.dexter.data.SeriesSummary
 import com.dexter.data.searchKey
 import com.dexter.ui.Load
 import com.dexter.ui.friendlyError
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +41,7 @@ class SearchViewModel(
     /** Reruns the current search, for the offline banner. */
     fun retry() {
         val current = request ?: return
-        viewModelScope.launch { start(current) }
+        begin(current)
     }
 
     /** Null while the user has not searched yet. */
@@ -85,13 +89,11 @@ class SearchViewModel(
         if (next == _filters.value) return
         _filters.value = next
         val current = request
-        viewModelScope.launch {
-            when {
-                current != null -> start(current)
-                !next.isEmpty -> {
-                    query = "Filtered"
-                    start(Request(title = null, tag = null))
-                }
+        when {
+            current != null -> begin(current)
+            !next.isEmpty -> {
+                query = "Filtered"
+                begin(Request(title = null, tag = null))
             }
         }
     }
@@ -113,7 +115,7 @@ class SearchViewModel(
         query = saved.title ?: saved.tag ?: saved.name
         _sort.value = runCatching { Order.valueOf(saved.order) }.getOrDefault(Order.Popular)
         _filters.value = saved.filters
-        viewModelScope.launch { start(Request(saved.title, saved.tag)) }
+        begin(Request(saved.title, saved.tag))
     }
 
     fun deleteSaved(name: String) {
@@ -145,23 +147,21 @@ class SearchViewModel(
         query = text.trim()
         if (query.isEmpty()) return clear()
         val term = query
-        viewModelScope.launch {
-            library.addSearch(term)
-            start(Request(title = term, tag = null))
-        }
+        viewModelScope.launch { library.addSearch(term) }
+        begin(Request(title = term, tag = null))
     }
 
     /** Lists series with a MangaDex tag: a genre, theme, format, or content tag. */
     fun openTag(name: String) {
         query = name
-        viewModelScope.launch { start(Request(title = null, tag = name)) }
+        begin(Request(title = null, tag = name))
     }
 
     /** Lists every series in one order, such as top rated or recently added. */
     fun openBrowse(label: String, order: Order) {
         query = label
         _sort.value = order
-        viewModelScope.launch { start(Request(title = null, tag = null)) }
+        begin(Request(title = null, tag = null))
     }
 
     /** Finds a random series with English chapters and passes its id to [onFound]. */
@@ -179,10 +179,11 @@ class SearchViewModel(
         _sort.value = order
         viewModelScope.launch { library.setSearchOrder(order.name) }
         val current = request ?: return
-        viewModelScope.launch { start(current) }
+        begin(current)
     }
 
     fun clear() {
+        searchJob?.cancel()
         query = ""
         _filters.value = SearchFilters()
         source = null
@@ -223,6 +224,14 @@ class SearchViewModel(
         viewModelScope.launch { library.clearSearches() }
     }
 
+    private var searchJob: Job? = null
+
+    /** Runs [req] as the one current search. A slower older request can no longer overwrite a newer one. */
+    private fun begin(req: Request) {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch { start(req) }
+    }
+
     private suspend fun start(req: Request) {
         val order = _sort.value
         val filters = _filters.value
@@ -241,7 +250,10 @@ class SearchViewModel(
             _offlineSavedAt.value = null
             endReached = first.isEmpty()
             if (first.isNotEmpty()) runCatching { offline.saveSearch(key, first) }
+            currentCoroutineContext().ensureActive()
             Load.Ready(first)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Fall back to the last first page of this same search, if there is one.
             val saved = runCatching { offline.loadSearch(key) }.getOrNull()

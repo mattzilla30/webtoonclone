@@ -83,6 +83,8 @@ Calls every MangaDex endpoint the app uses. The default build skips it.
 - The library lives in Room. `LibraryStore.data` shares one set of queries between all screens. Use `LibraryStore.current()` for a read that must see the latest writes.
 - JSON from the API and from saved copies is decoded on `Dispatchers.Default`, not the main thread.
 - Settings are one JSON value in DataStore, decoded once per change.
+- `SettingsStore.latest` and `LibraryStore.latest` hold the last values the app saw. Screens start from them, and `LibraryStore.stateOf` builds the library-backed StateFlows, so nothing flashes a default or empty state. The first frame waits up to a second for the saved settings, so the theme is right from the start.
+- Wrap suspend network and storage calls in view models with `catching`, not `runCatching`, so a cancelled load stays cancelled.
 
 ## Layout
 

@@ -22,6 +22,11 @@ android {
         ndk { abiFilters += "arm64-v8a" }
     }
 
+    // The interface is English only, so leave out the translations that libraries bring.
+    androidResources {
+        localeFilters += "en"
+    }
+
     buildTypes {
         release {
             // Personal build: the debug key signs it, so it installs without any keystore setup.

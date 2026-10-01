@@ -36,8 +36,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
@@ -73,7 +71,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.Chapter
 import com.dexter.data.ChapterListItem
-import com.dexter.data.ReadingStatus
 import com.dexter.data.factsLine
 import com.dexter.data.groupByVolume
 import com.dexter.data.languageName
@@ -282,63 +279,20 @@ fun SeriesScreen(
                         }
                         Box {
                             OutlinedButton(onClick = { statusMenu = true }) { Text(status?.label ?: "Add to list") }
-                            DropdownMenu(expanded = statusMenu, onDismissRequest = { statusMenu = false }) {
-                                ReadingStatus.entries.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option.label) },
-                                        onClick = {
-                                            viewModel.setStatus(page.detail, option)
-                                            statusMenu = false
-                                        },
-                                    )
-                                }
-                                collections.forEach { (name, inIt) ->
-                                    DropdownMenuItem(
-                                        text = { Text(if (inIt) "✓ $name" else name) },
-                                        onClick = {
-                                            viewModel.toggleCollection(page.detail, name)
-                                            statusMenu = false
-                                        },
-                                    )
-                                }
-                                DropdownMenuItem(
-                                    text = { Text("New collection…") },
-                                    onClick = {
-                                        statusMenu = false
-                                        newCollection = ""
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Hide from lists and search") },
-                                    onClick = {
-                                        viewModel.hideSeries()
-                                        statusMenu = false
-                                    },
-                                )
-                                if (status != null) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.remove_from_lists)) },
-                                        onClick = {
-                                            viewModel.setStatus(page.detail, null)
-                                            statusMenu = false
-                                        },
-                                    )
-                                }
-                            }
+                            ListMenu(
+                                expanded = statusMenu,
+                                status = status,
+                                collections = collections,
+                                onDismiss = { statusMenu = false },
+                                onSetStatus = { viewModel.setStatus(page.detail, it) },
+                                onToggleCollection = { viewModel.toggleCollection(page.detail, it) },
+                                onNewCollection = { newCollection = "" },
+                                onHide = viewModel::hideSeries,
+                            )
                         }
                         Box {
                             OutlinedButton(onClick = { downloadMenu = true }) { Text("Save") }
-                            DropdownMenu(expanded = downloadMenu, onDismissRequest = { downloadMenu = false }) {
-                                listOf("Next 5 unread" to 5, "Next 10 unread" to 10, "All unread" to null).forEach { (label, count) ->
-                                    DropdownMenuItem(
-                                        text = { Text(label) },
-                                        onClick = {
-                                            viewModel.downloadUnread(page.detail, count)
-                                            downloadMenu = false
-                                        },
-                                    )
-                                }
-                            }
+                            DownloadMenu(expanded = downloadMenu, onDismiss = { downloadMenu = false }) { count -> viewModel.downloadUnread(page.detail, count) }
                         }
                     }
                 }

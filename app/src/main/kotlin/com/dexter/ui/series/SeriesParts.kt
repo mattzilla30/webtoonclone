@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.dexter.R
 import com.dexter.data.Chapter
+import com.dexter.data.ReadingStatus
 import com.dexter.data.SeriesDetail
 import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
@@ -252,6 +253,79 @@ internal fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOp
                     TextButton(onClick = { onOpenLink(link.url) }) { Text(link.label) }
                 }
             }
+        }
+    }
+}
+
+/** The "Add to list" menu: a reading status, your own collections, and hiding the series. */
+@Composable
+internal fun ListMenu(
+    expanded: Boolean,
+    status: ReadingStatus?,
+    collections: Map<String, Boolean>,
+    onDismiss: () -> Unit,
+    onSetStatus: (ReadingStatus?) -> Unit,
+    onToggleCollection: (String) -> Unit,
+    onNewCollection: () -> Unit,
+    onHide: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        ReadingStatus.entries.forEach { option ->
+            DropdownMenuItem(
+                text = { Text(option.label) },
+                onClick = {
+                    onSetStatus(option)
+                    onDismiss()
+                },
+            )
+        }
+        collections.forEach { (name, inIt) ->
+            DropdownMenuItem(
+                text = { Text(if (inIt) "✓ $name" else name) },
+                onClick = {
+                    onToggleCollection(name)
+                    onDismiss()
+                },
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("New collection…") },
+            onClick = {
+                onDismiss()
+                onNewCollection()
+            },
+        )
+        DropdownMenuItem(
+            text = { Text("Hide from lists and search") },
+            onClick = {
+                onHide()
+                onDismiss()
+            },
+        )
+        if (status != null) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.remove_from_lists)) },
+                onClick = {
+                    onSetStatus(null)
+                    onDismiss()
+                },
+            )
+        }
+    }
+}
+
+/** The "Save" menu: how many unread chapters to keep on the device. A null count means all of them. */
+@Composable
+internal fun DownloadMenu(expanded: Boolean, onDismiss: () -> Unit, onPick: (count: Int?) -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        listOf("Next 5 unread" to 5, "Next 10 unread" to 10, "All unread" to null).forEach { (label, count) ->
+            DropdownMenuItem(
+                text = { Text(label) },
+                onClick = {
+                    onPick(count)
+                    onDismiss()
+                },
+            )
         }
     }
 }

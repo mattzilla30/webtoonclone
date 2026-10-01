@@ -42,9 +42,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -159,17 +161,20 @@ private val tabs = listOf(
     Tab("settings", "Settings", Icons.Default.Settings),
 )
 
+private val tabRoutes = tabs.map { it.route }.toSet()
+
 @Composable
 private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, onOpened: () -> Unit) {
     val app = LocalContext.current.applicationContext as DexterApp
     val nav = rememberNavController()
-    val library by app.libraryStore.data.collectAsState(initial = LibraryData())
-    val unread = unreadSeriesCount(library)
+    val library = app.libraryStore.data.collectAsState(initial = LibraryData())
+    // Read inside derivedStateOf, so a library change only redraws the navigation when the badge number changes.
+    val unread by remember { derivedStateOf { unreadSeriesCount(library.value) } }
     val backStackEntry by nav.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
     LaunchedEffect(open) {
         if (open != null) {
-            if (open.route in tabs.map { it.route }) {
+            if (open.route in tabRoutes) {
                 nav.navigateTab(open.route!!)
             } else if (open.route == "downloads") {
                 nav.navigate("downloads")
@@ -181,7 +186,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
             onOpened()
         }
     }
-    val onTab = route?.substringBefore('?') in tabs.map { it.route }
+    val onTab = route?.substringBefore('?') in tabRoutes
     val onReader = route?.startsWith("series/") == true && route.count { it == '/' } == 2
 
     // Light icons on dark surfaces and dark icons on light ones. The reader has its own background.

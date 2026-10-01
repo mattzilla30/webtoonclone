@@ -324,7 +324,10 @@ private fun ReaderContent(
                             }
                         }
                     },
-                    onDoubleTap = { offset -> zoom.toggle(offset, container) },
+                    onDoubleTap = { offset ->
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        zoom.toggle(offset, container)
+                    },
                 )
             }
             .zoomGestures(zoom) { container },

@@ -62,6 +62,7 @@ import com.dexter.data.ReaderBackground
 import com.dexter.data.ThemeMode
 import com.dexter.data.Themes
 import com.dexter.data.formatBytes
+import com.dexter.data.libraryText
 import com.dexter.notify.CHANNEL_ID
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
@@ -286,6 +287,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 FilledTonalButton(onClick = { exportLauncher.launch("dexter-backup.json") }) { Text(stringResource(R.string.save_backup)) }
                 OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) { Text(stringResource(R.string.restore_backup)) }
             }
+            InfoRow(
+                title = "Share my library as text",
+                subtitle = "A list of your titles to send to a friend or keep in a note.",
+                onClick = {
+                    val text = libraryText(library)
+                    if (text.isNotBlank()) {
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        }
+                        context.startActivity(Intent.createChooser(send, null))
+                    }
+                },
+            )
             InfoRow(
                 title = stringResource(R.string.daily_backup_folder),
                 subtitle = if (settings.autoBackupFolder == null) "Off" else "On. Writes dexter-backup.json once a day.",

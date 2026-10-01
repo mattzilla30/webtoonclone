@@ -243,7 +243,7 @@ fun LibraryScreen(
                             shape = MaterialTheme.shapes.medium,
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
                             onClick = { onOpenSeries(series.id) },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            modifier = Modifier.animateItem().fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                         ) {
                             Row(
                                 Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

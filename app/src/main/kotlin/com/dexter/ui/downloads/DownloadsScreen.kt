@@ -80,7 +80,7 @@ fun DownloadsScreen(
                             onClick = { onOpenChapter(chapter.seriesId, chapter.chapterId) },
                             shape = MaterialTheme.shapes.medium,
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp),
+                            modifier = Modifier.animateItem().fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp),
                         ) {
                             Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {

@@ -101,6 +101,7 @@ import kotlin.time.Duration.Companion.seconds
 fun SeriesScreen(
     viewModel: SeriesViewModel,
     onOpenChapter: (chapterId: String) -> Unit,
+    onOpenBookmark: (chapterId: String, page: Int) -> Unit,
     onHome: () -> Unit,
     onOpenTag: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
@@ -127,6 +128,7 @@ fun SeriesScreen(
     var showInfo by remember { mutableStateOf(false) }
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val note by viewModel.note.collectAsStateWithLifecycle()
+    val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
     var oldestFirst by rememberSaveable { mutableStateOf(false) }
     var unreadOnly by rememberSaveable { mutableStateOf(false) }
@@ -375,6 +377,9 @@ fun SeriesScreen(
                 if (note.isNotBlank()) {
                     item { NoteCard(note, onEdit = { editNote = true }) }
                 }
+                if (bookmarks.isNotEmpty()) {
+                    item { BookmarksCard(bookmarks, onOpen = { onOpenBookmark(it.chapterId, it.page) }, onRemove = viewModel::removeBookmark) }
+                }
                 if (summary.description.isNotBlank()) {
                     item { Description(summary.description) }
                 }
@@ -552,7 +557,7 @@ fun SeriesScreen(
                 when {
                     at >= 0 -> {
                         // Items before the chapters: the header rows on a narrow screen, then the resume button and the controls.
-                        val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
+                        val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), bookmarks.isNotEmpty(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
                         listState.animateScrollToItem(before + 2 + at)
                         pendingJump = null
                     }
@@ -584,5 +589,5 @@ fun SeriesScreen(
 }
 
 /** How many list items come before the chapters on a narrow screen. It must match the header built above. */
-private fun headerItemCount(offline: Boolean, note: Boolean, description: Boolean, tags: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
-    listOf(offline, true, true, note, description, tags, related, similar, noChapters).count { it }
+private fun headerItemCount(offline: Boolean, note: Boolean, bookmarks: Boolean, description: Boolean, tags: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
+    listOf(offline, true, true, note, bookmarks, description, tags, related, similar, noChapters).count { it }

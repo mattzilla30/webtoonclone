@@ -3,6 +3,7 @@ package com.dexter.ui.series
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dexter.data.Bookmark
 import com.dexter.data.CachedSeries
 import com.dexter.data.Chapter
 import com.dexter.data.DownloadStore
@@ -66,6 +67,13 @@ class SeriesViewModel(
 
     /** Your own note on this series, or empty. */
     val note: StateFlow<String> = libraryStore.stateOf(viewModelScope) { lib -> lib.notes[seriesId].orEmpty() }
+
+    /** Pages you bookmarked in this series, newest first. */
+    val bookmarks: StateFlow<List<Bookmark>> = libraryStore.stateOf(viewModelScope) { lib -> lib.bookmarks.filter { it.seriesId == seriesId } }
+
+    fun removeBookmark(bookmark: Bookmark) {
+        viewModelScope.launch(LogFailures) { libraryStore.removeBookmark(bookmark) }
+    }
 
     fun setNote(text: String) {
         viewModelScope.launch(LogFailures) { libraryStore.setNote(seriesId, text) }

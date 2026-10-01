@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,9 +49,18 @@ import com.dexter.ui.SyncedSlider
 import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
 
-/** The bar across the top of the reader: back, the episode and series, options, and share. */
+/** The bar across the top of the reader: back, the episode and series, a bookmark, options, and share. */
 @Composable
-internal fun ReaderTopBar(page: ReaderPage, onBack: () -> Unit, onOpenOptions: () -> Unit, modifier: Modifier = Modifier) {
+internal fun ReaderTopBar(
+    segment: ChapterSegment,
+    seriesTitle: String?,
+    bookmarked: Boolean,
+    incognito: Boolean,
+    onBookmark: () -> Unit,
+    onBack: () -> Unit,
+    onOpenOptions: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val barIcons = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurface, disabledContentColor = Color.DarkGray)
     Surface(
@@ -65,8 +75,18 @@ internal fun ReaderTopBar(page: ReaderPage, onBack: () -> Unit, onOpenOptions: (
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
             }
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                Text("Ep. ${page.chapter.number}", style = MaterialTheme.typography.titleMediumEmphasized)
-                page.seriesTitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Text(
+                    if (incognito) "Ep. ${segment.chapter.number} · Incognito" else "Ep. ${segment.chapter.number}",
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                )
+                seriesTitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+            IconButton(onClick = onBookmark, colors = barIcons) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = if (bookmarked) "Remove bookmark" else "Bookmark this page",
+                    tint = if (bookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
             }
             IconButton(onClick = onOpenOptions, colors = barIcons) {
                 Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.reader_options))
@@ -75,7 +95,7 @@ internal fun ReaderTopBar(page: ReaderPage, onBack: () -> Unit, onOpenOptions: (
                 onClick = {
                     val send = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, (page.seriesTitle?.let { "$it, Ep. ${page.chapter.number}\n" }.orEmpty()) + "https://mangadex.org/chapter/${page.chapter.id}")
+                        putExtra(Intent.EXTRA_TEXT, (seriesTitle?.let { "$it, Ep. ${segment.chapter.number}\n" }.orEmpty()) + "https://mangadex.org/chapter/${segment.chapter.id}")
                     }
                     context.startActivity(Intent.createChooser(send, null))
                 },
@@ -90,7 +110,7 @@ internal fun ReaderTopBar(page: ReaderPage, onBack: () -> Unit, onOpenOptions: (
 /** The bar along the bottom of the reader: a page slider, the page count, the chapter list, and previous and next episode. */
 @Composable
 internal fun ReaderBottomBar(
-    page: ReaderPage,
+    segment: ChapterSegment,
     position: Int,
     count: Int,
     rtl: Boolean,
@@ -133,9 +153,9 @@ internal fun ReaderBottomBar(
                     IconButton(
                         onClick = {
                             view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                            onOpenChapter(page.prevId!!)
+                            onOpenChapter(segment.prevId!!)
                         },
-                        enabled = page.prevId != null,
+                        enabled = segment.prevId != null,
                         colors = barIcons,
                     ) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_episode))
@@ -143,9 +163,9 @@ internal fun ReaderBottomBar(
                     IconButton(
                         onClick = {
                             view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                            onOpenChapter(page.nextId!!)
+                            onOpenChapter(segment.nextId!!)
                         },
-                        enabled = page.nextId != null,
+                        enabled = segment.nextId != null,
                         colors = barIcons,
                     ) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.next_episode))

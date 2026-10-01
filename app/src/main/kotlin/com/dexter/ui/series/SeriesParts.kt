@@ -23,9 +23,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -60,6 +64,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import com.dexter.R
+import com.dexter.data.Bookmark
 import com.dexter.data.Chapter
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SeriesDetail
@@ -500,6 +505,31 @@ internal fun DownloadMenu(expanded: Boolean, onDismiss: () -> Unit, onPick: (cou
                     onDismiss()
                 },
             )
+        }
+    }
+}
+
+/** Your bookmarked pages in this series. Tapping one opens the reader at that page. */
+@Composable
+internal fun BookmarksCard(bookmarks: List<Bookmark>, onOpen: (Bookmark) -> Unit, onRemove: (Bookmark) -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(vertical = 8.dp)) {
+            Text("Bookmarks", style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+            bookmarks.forEach { bookmark ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpen(bookmark) }.padding(start = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Ep. ${bookmark.chapterNumber}, page ${bookmark.page + 1}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { onRemove(bookmark) }) {
+                        Icon(Icons.Default.Close, contentDescription = "Remove bookmark")
+                    }
+                }
+            }
         }
     }
 }

@@ -40,10 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.dexter.data.ReaderBackground
 import com.dexter.data.Settings
 import com.dexter.notify.EXTRA_CHAPTER_ID
@@ -274,6 +276,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                             SeriesScreen(
                                 vm,
                                 onOpenChapter = { nav.navigate("series/$seriesId/$it") },
+                                onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
                                 onHome = { nav.navigateTab("home") },
                                 onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
                                 onOpenSeries = { nav.navigate("series/$it") },
@@ -299,17 +302,22 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                             val vm = koinViewModel<AuthorViewModel>(key = authorId) { parametersOf(authorId) }
                             AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
                         }
-                        composable("series/{seriesId}/{chapterId}") { entry ->
+                        composable(
+                            "series/{seriesId}/{chapterId}?page={page}",
+                            arguments = listOf(navArgument("page") { type = NavType.IntType; defaultValue = -1 }),
+                        ) { entry ->
                             val seriesId = entry.arguments!!.getString("seriesId")!!
                             val chapterId = entry.arguments!!.getString("chapterId")!!
-                            val vm = koinViewModel<ReaderViewModel>(key = chapterId) { parametersOf(seriesId, chapterId) }
+                            // A bookmark opens at its page. Otherwise the reader picks up where you left off.
+                            val page = entry.arguments!!.getInt("page", -1)
+                            val vm = koinViewModel<ReaderViewModel>(key = "$chapterId@$page") { parametersOf(seriesId, chapterId, page) }
                             // The reader stays dark in a light app, so its bars and text keep their contrast.
                             DarkTheme {
                                 ReaderScreen(
                                     vm,
                                     seriesId,
                                     // The next chapter replaces this one, so Back leaves the reader instead of stepping through chapters.
-                                    onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}/{chapterId}") { inclusive = true } } },
+                                    onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}/{chapterId}?page={page}") { inclusive = true } } },
                                     // The screen under the reader is the one that opened it: the series page, Home, Stats, or an author.
                                     onBack = { nav.popBackStack() },
                                 )

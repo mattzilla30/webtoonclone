@@ -12,9 +12,25 @@ fun detectReadingMode(tags: List<String>, originalLanguage: String): ReadingMode
     else -> ReadingMode.Vertical
 }
 
-/** The mode to show: the series' own choice, or the detected one when that choice is Auto or missing. */
-fun resolveMode(chosen: ReadingMode?, detected: ReadingMode): ReadingMode =
-    if (chosen == null || chosen == ReadingMode.Auto) detected else chosen
+/**
+ * The mode to show: the series' own choice, then your default for every series, then the detected one when
+ * both are Auto or missing.
+ */
+fun resolveMode(chosen: ReadingMode?, detected: ReadingMode, default: ReadingMode = ReadingMode.Auto): ReadingMode = when {
+    chosen != null && chosen != ReadingMode.Auto -> chosen
+    default != ReadingMode.Auto -> default
+    else -> detected
+}
+
+/** In two-page spreads, the first page stands alone as the cover, and the rest pair up. The spread that shows [page]. */
+fun spreadOf(page: Int): Int = if (page <= 0) 0 else (page + 1) / 2
+
+/** The pages a spread shows, one or two, never past [count]. */
+fun pagesOfSpread(spread: Int, count: Int): List<Int> =
+    (if (spread <= 0) listOf(0) else listOf(2 * spread - 1, 2 * spread)).filter { it in 0 until count }
+
+/** How many spreads [count] pages make. */
+fun spreadCount(count: Int): Int = if (count <= 0) 0 else spreadOf(count - 1) + 1
 
 /** What a tap on the reader does. */
 enum class TapAction { Previous, Next, ToggleBars }

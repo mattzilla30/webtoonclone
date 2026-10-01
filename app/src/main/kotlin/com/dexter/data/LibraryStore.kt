@@ -266,6 +266,16 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     suspend fun setLibraryGrid(on: Boolean) = updateScalars { it.copy(libraryGrid = on) }
 
+    /** Adds a bookmark at [bookmark]'s page, or removes it when that page is already bookmarked. */
+    suspend fun toggleBookmark(bookmark: Bookmark) = updateScalars { data ->
+        val same = { b: Bookmark -> b.chapterId == bookmark.chapterId && b.page == bookmark.page }
+        data.copy(bookmarks = if (data.bookmarks.any(same)) data.bookmarks.filterNot(same) else listOf(bookmark) + data.bookmarks)
+    }
+
+    suspend fun removeBookmark(bookmark: Bookmark) = updateScalars { data ->
+        data.copy(bookmarks = data.bookmarks.filterNot { it.chapterId == bookmark.chapterId && it.page == bookmark.page })
+    }
+
     /** Keeps [text] as your note on a series. Blank text removes the note. */
     suspend fun setNote(seriesId: String, text: String) = updateScalars { data ->
         val note = text.trim()

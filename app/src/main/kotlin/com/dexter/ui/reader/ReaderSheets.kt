@@ -31,7 +31,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dexter.R
 import com.dexter.data.Chapter
+import com.dexter.data.PageFit
+import com.dexter.data.PageTransition
 import com.dexter.data.ReaderBackground
+import com.dexter.data.ReaderFilter
 import com.dexter.data.ReaderOrientation
 import com.dexter.data.ReadingMode
 import com.dexter.data.Settings
@@ -102,6 +105,13 @@ internal fun ReaderOptions(
                 modeLabels.forEach { (value, label) -> ChoiceChip(label, chosenMode == value) { onMode(value) } }
             }
 
+            Text("Reading mode for every other series", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                modeLabels.forEach { (value, label) ->
+                    ChoiceChip(label, settings.defaultReadingMode == value) { onChange { it.copy(defaultReadingMode = value) } }
+                }
+            }
+
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Separate look for this series", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = seriesLook, onCheckedChange = onSeriesLook)
@@ -113,6 +123,24 @@ internal fun ReaderOptions(
                 onValueChange = { value -> onChange { it.copy(readerDim = value.roundToInt()) } },
                 valueRange = 0f..70f,
             )
+
+            Text("Brightness", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ChoiceChip("System", settings.readerBrightness !in 1..100) { onChange { it.copy(readerBrightness = -1) } }
+                SyncedSlider(
+                    value = settings.readerBrightness.coerceIn(1, 100).toFloat(),
+                    onValueChange = { value -> onChange { it.copy(readerBrightness = value.roundToInt().coerceIn(1, 100)) } },
+                    valueRange = 1f..100f,
+                    modifier = Modifier.weight(1f).padding(start = 12.dp),
+                )
+            }
+
+            Text("Colour filter", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ReaderFilter.entries.forEach { choice ->
+                    ChoiceChip(choice.name, settings.readerFilter == choice) { onChange { it.copy(readerFilter = choice) } }
+                }
+            }
 
             Text(stringResource(R.string.background), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -141,6 +169,29 @@ internal fun ReaderOptions(
                 }
             }
 
+            if (mode != ReadingMode.Vertical) {
+                Text("Page fit", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(PageFit.Screen to "Whole page", PageFit.Width to "Fit width", PageFit.Height to "Fit height").forEach { (fit, label) ->
+                        ChoiceChip(label, settings.pageFit == fit) { onChange { it.copy(pageFit = fit) } }
+                    }
+                }
+                Text("Page turn", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PageTransition.entries.forEach { choice ->
+                        ChoiceChip(choice.name, settings.pageTransition == choice) { onChange { it.copy(pageTransition = choice) } }
+                    }
+                }
+                OptionSwitch("Two pages side by side when sideways", settings.spreads) { on -> onChange { it.copy(spreads = on) } }
+            } else {
+                OptionSwitch("Next episode follows on below", settings.continuousScroll) { on -> onChange { it.copy(continuousScroll = on) } }
+                OptionSwitch("Tap top or bottom to scroll", settings.tapToScroll) { on -> onChange { it.copy(tapToScroll = on) } }
+            }
+            OptionSwitch("Trim white and black margins", settings.cropBorders) { on -> onChange { it.copy(cropBorders = on) } }
+            OptionSwitch("Hide the bars after a few seconds", settings.autoHideBars) { on -> onChange { it.copy(autoHideBars = on) } }
+            OptionSwitch("Clock and battery with the page count", settings.showClock) { on -> onChange { it.copy(showClock = on) } }
+            OptionSwitch("Incognito: keep no history or stats", settings.incognito) { on -> onChange { it.copy(incognito = on) } }
+
             Text("Screen direction", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReaderOrientation.entries.forEach { choice ->
@@ -165,5 +216,14 @@ internal fun ReaderOptions(
                 Switch(checked = settings.volumeKeys, onCheckedChange = { on -> onChange { it.copy(volumeKeys = on) } })
             }
         }
+    }
+}
+
+/** One labelled switch in the reader options. */
+@Composable
+private fun OptionSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }

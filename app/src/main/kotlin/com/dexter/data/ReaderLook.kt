@@ -43,5 +43,16 @@ fun resetReaderSettings(settings: Settings): Settings {
         keepScreenOn = defaults.keepScreenOn,
         pageGap = defaults.pageGap,
         prefetchPages = defaults.prefetchPages,
+        continuousScroll = defaults.continuousScroll,
+        autoHideBars = defaults.autoHideBars,
+        tapToScroll = defaults.tapToScroll,
+        pageFit = defaults.pageFit,
+        spreads = defaults.spreads,
+        cropBorders = defaults.cropBorders,
+        readerBrightness = defaults.readerBrightness,
+        readerFilter = defaults.readerFilter,
+        showClock = defaults.showClock,
+        defaultReadingMode = defaults.defaultReadingMode,
+        pageTransition = defaults.pageTransition,
     )
 }

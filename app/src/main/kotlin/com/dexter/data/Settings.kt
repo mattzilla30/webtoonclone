@@ -41,6 +41,18 @@ enum class ReaderOrientation { Auto, Portrait, Landscape }
 @Serializable
 enum class ReadingMode { Auto, Vertical, PagedLtr, PagedRtl }
 
+/** How a page fills the screen in paged mode. */
+@Serializable
+enum class PageFit { Screen, Width, Height }
+
+/** A colour filter over the pages. */
+@Serializable
+enum class ReaderFilter { None, Warm, Sepia, Grayscale, Invert }
+
+/** How paged mode moves from one page to the next. */
+@Serializable
+enum class PageTransition { Slide, Fade, None }
+
 /** Everything the Settings screen and the reader options change. Defaults match the app before settings existed. */
 @Serializable
 data class Settings(
@@ -105,6 +117,27 @@ data class Settings(
     val downloadCapMb: Long = 0,
     /** Search and author results as rows with details instead of a grid of covers. */
     val resultsAsList: Boolean = false,
+    /** In the vertical strip, the next chapter follows on below instead of an end card. */
+    val continuousScroll: Boolean = true,
+    /** The reader's bars hide on their own a few seconds after they show. */
+    val autoHideBars: Boolean = true,
+    /** In the vertical strip, a tap near the top or bottom scrolls by most of a screen. */
+    val tapToScroll: Boolean = false,
+    val pageFit: PageFit = PageFit.Screen,
+    /** In paged mode with the phone sideways, two pages side by side. */
+    val spreads: Boolean = false,
+    /** Trim plain white or black margins from page images. */
+    val cropBorders: Boolean = false,
+    /** Screen brightness in the reader, 1 to 100, or -1 to follow the phone. */
+    val readerBrightness: Int = -1,
+    val readerFilter: ReaderFilter = ReaderFilter.None,
+    /** A clock and the battery level next to the page counter while the bars are hidden. */
+    val showClock: Boolean = true,
+    /** The reading mode for series with no choice of their own. Auto picks from tags and language. */
+    val defaultReadingMode: ReadingMode = ReadingMode.Auto,
+    val pageTransition: PageTransition = PageTransition.Slide,
+    /** Read without recording history, positions, or stats. */
+    val incognito: Boolean = false,
 )
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")

@@ -130,6 +130,17 @@ data class HomeContent(
     val picks: List<SeriesSummary>,
 )
 
+/** One bookmarked page. [page] counts from 0. */
+@Serializable
+data class Bookmark(
+    val seriesId: String,
+    val seriesTitle: String,
+    val chapterId: String,
+    val chapterNumber: String,
+    val page: Int,
+    val at: Long = 0,
+)
+
 /** A search you kept under a name: the words or tag, the filters, and the sort. */
 @Serializable
 data class SavedSearch(
@@ -216,6 +227,8 @@ data class LibraryData(
     val librarySort: String? = null,
     /** Your own note on a series, by series id. */
     val notes: Map<String, String> = emptyMap(),
+    /** Pages you bookmarked, newest first. */
+    val bookmarks: List<Bookmark> = emptyList(),
 ) {
     /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
     fun knownSeries(id: String): SavedSeries? =

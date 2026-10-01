@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dexter.R
+import com.dexter.data.ErrorLog
 import kotlinx.coroutines.CoroutineExceptionHandler
 import java.io.IOException
 import java.net.ConnectException
@@ -65,6 +66,7 @@ private val SERVER_ERROR = Regex("""HTTP 5\d\d""")
 
 /** Turns a failure into a message a reader can act on, instead of an exception string. */
 fun friendlyError(e: Throwable, fallback: String): String {
+    ErrorLog.record("Shown to you", e)
     val message = e.message.orEmpty()
     return when {
         e is UnknownHostException || e is ConnectException || e is SocketTimeoutException ->
@@ -114,6 +116,7 @@ inline fun <T> catching(block: () -> T): Result<T> = try {
 } catch (e: kotlinx.coroutines.CancellationException) {
     throw e
 } catch (e: Throwable) {
+    ErrorLog.record("Handled", e)
     Result.failure(e)
 }
 
@@ -121,4 +124,7 @@ inline fun <T> catching(block: () -> T): Result<T> = try {
  * Logs a failed background task instead of closing the app. View models launch their saves and loads
  * with it, so a full disk or a broken write costs that one action.
  */
-val LogFailures = CoroutineExceptionHandler { _, error -> Log.e("Dexter", "A background task failed", error) }
+val LogFailures = CoroutineExceptionHandler { _, error ->
+    Log.e("Dexter", "A background task failed", error)
+    ErrorLog.record("Background task", error)
+}

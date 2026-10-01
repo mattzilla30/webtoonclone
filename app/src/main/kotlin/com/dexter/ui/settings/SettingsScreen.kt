@@ -59,7 +59,7 @@ import com.dexter.ui.timeAgo
 import java.time.Instant
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit, onOpenErrors: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val cacheBytes by viewModel.cacheBytes.collectAsStateWithLifecycle()
@@ -323,6 +323,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 }
                 InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
                 InfoRow(title = "Reset reader options", subtitle = "Background, dimming, auto-scroll and more.", onClick = { confirmResetReader = true })
+                InfoRow(title = "Error log", subtitle = "What went wrong lately, to read or share.", onClick = onOpenErrors)
                 InfoRow(title = "Clear reading history", subtitle = "Empties the Recent list.", onClick = { confirmClear = true })
 
                 MangaDexAccountSection(

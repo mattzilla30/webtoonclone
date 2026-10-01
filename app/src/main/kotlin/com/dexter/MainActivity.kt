@@ -91,6 +91,7 @@ import com.dexter.ui.search.SearchScreen
 import com.dexter.ui.search.SearchViewModel
 import com.dexter.ui.series.SeriesScreen
 import com.dexter.ui.series.SeriesViewModel
+import com.dexter.ui.settings.ErrorLogScreen
 import com.dexter.ui.settings.SettingsScreen
 import com.dexter.ui.settings.SettingsViewModel
 import com.dexter.ui.stats.StatsScreen
@@ -333,7 +334,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                             }
                                             screen("settings") {
                                                 val vm = koinViewModel<SettingsViewModel>()
-                                                SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
+                                                SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") }, onOpenErrors = { nav.navigate("errors") })
                                             }
                                             screen("series/{seriesId}") { entry ->
                                                 val seriesId = entry.arguments!!.getString("seriesId")!!
@@ -348,6 +349,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                     onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
                                                 )
                                             }
+                                            screen("errors") { ErrorLogScreen(onBack = { nav.popBackStack() }) }
                                             screen("stats") {
                                                 val vm = koinViewModel<StatsViewModel>()
                                                 StatsScreen(vm, onBack = { nav.popBackStack() })

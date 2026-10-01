@@ -1,4 +1,7 @@
 -keepattributes *Annotation*, InnerClasses
+# Line numbers stay, so traces in the in-app error log can be retraced with the build's mapping.txt.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 -dontnote kotlinx.serialization.**
 -keep,includedescriptorclasses class com.dexter.data.**$$serializer { *; }
 -keepclassmembers class com.dexter.data.** { *** Companion; }

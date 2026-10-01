@@ -9,6 +9,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.dexter.data.AccountStore
 import com.dexter.data.BackupService
 import com.dexter.data.DownloadStore
+import com.dexter.data.ErrorLog
 import com.dexter.data.ImageReportInterceptor
 import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
@@ -69,6 +70,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        ErrorLog.init(this)
         startKoin {
             androidContext(this@DexterApp)
             modules(appModule)

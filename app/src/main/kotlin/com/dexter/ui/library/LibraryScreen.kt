@@ -93,10 +93,12 @@ fun LibraryScreen(
     val selected = remember { mutableStateListOf<String>() }
     val sortMode = sortModeOf(library.sortAlphabetical, library.sortUnreadFirst)
     val collection = collectionFilter?.takeIf { tab == LibraryList.Lists && it in library.collections }
-    val tabItems = remember(library, tab, collection, statusFilter) {
+    // Every series in a list or collection, once each. Used for the "All" chip and its tab.
+    val allListed = remember(library.lists, library.collections) { (library.lists + library.collections.values.flatten()).distinctBy { it.id } }
+    val tabItems = remember(library, allListed, tab, collection, statusFilter) {
         when {
             collection != null -> library.collections.getValue(collection)
-            tab == LibraryList.Lists && statusFilter == null -> (library.lists + library.collections.values.flatten()).distinctBy { it.id }
+            tab == LibraryList.Lists && statusFilter == null -> allListed
             else -> listFor(library, tab)
         }
     }
@@ -175,7 +177,7 @@ fun LibraryScreen(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    ChoiceChip("All ${(library.lists + library.collections.values.flatten()).distinctBy { it.id }.size}", statusFilter == null && collection == null) { statusFilter = null; collectionFilter = null }
+                    ChoiceChip("All ${allListed.size}", statusFilter == null && collection == null) { statusFilter = null; collectionFilter = null }
                     ReadingStatus.entries.forEach { status ->
                         ChoiceChip("${status.label} ${library.lists.count { it.status == status }}", collection == null && statusFilter == status.name) { statusFilter = status.name; collectionFilter = null }
                     }

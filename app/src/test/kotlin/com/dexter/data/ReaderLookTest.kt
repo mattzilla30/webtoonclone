@@ -38,3 +38,35 @@ class ReaderLookTest {
         assertEquals(base, withSeriesLook(on, "a", false))
     }
 }
+
+class ResetReaderSettingsTest {
+    @Test
+    fun resetsReaderOptionsAndKeepsTheRest() {
+        val changed = Settings(
+            readerBackground = ReaderBackground.White,
+            readerDim = 40,
+            autoScrollLevel = 3,
+            volumeKeys = true,
+            keepScreenOn = false,
+            pageGap = 8,
+            prefetchPages = 6,
+            dailyGoal = 5,
+            blockedTags = setOf("x"),
+            seriesLooks = mapOf("s" to SeriesLook(dim = 10, background = ReaderBackground.White)),
+            seriesReadingModes = mapOf("s" to ReadingMode.PagedRtl),
+        )
+        val reset = resetReaderSettings(changed)
+        val defaults = Settings()
+        assertEquals(defaults.readerBackground, reset.readerBackground)
+        assertEquals(defaults.readerDim, reset.readerDim)
+        assertEquals(defaults.autoScrollLevel, reset.autoScrollLevel)
+        assertEquals(defaults.volumeKeys, reset.volumeKeys)
+        assertEquals(defaults.keepScreenOn, reset.keepScreenOn)
+        assertEquals(defaults.pageGap, reset.pageGap)
+        assertEquals(defaults.prefetchPages, reset.prefetchPages)
+        assertEquals(5, reset.dailyGoal)
+        assertEquals(setOf("x"), reset.blockedTags)
+        assertEquals(changed.seriesLooks, reset.seriesLooks)
+        assertEquals(changed.seriesReadingModes, reset.seriesReadingModes)
+    }
+}

@@ -63,6 +63,7 @@ import com.dexter.data.ThemeMode
 import com.dexter.data.Themes
 import com.dexter.data.formatBytes
 import com.dexter.data.libraryText
+import com.dexter.data.resetReaderSettings
 import com.dexter.notify.CHANNEL_ID
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
@@ -88,6 +89,21 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     }
     var pickTag by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
+    var confirmResetReader by remember { mutableStateOf(false) }
+    if (confirmResetReader) {
+        AlertDialog(
+            onDismissRequest = { confirmResetReader = false },
+            title = { Text("Reset reader options?") },
+            text = { Text("Background, dimming, auto-scroll, volume keys, orientation, screen on, page gap and prefetch go back to their defaults. Per-series looks and reading modes stay.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.update(::resetReaderSettings)
+                    confirmResetReader = false
+                }) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { confirmResetReader = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
@@ -275,6 +291,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 settings.dailyGoal,
             ) { goal -> viewModel.update { it.copy(dailyGoal = goal) } }
             InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
+            InfoRow(title = "Reset reader options", subtitle = "Background, dimming, auto-scroll and more.", onClick = { confirmResetReader = true })
             InfoRow(title = "Clear reading history", subtitle = "Empties the Recent list.", onClick = { confirmClear = true })
 
             SectionTitle("Backup")

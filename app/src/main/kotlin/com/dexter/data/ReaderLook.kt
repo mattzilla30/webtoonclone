@@ -27,3 +27,21 @@ fun withSeriesLook(settings: Settings, seriesId: String, enabled: Boolean): Sett
     } else {
         settings.copy(seriesLooks = settings.seriesLooks - seriesId)
     }
+
+/**
+ * Puts the reader options back to their defaults. Per-series looks, reading modes and preferred groups,
+ * and everything outside the reader, stay as they are.
+ */
+fun resetReaderSettings(settings: Settings): Settings {
+    val defaults = Settings()
+    return settings.copy(
+        readerBackground = defaults.readerBackground,
+        readerDim = defaults.readerDim,
+        autoScrollLevel = defaults.autoScrollLevel,
+        volumeKeys = defaults.volumeKeys,
+        readerOrientation = defaults.readerOrientation,
+        keepScreenOn = defaults.keepScreenOn,
+        pageGap = defaults.pageGap,
+        prefetchPages = defaults.prefetchPages,
+    )
+}

@@ -18,6 +18,7 @@ HSPLcom/dexter/ui/reader/ReaderScreenKt;->*(**)**
 HSPLcom/dexter/ui/reader/ReaderViewModel;->*(**)**
 HSPLcom/dexter/ui/reader/ZoomKt;->*(**)**
 HSPLcom/dexter/ui/search/SearchScreenKt;->*(**)**
+HSPLcom/dexter/ui/search/SearchIdleKt;->*(**)**
 HSPLcom/dexter/data/MangaDexHttp;->*(**)**
 HSPLcom/dexter/data/ProgressStore;->*(**)**
 HSPLcom/dexter/data/ImageReportInterceptor;->*(**)**

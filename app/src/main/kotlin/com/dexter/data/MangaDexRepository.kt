@@ -1,9 +1,11 @@
 package com.dexter.data
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -112,7 +114,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             }
             .build()
         val hidden = hiddenSeries
-        val list = json.decodeFromString<MangaListDto>(fetch(url)).data.map { it.toSummary() }.filter { ids != null || it.id !in hidden }
+        val list = fetchJson<MangaListDto>(url).data.map { it.toSummary() }.filter { ids != null || it.id !in hidden }
         if (!withStats || list.isEmpty()) return list
         val stats = stats(list.map { it.id })
         return list.map { it.copy(follows = stats[it.id]?.follows) }
@@ -129,7 +131,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
                 .addQueryParameter("includes[]", "author")
                 .ratings()
                 .build()
-            val manga = json.decodeFromString<MangaOneDto>(fetch(url)).data
+            val manga = fetchJson<MangaOneDto>(url).data
             if (language in manga.attributes.availableTranslatedLanguages) return manga.toSummary()
         }
         return null
@@ -157,7 +159,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("translatedLanguage[]", language)
             .addQueryParameter("order[readableAt]", "desc")
             .build()
-        val dto = json.decodeFromString<ChapterListDto>(fetch(url)).data.firstOrNull() ?: return null
+        val dto = fetchJson<ChapterListDto>(url).data.firstOrNull() ?: return null
         return dto.toChapter()
     }
 
@@ -171,7 +173,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("order[readableAt]", "desc")
             .ratings()
             .build()
-        val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
+        val feed = fetchJson<ChapterListDto>(url).data
         // Keep the newest chapter per series, in feed order.
         val newest = LinkedHashMap<String, ChapterDto>()
         for (chapter in feed) {
@@ -198,7 +200,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("order[readableAt]", "desc")
             .ratings()
             .build()
-        val feed = json.decodeFromString<ChapterListDto>(fetch(url)).data
+        val feed = fetchJson<ChapterListDto>(url).data
         val ids = feed.flatMap { c -> c.relationships.filter { it.type == "manga" }.map { it.id } }
             .distinct()
             .shuffled()
@@ -213,7 +215,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("includes[]", "cover_art")
             .addQueryParameter("includes[]", "author")
             .build()
-        val manga = json.decodeFromString<MangaOneDto>(fetch(url)).data
+        val manga = fetchJson<MangaOneDto>(url).data
         val stat = statsOne(id)
         val summary = manga.toSummary().copy(follows = stat?.follows)
         return SeriesDetail(
@@ -250,7 +252,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("order[chapter]", "desc")
             .addQueryParameter("includes[]", "scanlation_group")
             .build()
-        val body = json.decodeFromString<ChapterListDto>(fetch(url))
+        val body = fetchJson<ChapterListDto>(url)
         val byNumber = LinkedHashMap<String, MutableList<Chapter>>()
         for (dto in body.data) {
             val chapter = dto.toChapter()
@@ -290,14 +292,14 @@ class MangaDexRepository(private val client: OkHttpClient) {
             .addQueryParameter("limit", "100")
             .addQueryParameter("order[volume]", "asc")
             .build()
-        return json.decodeFromString<CoverListDto>(fetch(url)).data.map {
+        return fetchJson<CoverListDto>(url).data.map {
             SeriesCover("https://uploads.mangadex.org/covers/$seriesId/${it.attributes.fileName}.512.jpg", it.attributes.volume)
         }
     }
 
     /** The series a chapter belongs to, for opening a MangaDex chapter link. */
     suspend fun seriesIdForChapter(chapterId: String): String? {
-        val dto = json.decodeFromString<ChapterOneDto>(fetch("$API/chapter/$chapterId".toHttpUrl())).data
+        val dto = fetchJson<ChapterOneDto>("$API/chapter/$chapterId".toHttpUrl()).data
         return dto.relationships.firstOrNull { it.type == "manga" }?.id
     }
 
@@ -345,7 +347,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
     /** Every MangaDex tag. Loaded once. */
     suspend fun tagIndex(): TagIndex {
         tagIndex?.let { return it }
-        val tags = json.decodeFromString<TagListDto>(fetch("$API/manga/tag".toHttpUrl())).data
+        val tags = fetchJson<TagListDto>("$API/manga/tag".toHttpUrl()).data
         return TagIndex(
             ids = tags.associate { it.attributes.name.pick().lowercase() to it.id },
             namesByGroup = tags.groupBy({ it.attributes.group }, { it.attributes.name.pick() }),
@@ -354,7 +356,7 @@ class MangaDexRepository(private val client: OkHttpClient) {
 
     /** Statistics for one series. Only this form carries the score distribution. */
     private suspend fun statsOne(id: String): StatDto? = try {
-        json.decodeFromString<StatsDto>(fetch("$API/statistics/manga/$id".toHttpUrl())).statistics[id]
+        fetchJson<StatsDto>("$API/statistics/manga/$id".toHttpUrl()).statistics[id]
     } catch (e: IOException) {
         null
     }
@@ -363,12 +365,15 @@ class MangaDexRepository(private val client: OkHttpClient) {
         val url = "$API/statistics/manga".toHttpUrl().newBuilder()
             .apply { ids.forEach { addQueryParameter("manga[]", it) } }
             .build()
-        json.decodeFromString<StatsDto>(fetch(url)).statistics
+        fetchJson<StatsDto>(url).statistics
     } catch (e: IOException) {
         emptyMap()
     }
 
     private suspend fun fetch(url: HttpUrl): String = http.get(url)
+
+    /** Fetches [url] and decodes it off the main thread, since a page of chapters or series is a lot of JSON. */
+    private suspend inline fun <reified T> fetchJson(url: HttpUrl): T = withContext(Dispatchers.Default) { json.decodeFromString<T>(http.get(url)) }
 
     private fun MangaDto.toSummary(): SeriesSummary {
         val file = relationships.firstOrNull { it.type == "cover_art" }?.attributes?.fileName

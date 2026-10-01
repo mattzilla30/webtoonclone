@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,14 +22,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.dexter.R
 import com.dexter.data.SeriesSummary
+import kotlinx.coroutines.launch
 
 fun compact(n: Int): String = when {
     n >= 1_000_000 -> "%.1fM".format(n / 1_000_000.0)
@@ -254,4 +262,16 @@ fun SyncedSlider(value: Float, onValueChange: (Float) -> Unit, valueRange: Close
     val state = androidx.compose.runtime.remember { androidx.compose.material3.SliderState(value, 0, valueRange) }
     androidx.compose.runtime.LaunchedEffect(value) { if (state.value != value) state.value = value }
     androidx.compose.material3.Slider(state = state, onValueChange = onValueChange, modifier = modifier)
+}
+
+/** A small button that scrolls [listState] back to the top once the list is a few rows down. Place it in a Box over the list. */
+@Composable
+fun BackToTopButton(listState: LazyListState, modifier: Modifier = Modifier) {
+    val visible by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
+    if (!visible) return
+    val scope = rememberCoroutineScope()
+    SmallFloatingActionButton(
+        onClick = { scope.launch { listState.animateScrollToItem(0) } },
+        modifier = modifier.padding(16.dp),
+    ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Back to top") }
 }

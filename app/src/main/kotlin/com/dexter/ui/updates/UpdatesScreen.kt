@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dexter.R
 import com.dexter.ui.AppTopBar
+import com.dexter.ui.BackToTopButton
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
@@ -77,72 +78,75 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
                     }.collect { nearEnd -> if (nearEnd) viewModel.loadMore() }
                 }
 
-                LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                    offlineSavedAt?.let { savedAt ->
-                        item { OfflineBanner(savedAt, "updates", onRetry = viewModel::load) }
-                    }
-                    if (subscribedIds.isNotEmpty()) {
-                        item {
-                            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                                ChoiceChip("Subscribed only", subscribedOnly) { subscribedOnly = !subscribedOnly }
+                Box(Modifier.fillMaxSize()) {
+                    LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                        offlineSavedAt?.let { savedAt ->
+                            item { OfflineBanner(savedAt, "updates", onRetry = viewModel::load) }
+                        }
+                        if (subscribedIds.isNotEmpty()) {
+                            item {
+                                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                    ChoiceChip("Subscribed only", subscribedOnly) { subscribedOnly = !subscribedOnly }
+                                }
                             }
                         }
-                    }
-                    if (subscribedOnly && entries.isEmpty() && !loadingMore) {
-                        item {
-                            Text(
-                                "None of the latest updates are from series you subscribed to.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(16.dp),
-                            )
-                        }
-                    }
-                    items(entries, key = { it.series.id }) { entry ->
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            onClick = { onOpenSeries(entry.series.id) },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        ) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Cover(
-                                    entry.series.coverUrl,
-                                    entry.series.title,
-                                    Modifier.width(52.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small),
-                                    contentScale = ContentScale.Crop,
-                                    thumb = true,
+                        if (subscribedOnly && entries.isEmpty() && !loadingMore) {
+                            item {
+                                Text(
+                                    "None of the latest updates are from series you subscribed to.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(16.dp),
                                 )
-                                Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    GenreLabel(entry.series.genre)
-                                    Text(entry.series.title, style = MaterialTheme.typography.titleSmallEmphasized)
-                                    Text(
-                                        "Ep. ${entry.chapterNumber}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            }
+                        }
+                        items(entries, key = { it.series.id }) { entry ->
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                onClick = { onOpenSeries(entry.series.id) },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            ) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Cover(
+                                        entry.series.coverUrl,
+                                        entry.series.title,
+                                        Modifier.width(52.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small),
+                                        contentScale = ContentScale.Crop,
+                                        thumb = true,
                                     )
-                                }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    if (entry.series.id in subscribedIds) {
-                                        Icon(
-                                            Icons.Default.Notifications,
-                                            contentDescription = stringResource(R.string.subscribed),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp),
+                                    Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        GenreLabel(entry.series.genre)
+                                        Text(entry.series.title, style = MaterialTheme.typography.titleSmallEmphasized)
+                                        Text(
+                                            "Ep. ${entry.chapterNumber}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                    Text(timeAgo(entry.publishedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        if (entry.series.id in subscribedIds) {
+                                            Icon(
+                                                Icons.Default.Notifications,
+                                                contentDescription = stringResource(R.string.subscribed),
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                        Text(timeAgo(entry.publishedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                        if (loadingMore) {
+                            item {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    LoadingIndicator(Modifier.size(40.dp))
                                 }
                             }
                         }
                     }
-                    if (loadingMore) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                LoadingIndicator(Modifier.size(40.dp))
-                            }
-                        }
-                    }
+                    BackToTopButton(listState, Modifier.align(Alignment.BottomEnd))
                 }
             }
         }

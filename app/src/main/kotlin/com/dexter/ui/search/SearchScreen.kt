@@ -78,6 +78,7 @@ import com.dexter.data.SeriesSummary
 import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
 import com.dexter.data.activeFilters
+import com.dexter.ui.BackToTopButton
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
@@ -259,14 +260,7 @@ fun SearchScreen(
                                 }
                             }
                         }
-                        val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
-                        if (showTop) {
-                            val scope = rememberCoroutineScope()
-                            SmallFloatingActionButton(
-                                onClick = { scope.launch { listState.animateScrollToItem(0) } },
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                            ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Back to top") }
-                        }
+                        BackToTopButton(listState, Modifier.align(Alignment.BottomEnd))
                     }
                 }
             }

@@ -1,6 +1,7 @@
 package com.dexter.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 
@@ -14,6 +15,12 @@ const val RAIL_MIN_WIDTH_DP = 600
 /** How many cover tiles fit across [widthDp], between two and six. */
 fun adaptiveColumns(widthDp: Float): Int = (widthDp / TILE_WIDTH_DP).toInt().coerceIn(MIN_COLUMNS, MAX_COLUMNS)
 
-/** The window width in dp, read from the window so it follows resizing and split screen. */
+/** Window width (dp) from which a series opens beside the list instead of over it. */
+const val TWO_PANE_MIN_WIDTH_DP = 840
+
+/** The width of the pane a screen sits in, when the window is split in two. Null when it has the whole window. */
+val LocalPaneWidthDp = compositionLocalOf<Float?> { null }
+
+/** The window width in dp, read from the window so it follows resizing and split screen. In a pane, the pane's width. */
 @Composable
-fun windowWidthDp(): Float = LocalWindowInfo.current.containerSize.width / LocalDensity.current.density
+fun windowWidthDp(): Float = LocalPaneWidthDp.current ?: (LocalWindowInfo.current.containerSize.width / LocalDensity.current.density)

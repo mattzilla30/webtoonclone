@@ -26,6 +26,10 @@ enum class ThemeMode { Dark, Light, System, Black }
 @Serializable
 enum class ReaderBackground { Dark, Black, White }
 
+/** How the reader holds the screen. Auto follows the phone. */
+@Serializable
+enum class ReaderOrientation { Auto, Portrait, Landscape }
+
 /** How the reader turns pages. Auto picks from the series' tags and original language. */
 @Serializable
 enum class ReadingMode { Auto, Vertical, PagedLtr, PagedRtl }
@@ -60,6 +64,8 @@ data class Settings(
     val blockedGroups: Set<String> = emptySet(),
     /** Series hidden from browse and search results. They still open from your library. */
     val hiddenSeries: Set<String> = emptySet(),
+    /** Whether the reader locks the screen to portrait or landscape. */
+    val readerOrientation: ReaderOrientation = ReaderOrientation.Auto,
     /** Keep the screen on while a chapter is open. */
     val keepScreenOn: Boolean = true,
     /** Space between pages in the vertical strip, in dp. */

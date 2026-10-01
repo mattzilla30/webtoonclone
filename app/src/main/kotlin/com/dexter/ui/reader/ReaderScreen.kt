@@ -1,6 +1,8 @@
 package com.dexter.ui.reader
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -91,6 +93,7 @@ import coil3.request.ImageRequest
 import com.dexter.R
 import com.dexter.data.Chapter
 import com.dexter.data.ReaderBackground
+import com.dexter.data.ReaderOrientation
 import com.dexter.data.ReadingMode
 import com.dexter.data.Settings
 import com.dexter.data.TapAction
@@ -143,6 +146,17 @@ fun ReaderScreen(
     val hasSeriesLook by viewModel.hasSeriesLook.collectAsState()
     var showOptions by remember { mutableStateOf(false) }
     val zoom = remember { ZoomState() }
+
+    // Lock the screen direction while the reader is open, and give it back when it closes.
+    val activity = LocalActivity.current
+    DisposableEffect(activity, settings.readerOrientation) {
+        activity?.requestedOrientation = when (settings.readerOrientation) {
+            ReaderOrientation.Auto -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            ReaderOrientation.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            ReaderOrientation.Landscape -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    }
 
     // Keep the screen on while reading, and release it when the reader closes.
     val view = LocalView.current
@@ -613,6 +627,13 @@ private fun ReaderOptions(
                     listOf(0 to "None", 8 to "Small", 24 to "Large").forEach { (gap, label) ->
                         ChoiceChip(label, settings.pageGap == gap) { onChange { it.copy(pageGap = gap) } }
                     }
+                }
+            }
+
+            Text("Screen direction", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ReaderOrientation.entries.forEach { choice ->
+                    ChoiceChip(choice.name, settings.readerOrientation == choice) { onChange { it.copy(readerOrientation = choice) } }
                 }
             }
 

@@ -37,8 +37,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.ContentRatings
 import com.dexter.data.Languages
-import com.dexter.data.ReaderBackground
-import com.dexter.data.ThemeMode
 import com.dexter.data.formatBytes
 import com.dexter.data.libraryText
 import com.dexter.data.resetReaderSettings
@@ -118,38 +116,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     Column(Modifier.fillMaxSize()) {
         AppTopBar(stringResource(R.string.settings))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-            SectionTitle("Appearance")
-            ChoiceRow(
-                "Theme",
-                listOf(
-                    ThemeMode.Dark to "Dark",
-                    ThemeMode.Black to "True black",
-                    ThemeMode.Light to "Light",
-                    ThemeMode.System to "System",
-                ),
-                settings.theme,
-            ) { choice -> viewModel.update { it.copy(theme = choice) } }
-            SwitchRow("Material You colors", "Use your wallpaper colors for backgrounds. Accents stay green.", settings.dynamicColor) { on ->
-                viewModel.update { it.copy(dynamicColor = on) }
-            }
+            AppearanceSection(settings, viewModel::update)
 
-            SectionTitle("Reading")
-            SwitchRow("Data saver", "Load smaller page images. Applies to chapters you open next.", settings.dataSaver) { on ->
-                viewModel.update { it.copy(dataSaver = on) }
-            }
-            ChoiceRow(
-                "Reader background",
-                listOf(ReaderBackground.Dark to "Dark", ReaderBackground.Black to "Black", ReaderBackground.White to "White"),
-                settings.readerBackground,
-            ) { choice -> viewModel.update { it.copy(readerBackground = choice) } }
-            SwitchRow("Volume keys scroll", "Volume up and down move the reader by a page.", settings.volumeKeys) { on ->
-                viewModel.update { it.copy(volumeKeys = on) }
-            }
-            SwitchRow(
-                "Report image loads to MangaDex",
-                "MangaDex asks apps to say whether page images loaded. A report holds the image address, its size, and how long it took.",
-                settings.reportImageLoads,
-            ) { on -> viewModel.update { it.copy(reportImageLoads = on) } }
+            ReadingSection(settings, viewModel::update)
 
             SectionTitle("Titles")
             SwitchRow("Original titles", "Show the romanized original title instead of the English one.", settings.originalTitles) { on ->

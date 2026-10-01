@@ -177,6 +177,7 @@ fun SearchScreen(
                         "Random" -> viewModel.openRandom(onOpenSeries)
                         "Recently added" -> { text = name; viewModel.openBrowse(name, Order.Newest) }
                         "Top rated" -> { text = name; viewModel.openBrowse(name, Order.TopRated) }
+                        "Completed" -> { text = name; viewModel.setFilters(SearchFilters(status = listOf("completed"))) }
                     }
                 },
                 onTag = { tag ->
@@ -364,7 +365,7 @@ private val sortLabels = listOf(
 )
 
 /** Lists that need no search. Random opens one series, and the others list every series in an order. */
-private val BrowseOptions = listOf("Random", "Recently added", "Top rated")
+private val BrowseOptions = listOf("Random", "Recently added", "Top rated", "Completed")
 
 /** Chips that choose how search results are ordered. */
 @Composable

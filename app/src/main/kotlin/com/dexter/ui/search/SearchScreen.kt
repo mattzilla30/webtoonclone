@@ -54,8 +54,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -87,6 +89,7 @@ fun SearchScreen(
     initialGenre: String?,
     onOpenSeries: (String) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     val results by viewModel.results.collectAsState()
     val recent by viewModel.recentSearches.collectAsState()
     val loadingMore by viewModel.loadingMore.collectAsState()
@@ -173,6 +176,7 @@ fun SearchScreen(
                 viewModel = viewModel,
                 onOpenSeries = onOpenSeries,
                 onBrowse = { name ->
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                     when (name) {
                         "Random" -> viewModel.openRandom(onOpenSeries)
                         "Recently added" -> { text = name; viewModel.openBrowse(name, Order.Newest) }

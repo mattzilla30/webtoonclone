@@ -33,7 +33,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -188,9 +190,13 @@ fun timeAgo(time: java.time.Instant, now: java.time.Instant = java.time.Instant.
 /** A choice chip. The selected one is filled. */
 @Composable
 fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val haptics = LocalHapticFeedback.current
     FilterChip(
         selected = selected,
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            onClick()
+        },
         label = { Text(label, maxLines = 1, softWrap = false) },
         modifier = Modifier.semantics { role = Role.RadioButton },
     )

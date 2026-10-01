@@ -168,7 +168,7 @@ fun SeriesScreen(
             covers?.let { state ->
                 Dialog(onDismissRequest = viewModel::closeCovers) {
                     Column(Modifier.clip(MaterialTheme.shapes.extraLarge).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(20.dp)) {
-                        Text(stringResource(R.string.covers), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                        Text(stringResource(R.string.covers), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(bottom = 8.dp))
                         when (state) {
                             is Load.Ready -> LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(state.value, key = { it.url }) { cover ->
@@ -372,7 +372,7 @@ fun SeriesScreen(
                 }
                 if (related.isNotEmpty()) {
                     item {
-                        Text(stringResource(R.string.related), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
+                        Text(stringResource(R.string.related), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(related, key = { it.second.id }) { (kind, other) ->
                                 Column(Modifier.width(110.dp)) {
@@ -385,7 +385,7 @@ fun SeriesScreen(
                 }
                 if (similar.isNotEmpty()) {
                     item {
-                        Text(stringResource(R.string.similar_series), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
+                        Text(stringResource(R.string.similar_series), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(similar, key = { it.id }) { other ->
                                 PickTile(other, { onOpenSeries(other.id) }, Modifier.width(110.dp))

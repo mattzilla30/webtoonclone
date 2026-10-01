@@ -123,7 +123,7 @@ fun FiltersDialog(initial: SearchFilters, onApply: (SearchFilters) -> Unit, onDi
 
 @Composable
 private fun Heading(text: String) {
-    Text(text, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+    Text(text, style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -152,12 +152,12 @@ fun LibraryScreen(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    ChoiceChip("All", statusFilter == null && collection == null) { statusFilter = null; collectionFilter = null }
+                    ChoiceChip("All ${(library.lists + library.collections.values.flatten()).distinctBy { it.id }.size}", statusFilter == null && collection == null) { statusFilter = null; collectionFilter = null }
                     ReadingStatus.entries.forEach { status ->
-                        ChoiceChip(status.label, collection == null && statusFilter == status.name) { statusFilter = status.name; collectionFilter = null }
+                        ChoiceChip("${status.label} ${library.lists.count { it.status == status }}", collection == null && statusFilter == status.name) { statusFilter = status.name; collectionFilter = null }
                     }
                     library.collections.keys.sorted().forEach { name ->
-                        ChoiceChip(name, collection == name) { collectionFilter = name; statusFilter = null }
+                        ChoiceChip("$name ${library.collections[name].orEmpty().size}", collection == name) { collectionFilter = name; statusFilter = null }
                     }
                 }
                 if (collection != null) {

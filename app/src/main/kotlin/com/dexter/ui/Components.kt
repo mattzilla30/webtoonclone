@@ -1,5 +1,7 @@
 package com.dexter.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -102,13 +105,36 @@ private val genreColors = mapOf(
 /** The colour for a genre label, or null for a genre with no colour of its own. */
 fun genreColor(genre: String?): Color? = genreColors[genre?.lowercase()]
 
+/** The shared transition scope around the navigation, or null outside it. */
+val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
+
+/** The current destination's animation scope, or null outside navigation. */
+val LocalNavScope = staticCompositionLocalOf<AnimatedVisibilityScope?> { null }
+
+/** Marks a series cover so it moves between screens. Does nothing without a [key] or outside navigation. */
 @Composable
-fun Cover(url: String?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit, thumb: Boolean = false) {
+fun Modifier.sharedCover(key: String?): Modifier {
+    val shared = LocalSharedScope.current
+    val nav = LocalNavScope.current
+    if (key == null || shared == null || nav == null) return this
+    return with(shared) { this@sharedCover.sharedElement(rememberSharedContentState("cover-$key"), nav) }
+}
+
+/** A series cover. With [sharedKey], usually the series id, it moves into the series page when that opens. */
+@Composable
+fun Cover(
+    url: String?,
+    description: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Fit,
+    thumb: Boolean = false,
+    sharedKey: String? = null,
+) {
     AsyncImage(
         model = if (thumb) thumbnailUrl(url) else url,
         contentDescription = description,
         contentScale = contentScale,
-        modifier = modifier,
+        modifier = Modifier.sharedCover(sharedKey).then(modifier),
     )
 }
 
@@ -163,7 +189,7 @@ fun PickTile(
     ) {
         Column {
             Box {
-                Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Fit)
+                Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Fit, sharedKey = series.id)
                 if (subscribed) {
                     Icon(
                         Icons.Default.Notifications,

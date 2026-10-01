@@ -17,11 +17,17 @@ import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NamedNavArgument
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.composable
 import com.dexter.data.Settings
+import com.dexter.ui.LocalNavScope
 
 internal data class Tab(val route: String, val label: String, val icon: ImageVector)
 
@@ -83,4 +89,13 @@ internal fun TabIcon(tab: Tab, unread: Int) {
     } else {
         Icon(tab.icon, contentDescription = null)
     }
+}
+
+/** A destination that hands its animation scope to the screens in it, for shared cover transitions. */
+internal fun NavGraphBuilder.screen(
+    route: String,
+    arguments: List<NamedNavArgument> = emptyList(),
+    content: @Composable (NavBackStackEntry) -> Unit,
+) = composable(route, arguments) { entry ->
+    CompositionLocalProvider(LocalNavScope provides this) { content(entry) }
 }

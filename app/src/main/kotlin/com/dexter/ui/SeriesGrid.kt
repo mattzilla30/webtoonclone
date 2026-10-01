@@ -106,7 +106,7 @@ fun SeriesListRow(series: SeriesSummary, subscribed: Boolean, onClick: () -> Uni
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Cover(series.coverUrl, series.title, Modifier.width(56.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true)
+            Cover(series.coverUrl, series.title, Modifier.width(56.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 GenreLabel(series.genre)
                 Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)

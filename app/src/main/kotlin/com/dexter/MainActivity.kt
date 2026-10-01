@@ -13,6 +13,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -51,7 +52,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -65,6 +65,7 @@ import com.dexter.notify.openRoutes
 import com.dexter.notify.parseMangaDexLink
 import com.dexter.ui.AppLock
 import com.dexter.ui.FirstRunSetup
+import com.dexter.ui.LocalSharedScope
 import com.dexter.ui.LockScreen
 import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.author.AuthorScreen
@@ -259,115 +260,120 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                         contentWindowInsets = WindowInsets(0, 0, 0, 0),
                         bottomBar = { if (onTab && !wide) BottomBar(nav, route?.substringBefore('?'), unread) },
                     ) { padding ->
-                        NavHost(
-                            nav,
-                            startDestination = "home",
-                            modifier = Modifier.padding(padding),
-                            enterTransition = { fadeIn(motion.defaultEffectsSpec()) + slideInHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
-                            exitTransition = { fadeOut(motion.fastEffectsSpec()) },
-                            popEnterTransition = { fadeIn(motion.defaultEffectsSpec()) },
-                            popExitTransition = { fadeOut(motion.fastEffectsSpec()) + slideOutHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
-                        ) {
-                            composable("home") {
-                                val vm = koinViewModel<HomeViewModel>()
-                                Box(Modifier.fillMaxSize()) {
-                                    HomeScreen(
-                                        vm,
-                                        onOpenSeries = { nav.navigate("series/$it") },
-                                        onOpenSearch = { nav.navigateTab("search") },
-                                        onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                                        onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
-                                        openCount = openCount,
-                                    )
-                                }
-                            }
-                            composable("search?genre={genre}&browse={browse}") { entry ->
-                                val vm = koinViewModel<SearchViewModel>()
-                                Box(Modifier.fillMaxSize()) {
-                                    SearchScreen(
-                                        vm,
-                                        entry.arguments?.getString("genre"),
-                                        initialBrowse = entry.arguments?.getString("browse"),
-                                        onOpenSeries = { nav.navigate("series/$it") },
-                                        onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
-                                    )
-                                }
-                            }
-                            composable("updates") {
-                                val vm = koinViewModel<UpdatesViewModel>()
-                                Box(Modifier.fillMaxSize()) {
-                                    UpdatesScreen(
-                                        vm,
-                                        onOpenSeries = { nav.navigate("series/$it") },
-                                        onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                                    )
-                                }
-                            }
-                            composable("library") {
-                                val vm = koinViewModel<LibraryViewModel>()
-                                Box(Modifier.fillMaxSize()) {
-                                    LibraryScreen(
-                                        vm,
-                                        onOpenSeries = { nav.navigate("series/$it") },
-                                        onOpenSearch = { nav.navigateTab("search") },
-                                    )
-                                }
-                            }
-                            composable("settings") {
-                                val vm = koinViewModel<SettingsViewModel>()
-                                SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
-                            }
-                            composable("series/{seriesId}") { entry ->
-                                val seriesId = entry.arguments!!.getString("seriesId")!!
-                                val vm = koinViewModel<SeriesViewModel> { parametersOf(seriesId) }
-                                SeriesScreen(
-                                    vm,
-                                    onOpenChapter = { nav.navigate("series/$seriesId/$it") },
-                                    onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
-                                    onHome = { nav.navigateTab("home") },
-                                    onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
-                                    onOpenSeries = { nav.navigate("series/$it") },
-                                    onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
-                                )
-                            }
-                            composable("stats") {
-                                val vm = koinViewModel<StatsViewModel>()
-                                StatsScreen(vm, onBack = { nav.popBackStack() })
-                            }
-                            composable("downloads") {
-                                val vm = koinViewModel<DownloadsViewModel>()
-                                DownloadsScreen(
-                                    vm,
-                                    onBack = { nav.popBackStack() },
-                                    onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
-                                    onOpenSeries = { nav.navigate("series/$it") },
-                                )
-                            }
-                            composable("author/{authorId}?name={name}") { entry ->
-                                val authorId = entry.arguments!!.getString("authorId")!!
-                                val name = entry.arguments?.getString("name").orEmpty()
-                                val vm = koinViewModel<AuthorViewModel>(key = authorId) { parametersOf(authorId) }
-                                AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
-                            }
-                            composable(
-                                "series/{seriesId}/{chapterId}?page={page}",
-                                arguments = listOf(navArgument("page") { type = NavType.IntType; defaultValue = -1 }),
-                            ) { entry ->
-                                val seriesId = entry.arguments!!.getString("seriesId")!!
-                                val chapterId = entry.arguments!!.getString("chapterId")!!
-                                // A bookmark opens at its page. Otherwise the reader picks up where you left off.
-                                val page = entry.arguments!!.getInt("page", -1)
-                                val vm = koinViewModel<ReaderViewModel>(key = "$chapterId@$page") { parametersOf(seriesId, chapterId, page) }
-                                // The reader stays dark in a light app, so its bars and text keep their contrast.
-                                DarkTheme {
-                                    ReaderScreen(
-                                        vm,
-                                        seriesId,
-                                        // The next chapter replaces this one, so Back leaves the reader instead of stepping through chapters.
-                                        onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}/{chapterId}?page={page}") { inclusive = true } } },
-                                        // The screen under the reader is the one that opened it: the series page, Home, Stats, or an author.
-                                        onBack = { nav.popBackStack() },
-                                    )
+                        // Covers fly from a list into the series page, and back.
+                        SharedTransitionLayout {
+                            CompositionLocalProvider(LocalSharedScope provides this) {
+                                NavHost(
+                                    nav,
+                                    startDestination = "home",
+                                    modifier = Modifier.padding(padding),
+                                    enterTransition = { fadeIn(motion.defaultEffectsSpec()) + slideInHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
+                                    exitTransition = { fadeOut(motion.fastEffectsSpec()) },
+                                    popEnterTransition = { fadeIn(motion.defaultEffectsSpec()) },
+                                    popExitTransition = { fadeOut(motion.fastEffectsSpec()) + slideOutHorizontally(motion.defaultSpatialSpec()) { it / 10 } },
+                                ) {
+                                    screen("home") {
+                                        val vm = koinViewModel<HomeViewModel>()
+                                        Box(Modifier.fillMaxSize()) {
+                                            HomeScreen(
+                                                vm,
+                                                onOpenSeries = { nav.navigate("series/$it") },
+                                                onOpenSearch = { nav.navigateTab("search") },
+                                                onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                                onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
+                                                openCount = openCount,
+                                            )
+                                        }
+                                    }
+                                    screen("search?genre={genre}&browse={browse}") { entry ->
+                                        val vm = koinViewModel<SearchViewModel>()
+                                        Box(Modifier.fillMaxSize()) {
+                                            SearchScreen(
+                                                vm,
+                                                entry.arguments?.getString("genre"),
+                                                initialBrowse = entry.arguments?.getString("browse"),
+                                                onOpenSeries = { nav.navigate("series/$it") },
+                                                onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
+                                            )
+                                        }
+                                    }
+                                    screen("updates") {
+                                        val vm = koinViewModel<UpdatesViewModel>()
+                                        Box(Modifier.fillMaxSize()) {
+                                            UpdatesScreen(
+                                                vm,
+                                                onOpenSeries = { nav.navigate("series/$it") },
+                                                onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                            )
+                                        }
+                                    }
+                                    screen("library") {
+                                        val vm = koinViewModel<LibraryViewModel>()
+                                        Box(Modifier.fillMaxSize()) {
+                                            LibraryScreen(
+                                                vm,
+                                                onOpenSeries = { nav.navigate("series/$it") },
+                                                onOpenSearch = { nav.navigateTab("search") },
+                                            )
+                                        }
+                                    }
+                                    screen("settings") {
+                                        val vm = koinViewModel<SettingsViewModel>()
+                                        SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") })
+                                    }
+                                    screen("series/{seriesId}") { entry ->
+                                        val seriesId = entry.arguments!!.getString("seriesId")!!
+                                        val vm = koinViewModel<SeriesViewModel> { parametersOf(seriesId) }
+                                        SeriesScreen(
+                                            vm,
+                                            onOpenChapter = { nav.navigate("series/$seriesId/$it") },
+                                            onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
+                                            onHome = { nav.navigateTab("home") },
+                                            onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
+                                            onOpenSeries = { nav.navigate("series/$it") },
+                                            onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
+                                        )
+                                    }
+                                    screen("stats") {
+                                        val vm = koinViewModel<StatsViewModel>()
+                                        StatsScreen(vm, onBack = { nav.popBackStack() })
+                                    }
+                                    screen("downloads") {
+                                        val vm = koinViewModel<DownloadsViewModel>()
+                                        DownloadsScreen(
+                                            vm,
+                                            onBack = { nav.popBackStack() },
+                                            onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                            onOpenSeries = { nav.navigate("series/$it") },
+                                        )
+                                    }
+                                    screen("author/{authorId}?name={name}") { entry ->
+                                        val authorId = entry.arguments!!.getString("authorId")!!
+                                        val name = entry.arguments?.getString("name").orEmpty()
+                                        val vm = koinViewModel<AuthorViewModel>(key = authorId) { parametersOf(authorId) }
+                                        AuthorScreen(vm, name, onBack = { nav.popBackStack() }, onOpenSeries = { nav.navigate("series/$it") })
+                                    }
+                                    screen(
+                                        "series/{seriesId}/{chapterId}?page={page}",
+                                        arguments = listOf(navArgument("page") { type = NavType.IntType; defaultValue = -1 }),
+                                    ) { entry ->
+                                        val seriesId = entry.arguments!!.getString("seriesId")!!
+                                        val chapterId = entry.arguments!!.getString("chapterId")!!
+                                        // A bookmark opens at its page. Otherwise the reader picks up where you left off.
+                                        val page = entry.arguments!!.getInt("page", -1)
+                                        val vm = koinViewModel<ReaderViewModel>(key = "$chapterId@$page") { parametersOf(seriesId, chapterId, page) }
+                                        // The reader stays dark in a light app, so its bars and text keep their contrast.
+                                        DarkTheme {
+                                            ReaderScreen(
+                                                vm,
+                                                seriesId,
+                                                // The next chapter replaces this one, so Back leaves the reader instead of stepping through chapters.
+                                                onOpenChapter = { nav.navigate("series/$seriesId/$it") { popUpTo("series/{seriesId}/{chapterId}?page={page}") { inclusive = true } } },
+                                                // The screen under the reader is the one that opened it: the series page, Home, Stats, or an author.
+                                                onBack = { nav.popBackStack() },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

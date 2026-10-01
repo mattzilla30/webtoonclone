@@ -270,7 +270,8 @@ fun SeriesScreen(
                         Cover(
                             summary.coverUrl,
                             summary.title,
-                            Modifier.fillMaxSize().clickable(enabled = summary.coverUrl != null, onClickLabel = "Open the cover") { coverOpen = true },
+                            sharedKey = summary.id,
+                            modifier = Modifier.fillMaxSize().clickable(enabled = summary.coverUrl != null, onClickLabel = "Open the cover") { coverOpen = true },
                         )
                         Box(
                             Modifier.fillMaxSize().background(

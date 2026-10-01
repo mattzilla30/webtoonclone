@@ -103,10 +103,10 @@ fun SeriesListRow(series: SeriesSummary, subscribed: Boolean, onClick: () -> Uni
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
             .clip(MaterialTheme.shapes.medium)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = if (subscribed) "Unsubscribe" else "Subscribe"),
     ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Cover(series.coverUrl, series.title, Modifier.width(56.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
+            Cover(series.coverUrl, null, Modifier.width(56.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 GenreLabel(series.genre)
                 Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)

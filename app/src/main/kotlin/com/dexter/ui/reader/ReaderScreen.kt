@@ -73,6 +73,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -510,7 +513,32 @@ private fun ReaderContent(
                     },
                 )
             }
-            .zoomGestures(zoom) { container },
+            .zoomGestures(zoom) { container }
+            // Taps and swipes turn pages by sight. TalkBack gets the same moves as actions.
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction("Next page") {
+                        scope.launch {
+                            if (paged) pagerState.turnTo(pagerState.currentPage + 1) else listState.animateScrollBy(pageScrollAmount(listState.layoutInfo.viewportSize.height, 1))
+                        }
+                        true
+                    },
+                    CustomAccessibilityAction("Previous page") {
+                        scope.launch {
+                            if (paged) pagerState.turnTo(pagerState.currentPage - 1) else listState.animateScrollBy(pageScrollAmount(listState.layoutInfo.viewportSize.height, -1))
+                        }
+                        true
+                    },
+                    CustomAccessibilityAction(if (barsVisible) "Hide controls" else "Show controls") {
+                        barsVisible = !barsVisible
+                        true
+                    },
+                    CustomAccessibilityAction("Page options") {
+                        menuFor = cursor
+                        true
+                    },
+                )
+            },
     ) {
         // The pages and only the pages are zoomed. The bars and dimming stay put.
         Box(

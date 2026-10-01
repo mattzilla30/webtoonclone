@@ -276,6 +276,7 @@ private fun ContinueCard(
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 menu = true
             },
+            onLongClickLabel = "More",
         ),
     ) {
         Cover(saved.coverUrl, saved.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -408,7 +409,7 @@ private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(MaterialTheme.shapes.medium)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Subscribe or unsubscribe"),
     ) {
         Row(Modifier.padding(12.dp).heightIn(min = 92.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 12.dp)) {

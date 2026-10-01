@@ -217,6 +217,7 @@ private fun UpdateRowItem(
                             menu = true
                         }
                     ) else null,
+                    onLongClickLabel = "More",
                 ),
         ) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {

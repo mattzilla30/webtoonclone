@@ -59,6 +59,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -150,7 +153,8 @@ fun GenreLabel(genre: String?) {
 @Composable
 fun HeartCount(count: Int?) {
     if (count == null) return
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    // Read aloud as one phrase, such as "12K follows", instead of a bare number.
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clearAndSetSemantics { contentDescription = "${compact(count)} follows" }) {
         Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(3.dp))
         Text(compact(count), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
@@ -167,7 +171,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(title, style = MaterialTheme.typography.titleLargeEmphasized)
+        Text(title, style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.semantics { heading() })
         if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
     }
 }
@@ -185,11 +189,15 @@ fun PickTile(
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick,
+            onLongClickLabel = if (subscribed) "Unsubscribe" else "Subscribe",
+        ),
     ) {
         Column {
             Box {
-                Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Fit, sharedKey = series.id)
+                Cover(series.coverUrl, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Fit, sharedKey = series.id)
                 if (subscribed) {
                     Icon(
                         Icons.Default.Notifications,
@@ -256,7 +264,7 @@ fun AppTopBar(
     TopAppBar(
         title = {
             Column {
-                Text(title, style = MaterialTheme.typography.headlineSmallEmphasized)
+                Text(title, style = MaterialTheme.typography.headlineSmallEmphasized, modifier = Modifier.semantics { heading() })
                 if (subtitle != null) {
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

@@ -47,7 +47,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -183,7 +185,7 @@ internal fun LibraryTile(
     ) {
         Column {
             Box {
-                Cover(series.coverUrl, series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
+                Cover(series.coverUrl, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
                 newLabel?.let {
                     Text(
                         it,
@@ -224,7 +226,19 @@ internal fun SwipeRow(
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     var width by remember { mutableIntStateOf(1) }
-    Box(modifier.onSizeChanged { width = it.width.coerceAtLeast(1) }) {
+    Box(
+        modifier
+            .onSizeChanged { width = it.width.coerceAtLeast(1) }
+            // TalkBack cannot swipe a row, so the same two actions are offered in its actions menu.
+            .semantics {
+                if (enabled) {
+                    customActions = listOfNotNull(
+                        startLabel?.let { label -> CustomAccessibilityAction(label) { onStart(); true } },
+                        endLabel?.let { label -> CustomAccessibilityAction(label) { onEnd(); true } },
+                    )
+                }
+            },
+    ) {
         val dx = offset.value
         if (dx != 0f) {
             val toStart = dx > 0f

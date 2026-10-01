@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -43,9 +45,10 @@ class SeriesCacheStore(private val context: Context) {
         }
     }
 
-    suspend fun load(seriesId: String, language: String = "en"): CachedSeries? {
-        val raw = context.seriesCacheDataStore.data.first()[ENTRIES] ?: return null
-        val all = runCatching { json.decodeFromString(serializer, raw) }.getOrNull() ?: return null
-        return all.firstOrNull { it.detail.summary.id == seriesId && it.language == language }
+    /** Reads and decodes the saved pages off the main thread, since the copy holds every saved series. */
+    suspend fun load(seriesId: String, language: String = "en"): CachedSeries? = withContext(Dispatchers.Default) {
+        val raw = context.seriesCacheDataStore.data.first()[ENTRIES] ?: return@withContext null
+        val all = runCatching { json.decodeFromString(serializer, raw) }.getOrNull() ?: return@withContext null
+        all.firstOrNull { it.detail.summary.id == seriesId && it.language == language }
     }
 }

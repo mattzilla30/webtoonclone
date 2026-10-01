@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -99,7 +101,7 @@ private val SETTINGS = stringPreferencesKey("settings")
 class SettingsStore(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs -> decode(prefs[SETTINGS]) }.distinctUntilChanged()
+    val settings: Flow<Settings> = context.settingsDataStore.data.map { prefs -> decode(prefs[SETTINGS]) }.distinctUntilChanged().flowOn(Dispatchers.Default)
 
     suspend fun current(): Settings = settings.first()
 

@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -58,9 +60,9 @@ class OfflineStore(private val context: Context) {
         }
     }
 
-    suspend fun loadUpdates(language: String = "en"): CachedUpdates? {
-        val raw = context.offlineDataStore.data.first()[UPDATES] ?: return null
-        return runCatching { json.decodeFromString(CachedUpdates.serializer(), raw) }.getOrNull()?.takeIf { it.language == language }
+    suspend fun loadUpdates(language: String = "en"): CachedUpdates? = withContext(Dispatchers.Default) {
+        val raw = context.offlineDataStore.data.first()[UPDATES] ?: return@withContext null
+        runCatching { json.decodeFromString(CachedUpdates.serializer(), raw) }.getOrNull()?.takeIf { it.language == language }
     }
 
     suspend fun saveSearch(key: String, series: List<SeriesSummary>) {
@@ -70,8 +72,8 @@ class OfflineStore(private val context: Context) {
         }
     }
 
-    suspend fun loadSearch(key: String): CachedSearch? {
-        val raw = context.offlineDataStore.data.first()[SEARCHES] ?: return null
-        return runCatching { json.decodeFromString(searchList, raw) }.getOrNull()?.firstOrNull { it.key == key }
+    suspend fun loadSearch(key: String): CachedSearch? = withContext(Dispatchers.Default) {
+        val raw = context.offlineDataStore.data.first()[SEARCHES] ?: return@withContext null
+        runCatching { json.decodeFromString(searchList, raw) }.getOrNull()?.firstOrNull { it.key == key }
     }
 }

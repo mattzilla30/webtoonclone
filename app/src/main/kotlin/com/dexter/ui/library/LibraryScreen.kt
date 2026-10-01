@@ -272,7 +272,10 @@ fun LibraryScreen(
                                 }
                                 Checkbox(
                                     checked = series.id in selected,
-                                    onCheckedChange = { if (it) selected.add(series.id) else selected.remove(series.id) },
+                                    onCheckedChange = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                        if (it) selected.add(series.id) else selected.remove(series.id)
+                                    },
                                     colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
                                 )
                             }

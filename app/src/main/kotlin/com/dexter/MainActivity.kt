@@ -1,7 +1,10 @@
 package com.dexter
 
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.KeyEvent
+import android.view.View
+import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivity
@@ -80,6 +83,8 @@ import org.koin.core.parameter.parametersOf
 import android.graphics.Color as AndroidColor
 
 /** A notification tap: the series to open, and the chapter to open on top of it when there is one. */
+private const val SPLASH_MAX_MS = 1_000L
+
 private data class PendingOpen(val seriesId: String?, val chapterId: String?, val route: String? = null)
 
 class MainActivity : ComponentActivity() {
@@ -130,6 +135,25 @@ class MainActivity : ComponentActivity() {
             val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = app.settingsStore.latest)
             DexterNav(settings, openCount, pending) { pending = null }
         }
+        holdFirstFrameForSettings(app)
+    }
+
+    /**
+     * Waits to draw the first frame until your saved settings have arrived, so it already has your theme and not the
+     * default one. A second is the most it waits. The system splash screen stays up meanwhile.
+     */
+    private fun holdFirstFrameForSettings(app: DexterApp) {
+        val started = SystemClock.uptimeMillis()
+        val content = findViewById<View>(android.R.id.content)
+        content.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    val ready = app.settingsStore.settings.replayCache.isNotEmpty() || SystemClock.uptimeMillis() - started >= SPLASH_MAX_MS
+                    if (ready) content.viewTreeObserver.removeOnPreDrawListener(this)
+                    return ready
+                }
+            },
+        )
     }
 }
 

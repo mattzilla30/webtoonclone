@@ -195,10 +195,6 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
         data.copy(savedSearches = data.savedSearches.filterNot { it.name == name })
     }
 
-    suspend fun createCollection(name: String) = updateScalars { data ->
-        if (name in data.collections) data else data.copy(collections = data.collections + (name to emptyList()))
-    }
-
     suspend fun deleteCollection(name: String) = updateScalars { it.copy(collections = it.collections - name) }
 
     suspend fun removeFromCollection(name: String, ids: Set<String>) = updateScalars { data ->
@@ -229,8 +225,6 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     }
 
     suspend fun setSearchOrder(order: String) = updateScalars { it.copy(searchOrder = order) }
-
-    suspend fun setSortAlphabetical(alphabetical: Boolean) = updateScalars { it.copy(sortAlphabetical = alphabetical) }
 
     /** Sets both sort flags at once, so each of the three sort modes is one saved state. */
     suspend fun setSort(alphabetical: Boolean, unreadFirst: Boolean) = updateScalars { it.copy(sortAlphabetical = alphabetical, sortUnreadFirst = unreadFirst) }

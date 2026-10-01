@@ -19,7 +19,6 @@ import com.dexter.data.Settings
 import com.dexter.data.ThemeMode
 
 val Green = Color(0xFF00DC64)
-val GreenDark = Color(0xFF00B852)
 
 private val Light = lightColorScheme(
     primary = Color(0xFF006D33),

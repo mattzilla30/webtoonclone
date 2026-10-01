@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import com.dexter.data.Chapter
 import com.dexter.data.DownloadStore
 import com.dexter.data.MangaDexRepository
+import kotlinx.coroutines.CancellationException
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.concurrent.TimeUnit
@@ -53,6 +54,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 urls = urls,
             )
             Result.success()
+        } catch (e: CancellationException) {
+            store.clearQueued(chapter.id)
+            throw e
         } catch (e: Exception) {
             store.clearQueued(chapter.id)
             if (runAttemptCount >= MAX_ATTEMPTS) Result.failure() else Result.retry()

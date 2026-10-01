@@ -4,18 +4,26 @@ import android.content.Context
 import com.dexter.data.db.AppDatabase
 import com.dexter.data.db.DownloadEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 
 private const val PAGE_TRIES = 3
+
+private const val PAGES_AT_ONCE = 3
 
 /** The file name for page [index] of [total], padded so a directory listing sorts in reading order. */
 fun pageFileName(index: Int, total: Int, url: String): String {
@@ -83,10 +91,19 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
         withContext(Dispatchers.IO) {
             val dir = File(root, chapter.id).also { it.deleteRecursively(); it.mkdirs() }
             try {
-                var bytes = 0L
-                urls.forEachIndexed { index, url ->
-                    bytes += fetchTo(url, File(dir, pageFileName(index, urls.size, url)))
-                    _active.update { it + (chapter.id to (index + 1f) / urls.size) }
+                // A few pages at a time. A page that fails cancels the rest, and the whole chapter fails with it.
+                val permits = Semaphore(PAGES_AT_ONCE)
+                val done = AtomicInteger()
+                val bytes = coroutineScope {
+                    urls.mapIndexed { index, url ->
+                        async {
+                            permits.withPermit {
+                                fetchTo(url, File(dir, pageFileName(index, urls.size, url))).also {
+                                    _active.update { it + (chapter.id to done.incrementAndGet().toFloat() / urls.size) }
+                                }
+                            }
+                        }
+                    }.awaitAll().sum()
                 }
                 dao.insert(
                     DownloadEntity(

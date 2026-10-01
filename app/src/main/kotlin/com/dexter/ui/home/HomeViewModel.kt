@@ -9,6 +9,7 @@ import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesCacheStore
 import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
+import com.dexter.data.subscriptionStart
 import com.dexter.ui.Load
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
@@ -70,16 +71,9 @@ class HomeViewModel(
     fun toggleSubscribe(series: SeriesSummary) {
         viewModelScope.launch {
             val already = series.id in subscribedIds.value
-            // Same lookup as the background check, so only later chapters notify.
-            val newest = if (already) null else catching { repository.latestChapter(series.id) }.getOrNull()
+            // Unsubscribing needs only the id. Subscribing starts from the newest chapter.
             libraryStore.toggleSubscribed(
-                SavedSeries(
-                    series.id,
-                    series.title,
-                    series.coverUrl,
-                    knownChapterId = newest?.id,
-                    knownChapterNumber = newest?.number,
-                ),
+                if (already) SavedSeries(series.id, series.title, series.coverUrl) else repository.subscriptionStart(series.id, series.title, series.coverUrl),
             )
             _toast.value = subscriptionMessage(series.title, nowSubscribed = !already)
         }

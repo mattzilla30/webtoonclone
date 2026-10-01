@@ -18,6 +18,7 @@ import com.dexter.data.SeriesSummary
 import com.dexter.data.SettingsStore
 import com.dexter.data.chaptersToDownload
 import com.dexter.data.relationLabel
+import com.dexter.data.subscriptionStart
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.catching
@@ -178,17 +179,13 @@ class SeriesViewModel(
 
     fun toggleSubscribed(detail: SeriesDetail) {
         viewModelScope.launch {
-            // Start from the newest chapter now, so only chapters that come later notify. This uses
-            // the same lookup as the background check, since the chapter list orders differently.
-            val newest = catching { repository.latestChapter(seriesId) }.getOrNull()
+            // Unsubscribing needs only the id. Subscribing starts from the newest chapter.
             libraryStore.toggleSubscribed(
-                SavedSeries(
-                    seriesId,
-                    detail.summary.title,
-                    detail.summary.coverUrl,
-                    knownChapterId = newest?.id,
-                    knownChapterNumber = newest?.number,
-                ),
+                if (subscribed.value) {
+                    SavedSeries(seriesId, detail.summary.title, detail.summary.coverUrl)
+                } else {
+                    repository.subscriptionStart(seriesId, detail.summary.title, detail.summary.coverUrl)
+                },
             )
         }
     }

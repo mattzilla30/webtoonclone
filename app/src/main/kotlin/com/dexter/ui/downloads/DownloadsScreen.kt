@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.dexter.R
 import com.dexter.data.formatBytes
 import com.dexter.ui.AppTopBar
+import com.dexter.ui.ConfirmDialog
 
 @Composable
 fun DownloadsScreen(
@@ -39,17 +39,12 @@ fun DownloadsScreen(
     val total = groups.orEmpty().sumOf { it.bytes }
     var confirmRemoveAll by rememberSaveable { mutableStateOf(false) }
     if (confirmRemoveAll) {
-        AlertDialog(
-            onDismissRequest = { confirmRemoveAll = false },
-            title = { Text(stringResource(R.string.remove_all_downloads_title)) },
-            text = { Text(stringResource(R.string.remove_all_downloads_text, formatBytes(total))) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmRemoveAll = false
-                    viewModel.deleteAll()
-                }) { Text(stringResource(R.string.remove_all)) }
-            },
-            dismissButton = { TextButton(onClick = { confirmRemoveAll = false }) { Text(stringResource(R.string.cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.remove_all_downloads_title),
+            text = stringResource(R.string.remove_all_downloads_text, formatBytes(total)),
+            confirmLabel = stringResource(R.string.remove_all),
+            onConfirm = viewModel::deleteAll,
+            onDismiss = { confirmRemoveAll = false },
         )
     }
     Column(Modifier.fillMaxSize()) {

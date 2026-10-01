@@ -45,6 +45,7 @@ import com.dexter.data.resetReaderSettings
 import com.dexter.notify.CHANNEL_ID
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
+import com.dexter.ui.ConfirmDialog
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
@@ -68,31 +69,21 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     var confirmClear by remember { mutableStateOf(false) }
     var confirmResetReader by remember { mutableStateOf(false) }
     if (confirmResetReader) {
-        AlertDialog(
-            onDismissRequest = { confirmResetReader = false },
-            title = { Text("Reset reader options?") },
-            text = { Text("Background, dimming, auto-scroll, volume keys, orientation, screen on, page gap and prefetch go back to their defaults. Per-series looks and reading modes stay.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.update(::resetReaderSettings)
-                    confirmResetReader = false
-                }) { Text("Reset") }
-            },
-            dismissButton = { TextButton(onClick = { confirmResetReader = false }) { Text(stringResource(R.string.cancel)) } },
+        ConfirmDialog(
+            title = "Reset reader options?",
+            text = "Background, dimming, auto-scroll, volume keys, orientation, screen on, page gap and prefetch go back to their defaults. Per-series looks and reading modes stay.",
+            confirmLabel = "Reset",
+            onConfirm = { viewModel.update(::resetReaderSettings) },
+            onDismiss = { confirmResetReader = false },
         )
     }
     if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text("Clear reading history?") },
-            text = { Text("This empties the Recent list. Subscriptions, lists, and collections stay.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.clearHistory()
-                    confirmClear = false
-                }) { Text("Clear") }
-            },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
+        ConfirmDialog(
+            title = "Clear reading history?",
+            text = "This empties the Recent list. Subscriptions, lists, and collections stay.",
+            confirmLabel = "Clear",
+            onConfirm = viewModel::clearHistory,
+            onDismiss = { confirmClear = false },
         )
     }
     if (pickTag) {

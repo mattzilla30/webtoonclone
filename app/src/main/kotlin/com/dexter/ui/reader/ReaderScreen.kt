@@ -50,7 +50,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -76,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.SubcomposeAsyncImageContent
@@ -126,11 +126,11 @@ fun ReaderScreen(
     onOpenChapter: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsState()
-    val settings by viewModel.settings.collectAsState()
-    val mode by viewModel.mode.collectAsState()
-    val chosenMode by viewModel.chosenMode.collectAsState()
-    val hasSeriesLook by viewModel.hasSeriesLook.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val mode by viewModel.mode.collectAsStateWithLifecycle()
+    val chosenMode by viewModel.chosenMode.collectAsStateWithLifecycle()
+    val hasSeriesLook by viewModel.hasSeriesLook.collectAsStateWithLifecycle()
     var showOptions by remember { mutableStateOf(false) }
     val zoom = remember { ZoomState() }
 

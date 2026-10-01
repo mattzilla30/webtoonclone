@@ -50,7 +50,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +69,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.Chapter
 import com.dexter.data.ChapterListItem
@@ -98,23 +98,23 @@ fun SeriesScreen(
     onOpenSeries: (String) -> Unit,
     onOpenAuthor: (id: String, name: String) -> Unit,
 ) {
-    val similar by viewModel.similar.collectAsState()
+    val similar by viewModel.similar.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
-    val related by viewModel.related.collectAsState()
-    val covers by viewModel.covers.collectAsState()
-    val preferredGroup by viewModel.preferredGroup.collectAsState()
-    val state by viewModel.state.collectAsState()
-    val notifyEnabled by viewModel.notifyEnabled.collectAsState()
-    val lastRead by viewModel.lastRead.collectAsState()
-    val loadingMore by viewModel.loadingMore.collectAsState()
-    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
-    val subscribed by viewModel.subscribed.collectAsState()
-    val status by viewModel.status.collectAsState()
-    val downloaded by viewModel.downloaded.collectAsState()
-    val downloading by viewModel.downloading.collectAsState()
+    val related by viewModel.related.collectAsStateWithLifecycle()
+    val covers by viewModel.covers.collectAsStateWithLifecycle()
+    val preferredGroup by viewModel.preferredGroup.collectAsStateWithLifecycle()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val notifyEnabled by viewModel.notifyEnabled.collectAsStateWithLifecycle()
+    val lastRead by viewModel.lastRead.collectAsStateWithLifecycle()
+    val loadingMore by viewModel.loadingMore.collectAsStateWithLifecycle()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
+    val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
+    val status by viewModel.status.collectAsStateWithLifecycle()
+    val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
+    val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     var downloadMenu by remember { mutableStateOf(false) }
     var statusMenu by remember { mutableStateOf(false) }
-    val collections by viewModel.collections.collectAsState()
+    val collections by viewModel.collections.collectAsStateWithLifecycle()
     var newCollection by remember { mutableStateOf<String?>(null) }
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current

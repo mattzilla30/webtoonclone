@@ -37,7 +37,6 @@ import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
@@ -79,15 +79,15 @@ fun HomeScreen(
     onOpenChapter: (seriesId: String, chapterId: String) -> Unit,
     openCount: Int,
 ) {
-    val state by viewModel.state.collectAsState()
-    val recent by viewModel.recent.collectAsState()
-    val because by viewModel.becauseYouRead.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val recent by viewModel.recent.collectAsStateWithLifecycle()
+    val because by viewModel.becauseYouRead.collectAsStateWithLifecycle()
     val appContext = LocalContext.current
     val columns = adaptiveColumns(windowWidthDp())
     LaunchedEffect(Unit) { viewModel.refreshBecause() }
-    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
-    val subscribedIds by viewModel.subscribedIds.collectAsState()
-    val toast by viewModel.toast.collectAsState()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
+    val subscribedIds by viewModel.subscribedIds.collectAsStateWithLifecycle()
+    val toast by viewModel.toast.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val haptic = LocalHapticFeedback.current
 

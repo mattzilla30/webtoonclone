@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -37,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.BackToTopButton
@@ -51,10 +51,10 @@ import com.dexter.ui.timeAgo
 @Composable
 fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit) {
     val haptics = LocalHapticFeedback.current
-    val state by viewModel.state.collectAsState()
-    val loadingMore by viewModel.loadingMore.collectAsState()
-    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
-    val subscribedIds by viewModel.subscribedIds.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val loadingMore by viewModel.loadingMore.collectAsStateWithLifecycle()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
+    val subscribedIds by viewModel.subscribedIds.collectAsStateWithLifecycle()
     var subscribedOnly by rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {

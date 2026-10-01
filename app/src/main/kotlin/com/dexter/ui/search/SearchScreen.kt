@@ -41,7 +41,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +57,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.ContentTags
 import com.dexter.data.Formats
@@ -86,15 +86,15 @@ fun SearchScreen(
     onOpenSeries: (String) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
-    val results by viewModel.results.collectAsState()
-    val recent by viewModel.recentSearches.collectAsState()
-    val loadingMore by viewModel.loadingMore.collectAsState()
-    val sort by viewModel.sort.collectAsState()
-    val suggestions by viewModel.suggestions.collectAsState()
-    val message by viewModel.message.collectAsState()
-    val offlineSavedAt by viewModel.offlineSavedAt.collectAsState()
-    val filters by viewModel.filters.collectAsState()
-    val savedSearches by viewModel.savedSearches.collectAsState()
+    val results by viewModel.results.collectAsStateWithLifecycle()
+    val recent by viewModel.recentSearches.collectAsStateWithLifecycle()
+    val loadingMore by viewModel.loadingMore.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
+    val filters by viewModel.filters.collectAsStateWithLifecycle()
+    val savedSearches by viewModel.savedSearches.collectAsStateWithLifecycle()
     var saveName by rememberSaveable { mutableStateOf<String?>(null) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var text by rememberSaveable { mutableStateOf(viewModel.query) }

@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -25,6 +24,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.LoadView
@@ -34,9 +34,9 @@ import com.dexter.ui.windowWidthDp
 
 @Composable
 fun AuthorScreen(viewModel: AuthorViewModel, name: String, onBack: () -> Unit, onOpenSeries: (String) -> Unit) {
-    val state by viewModel.state.collectAsState()
-    val loadingMore by viewModel.loadingMore.collectAsState()
-    val following by viewModel.following.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val loadingMore by viewModel.loadingMore.collectAsStateWithLifecycle()
+    val following by viewModel.following.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     Column(Modifier.fillMaxSize()) {
         AppTopBar(

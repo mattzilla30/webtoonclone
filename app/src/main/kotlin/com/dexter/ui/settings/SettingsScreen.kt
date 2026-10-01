@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.ContentRatings
 import com.dexter.data.Languages
@@ -49,13 +49,13 @@ import com.dexter.ui.ConfirmDialog
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit) {
-    val settings by viewModel.settings.collectAsState()
-    val library by viewModel.library.collectAsState()
-    val cacheBytes by viewModel.cacheBytes.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val library by viewModel.library.collectAsStateWithLifecycle()
+    val cacheBytes by viewModel.cacheBytes.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refreshCacheSize() }
-    val message by viewModel.message.collectAsState()
+    val message by viewModel.message.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val pending by viewModel.pending.collectAsState()
+    val pending by viewModel.pending.collectAsStateWithLifecycle()
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.exportTo(uri)
     }

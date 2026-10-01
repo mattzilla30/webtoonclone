@@ -41,7 +41,6 @@ import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -145,7 +145,7 @@ class MainActivity : ComponentActivity() {
         pending = readPending(intent)
         val app = application as DexterApp
         setContent {
-            val settings by app.settingsStore.settings.collectAsState(initial = Settings())
+            val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = Settings())
             DexterNav(settings, openCount, pending) { pending = null }
         }
     }
@@ -167,7 +167,7 @@ private val tabRoutes = tabs.map { it.route }.toSet()
 private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, onOpened: () -> Unit) {
     val app = LocalContext.current.applicationContext as DexterApp
     val nav = rememberNavController()
-    val library = app.libraryStore.data.collectAsState(initial = LibraryData())
+    val library = app.libraryStore.data.collectAsStateWithLifecycle(initialValue = LibraryData())
     // Read inside derivedStateOf, so a library change only redraws the navigation when the badge number changes.
     val unread by remember { derivedStateOf { unreadSeriesCount(library.value) } }
     val backStackEntry by nav.currentBackStackEntryAsState()

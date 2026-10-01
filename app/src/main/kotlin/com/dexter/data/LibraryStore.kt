@@ -12,6 +12,7 @@ import com.dexter.data.db.toEntity
 import com.dexter.data.db.toSaved
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -43,7 +44,11 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     private val json = Json { ignoreUnknownKeys = true }
     private val dao get() = db.library()
 
-    private val scalars: Flow<LibraryData> = context.libraryDataStore.data.map { prefs -> decode(prefs[LIBRARY]) }
+    // The home screen cache lives in the same file, so skip decoding when only that changed.
+    private val scalars: Flow<LibraryData> = context.libraryDataStore.data
+        .map { prefs -> prefs[LIBRARY] }
+        .distinctUntilChanged()
+        .map { raw -> decode(raw) }
 
     val data: Flow<LibraryData> = flow {
         ensureMigrated()

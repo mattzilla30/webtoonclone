@@ -4,4 +4,5 @@
     <include domain="database" path="library.db-wal" />
     <include domain="database" path="library.db-shm" />
     <include domain="file" path="datastore" />
+    <exclude domain="file" path="datastore/accounts.preferences_pb" />
 </full-backup-content>

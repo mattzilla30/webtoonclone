@@ -139,6 +139,9 @@ fun SeriesScreen(
     val picked = remember { mutableStateSetOf<String>() }
     var anchor by remember { mutableStateOf<String?>(null) }
     var editNote by remember { mutableStateOf(false) }
+    var rate by remember { mutableStateOf(false) }
+    val rating by viewModel.rating.collectAsStateWithLifecycle()
+    val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     var coverOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -216,6 +219,9 @@ fun SeriesScreen(
                     },
                     dismissButton = { TextButton(onClick = { newCollection = null }) { Text(stringResource(R.string.cancel)) } },
                 )
+            }
+            if (rate) {
+                RatingDialog(rating, onRate = viewModel::setRating, onDismiss = { rate = false })
             }
             if (editNote) {
                 TextPromptDialog(
@@ -368,6 +374,9 @@ fun SeriesScreen(
                             )
                         }
                         OutlinedButton(onClick = { editNote = true }) { Text(if (note.isBlank()) "Add note" else "Edit note") }
+                        if (signedIn) {
+                            OutlinedButton(onClick = { rate = true }) { Text(rating?.let { "Rated $it" } ?: "Rate") }
+                        }
                         Box {
                             OutlinedButton(onClick = { downloadMenu = true }) { Text("Save") }
                             DownloadMenu(expanded = downloadMenu, onDismiss = { downloadMenu = false }) { count -> viewModel.downloadUnread(page.detail, count) }

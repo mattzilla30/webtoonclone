@@ -13,6 +13,7 @@ import com.dexter.data.DownloadStore
 import com.dexter.data.Genres
 import com.dexter.data.ImageExport
 import com.dexter.data.LibraryStore
+import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.ProgressStore
 import com.dexter.data.ReadingMode
@@ -98,6 +99,7 @@ class ReaderViewModel(
     private val downloads: DownloadStore,
     private val stats: StatsStore,
     private val imageExport: ImageExport,
+    private val account: MangaDexAccount,
     private val context: Application,
 ) : ViewModel() {
     /** The settings as this series' reader sees them, with its own dimming and background when it has them. */
@@ -271,7 +273,11 @@ class ReaderViewModel(
         if (!entered.add(segment.chapter.id)) return
         viewModelScope.launch(LogFailures) {
             val settings = settingsStore.current()
-            if (!settings.incognito) recordRecent(segment.chapter)
+            if (!settings.incognito) {
+                recordRecent(segment.chapter)
+                // A read marker on MangaDex too, when you are signed in with them on.
+                catching { account.markRead(seriesId, listOf(segment.chapter.id)) }
+            }
             saveNextChapter(segment, settings)
             // With the setting on, opening a chapter deletes the saved copy of the one before it.
             if (settings.deleteAfterRead) segment.prevId?.let { prev -> if (downloads.isSaved(prev)) downloads.delete(prev) }

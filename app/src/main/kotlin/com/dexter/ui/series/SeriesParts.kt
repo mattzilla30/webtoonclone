@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -532,4 +533,33 @@ internal fun BookmarksCard(bookmarks: List<Bookmark>, onOpen: (Bookmark) -> Unit
             }
         }
     }
+}
+
+/** Your MangaDex rating from 1 to 10, or none. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun RatingDialog(current: Int?, onRate: (Int?) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Your rating") },
+        text = {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                (1..10).forEach { value ->
+                    ChoiceChip(value.toString(), current == value) {
+                        onRate(value)
+                        onDismiss()
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        dismissButton = {
+            if (current != null) {
+                TextButton(onClick = {
+                    onRate(null)
+                    onDismiss()
+                }) { Text("Remove rating") }
+            }
+        },
+    )
 }

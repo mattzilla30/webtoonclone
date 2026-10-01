@@ -2,12 +2,14 @@ package com.dexter.di
 
 import androidx.room.Room
 import com.dexter.DexterApp
+import com.dexter.data.AccountStore
 import com.dexter.data.BackupService
 import com.dexter.data.DownloadStore
 import com.dexter.data.ImageExport
 import com.dexter.data.ImageReportInterceptor
 import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
+import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.OfflineStore
 import com.dexter.data.ProgressStore
@@ -68,6 +70,9 @@ val appModule = module {
     single { OfflineStore(androidContext()) }
     single { ImageExport(androidContext(), get(named(BASE_CLIENT))) }
     single { BackupService(androidContext(), get(), get(), get()) }
+    single { AccountStore(androidContext()) }
+    // Signed-in calls skip the response cache, so your account's data is never written to disk.
+    single { MangaDexAccount(get(), get(named(BASE_CLIENT)), get(), get()) }
 
     viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
     viewModel { SearchViewModel(get(), get(), get(), get()) }
@@ -76,7 +81,7 @@ val appModule = module {
     viewModel { DownloadsViewModel(get(), get()) }
     viewModel { StatsViewModel(get(), get()) }
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }
-    viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
-    viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), params.get<Int>(2), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
+    viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
+    viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), params.get<Int>(2), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
     viewModel { params -> AuthorViewModel(params.get<String>(0), get(), get(), get()) }
 }

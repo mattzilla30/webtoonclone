@@ -6,11 +6,13 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.dexter.data.AccountStore
 import com.dexter.data.BackupService
 import com.dexter.data.DownloadStore
 import com.dexter.data.ImageReportInterceptor
 import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
+import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.ProgressStore
 import com.dexter.data.SeriesCacheStore
@@ -56,6 +58,8 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val seriesCache: SeriesCacheStore by inject()
     val downloadStore: DownloadStore by inject()
     val backupService: BackupService by inject()
+    val accountStore: AccountStore by inject()
+    val mangaDexAccount: MangaDexAccount by inject()
     private val baseClient: OkHttpClient by inject(named(BASE_CLIENT))
     private val imageReporter: ImageReporter by inject()
 

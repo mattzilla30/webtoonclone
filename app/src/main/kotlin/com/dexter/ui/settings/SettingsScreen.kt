@@ -66,6 +66,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     val message by viewModel.message.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val pending by viewModel.pending.collectAsStateWithLifecycle()
+    val accounts by viewModel.accounts.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.exportTo(uri)
     }
@@ -318,6 +320,15 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
                 InfoRow(title = "Reset reader options", subtitle = "Background, dimming, auto-scroll and more.", onClick = { confirmResetReader = true })
                 InfoRow(title = "Clear reading history", subtitle = "Empties the Recent list.", onClick = { confirmClear = true })
+
+                MangaDexAccountSection(
+                    login = accounts.mangaDex,
+                    busy = busy,
+                    onSignIn = viewModel::signInMangaDex,
+                    onSync = viewModel::syncMangaDex,
+                    onSignOut = viewModel::signOutMangaDex,
+                    onReadMarkers = viewModel::setReadMarkers,
+                )
 
                 SectionTitle("Backup")
                 Searchable("Backup", "restore", "save backup", "export", "import") {

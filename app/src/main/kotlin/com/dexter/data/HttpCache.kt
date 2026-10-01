@@ -18,6 +18,8 @@ private const val CACHE_BYTES = 10L * 1024 * 1024
  */
 fun cacheControlFor(encodedPath: String): String = when {
     encodedPath.startsWith("/at-home") || encodedPath == "/manga/random" -> "no-store"
+    // Your own account's data stays off the disk.
+    encodedPath.startsWith("/user") || encodedPath.startsWith("/rating") || encodedPath.endsWith("/read") -> "no-store"
     encodedPath == "/manga/tag" -> "public, max-age=$TAG_MAX_AGE_SECONDS"
     else -> "public, max-age=$API_MAX_AGE_SECONDS"
 }

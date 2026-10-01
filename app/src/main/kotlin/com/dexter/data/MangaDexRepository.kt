@@ -16,6 +16,7 @@ import kotlinx.serialization.json.decodeFromStream
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.IOException
 
 private const val API = "https://api.mangadex.org"
@@ -233,6 +234,29 @@ class MangaDexRepository(
             fetchJson<MangaListDto>(url).data.forEach { result[it.id] = it.attributes.latestUploadedChapter }
         }
         return result
+    }
+
+    /**
+     * Every series the MangaDex account behind [authorization] follows, a hundred per request. The
+     * account's own list is shown whole, whatever your rating and block settings.
+     */
+    suspend fun followed(authorization: String): List<SeriesSummary> {
+        ensureSettings()
+        val result = ArrayList<SeriesSummary>()
+        var offset = 0
+        while (true) {
+            val url = "$API/user/follows/manga".toHttpUrl().newBuilder()
+                .addQueryParameter("limit", IDS_PAGE.toString())
+                .addQueryParameter("offset", offset.toString())
+                .addQueryParameter("includes[]", "cover_art")
+                .addQueryParameter("includes[]", "author")
+                .build()
+            val request = Request.Builder().url(url).header("Authorization", authorization).build()
+            val page = http.send(request) { source -> json.decodeFromStream<MangaListDto>(source.inputStream()) }
+            page.data.mapTo(result) { it.toSummary() }
+            offset += page.data.size
+            if (page.data.isEmpty() || offset >= page.total) return result
+        }
     }
 
     /** One page of series ordered by their newest readable chapter. Repeats across pages are possible. */

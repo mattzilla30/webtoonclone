@@ -3,7 +3,7 @@ package com.dexter.data
 import kotlinx.serialization.Serializable
 
 @Serializable
-internal data class MangaListDto(val data: List<MangaDto>)
+internal data class MangaListDto(val data: List<MangaDto>, val total: Int = 0)
 
 @Serializable
 internal data class MangaOneDto(val data: MangaDto)

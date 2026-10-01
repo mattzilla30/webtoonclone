@@ -10,6 +10,7 @@ import com.dexter.data.DownloadStore
 import com.dexter.data.ImageExport
 import com.dexter.data.LibraryStore
 import com.dexter.data.MAX_CACHED_CHAPTERS
+import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.ProgressStore
 import com.dexter.data.ReadingProgress
@@ -59,11 +60,36 @@ class SeriesViewModel(
     private val downloads: DownloadStore,
     progressStore: ProgressStore,
     private val imageExport: ImageExport,
+    private val account: MangaDexAccount,
     private val context: Application,
 ) : ViewModel() {
     /** Where you are in the series: the chapter, page, and page count you left off at. */
     val progress: StateFlow<ReadingProgress?> = progressStore.observe(seriesId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _rating = MutableStateFlow<Int?>(null)
+
+    /** Your MangaDex rating of this series, 1 to 10, when you are signed in and have rated it. */
+    val rating: StateFlow<Int?> = _rating
+
+    /** Whether you are signed in to MangaDex, so the page can offer a rating. */
+    val signedIn: StateFlow<Boolean> = account.signedIn.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    init {
+        viewModelScope.launch(LogFailures) { _rating.value = catching { account.rating(seriesId) }.getOrNull() }
+    }
+
+    /** Rates the series on MangaDex, or removes the rating when [value] is null. */
+    fun setRating(value: Int?) {
+        viewModelScope.launch(LogFailures) {
+            val before = _rating.value
+            _rating.value = value
+            if (catching { account.setRating(seriesId, value) }.isFailure) {
+                _rating.value = before
+                _toast.value = "Could not save the rating"
+            }
+        }
+    }
 
     /** Your own note on this series, or empty. */
     val note: StateFlow<String> = libraryStore.stateOf(viewModelScope) { lib -> lib.notes[seriesId].orEmpty() }
@@ -278,6 +304,9 @@ class SeriesViewModel(
 
     fun toggleSubscribed(detail: SeriesDetail) {
         viewModelScope.launch(LogFailures) {
+            // Signed in to MangaDex, the follow there changes with the subscription here.
+            val following = !subscribed.value
+            launch { catching { account.follow(seriesId, following) } }
             // Unsubscribing needs only the id. Subscribing starts from the newest chapter.
             libraryStore.toggleSubscribed(
                 if (subscribed.value) {

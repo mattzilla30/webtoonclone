@@ -4,7 +4,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,8 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,7 +23,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,9 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
@@ -127,29 +120,9 @@ fun LibraryScreen(
                     }
                 },
             )
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-            ) {
-                val options = listOf("Recent" to LibraryList.Recent, "Subscribed" to LibraryList.Subscribed, "Lists" to LibraryList.Lists)
-                options.forEachIndexed { index, (label, list) ->
-                    ToggleButton(
-                        checked = tab == list,
-                        onCheckedChange = {
-                            tabKey = list.key
-                            selected.clear()
-                        },
-                        modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        shapes = when (index) {
-                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                            options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                        },
-                    ) {
-                        Text(label, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelLarge)
-                    }
-                }
+            LibraryTabs(tab) { list ->
+                tabKey = list.key
+                selected.clear()
             }
             if (tab == LibraryList.Lists) {
                 Row(
@@ -216,33 +189,17 @@ fun LibraryScreen(
                 }
             }
             if (items.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val filtering = query.isNotBlank() || unreadOnly || statusFilter != null || collection != null
-                        Text(
-                            when {
-                                filtering -> "Nothing matches your filters."
-                                tab == LibraryList.Subscribed -> "Subscribe to a series to see it here."
-                                tab == LibraryList.Lists -> "Add a series to a list from its page."
-                                else -> "Series you read show up here."
-                            },
-                            style = MaterialTheme.typography.titleMediumEmphasized,
-                        )
-                        if (filtering) {
-                            FilledTonalButton(
-                                onClick = {
-                                    query = ""
-                                    unreadOnly = false
-                                    statusFilter = null
-                                    collectionFilter = null
-                                },
-                                modifier = Modifier.padding(top = 16.dp),
-                            ) { Text("Clear filters") }
-                        } else {
-                            FilledTonalButton(onClick = onOpenSearch, modifier = Modifier.padding(top = 16.dp)) { Text("Find something to read") }
-                        }
-                    }
-                }
+                LibraryEmpty(
+                    tab = tab,
+                    filtering = query.isNotBlank() || unreadOnly || statusFilter != null || collection != null,
+                    onClearFilters = {
+                        query = ""
+                        unreadOnly = false
+                        statusFilter = null
+                        collectionFilter = null
+                    },
+                    onOpenSearch = onOpenSearch,
+                )
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
                     items(items, key = { it.id }) { series ->

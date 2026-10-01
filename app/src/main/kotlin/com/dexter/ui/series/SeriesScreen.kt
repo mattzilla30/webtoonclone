@@ -239,7 +239,7 @@ fun SeriesScreen(
                                 onClick = {
                                     val send = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, "https://mangadex.org/title/${summary.id}")
+                                        putExtra(Intent.EXTRA_TEXT, "${summary.title}\nhttps://mangadex.org/title/${summary.id}")
                                     }
                                     context.startActivity(Intent.createChooser(send, null))
                                 },

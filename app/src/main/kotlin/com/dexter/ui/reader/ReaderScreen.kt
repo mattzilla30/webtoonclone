@@ -386,7 +386,7 @@ private fun ReaderContent(
                         onClick = {
                             val send = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "https://mangadex.org/chapter/${page.chapter.id}")
+                                putExtra(Intent.EXTRA_TEXT, (page.seriesTitle?.let { "$it, Ep. ${page.chapter.number}\n" }.orEmpty()) + "https://mangadex.org/chapter/${page.chapter.id}")
                             }
                             context.startActivity(Intent.createChooser(send, null))
                         },

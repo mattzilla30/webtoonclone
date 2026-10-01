@@ -308,6 +308,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                     listOf(0 to "Off", 1 to "1", 2 to "2", 3 to "3", 5 to "5", 10 to "10"),
                     settings.dailyGoal,
                 ) { goal -> viewModel.update { it.copy(dailyGoal = goal) } }
+                if (settings.dailyGoal > 0) {
+                    ChoiceRow(
+                        "Remind me when I am short of the goal",
+                        listOf(-1 to "Off", 12 to "12:00", 18 to "18:00", 20 to "20:00", 22 to "22:00"),
+                        settings.goalReminderHour,
+                    ) { hour -> viewModel.setGoalReminder(hour) }
+                }
                 InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
                 InfoRow(title = "Reset reader options", subtitle = "Background, dimming, auto-scroll and more.", onClick = { confirmResetReader = true })
                 InfoRow(title = "Clear reading history", subtitle = "Empties the Recent list.", onClick = { confirmClear = true })

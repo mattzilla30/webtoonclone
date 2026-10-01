@@ -4,6 +4,7 @@ import com.dexter.data.db.AppDatabase
 import com.dexter.data.db.ReadEventEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -22,7 +23,39 @@ data class ReadingStats(
     val averagePerDay: Double,
     val perDay: List<Pair<LocalDate, Int>>,
     val topSeries: List<Pair<String, Int>>,
+    /** Time in the reader, all told and over the last seven days. */
+    val totalTimeMs: Long = 0,
+    val last7DaysTimeMs: Long = 0,
+    /** Chapters per day for every day with any, for the calendar. */
+    val days: Map<LocalDate, Int> = emptyMap(),
+    /** Chapters per genre, most first. Reads from before genres were kept are left out. */
+    val topGenres: List<Pair<String, Int>> = emptyList(),
+    /** Time per series, most first. */
+    val timeBySeries: List<Pair<String, Long>> = emptyList(),
 )
+
+/** A reading time as "2 h 5 min", "12 min", or "under a minute". */
+fun formatDuration(ms: Long): String {
+    val minutes = ms / 60_000
+    return when {
+        minutes < 1 -> "under a minute"
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0L -> "${minutes / 60} h"
+        else -> "${minutes / 60} h ${minutes % 60} min"
+    }
+}
+
+/**
+ * The calendar's weeks, oldest first, each Monday to Sunday, ending with the week of [today]. Days after
+ * today are null, so the last column stops at today.
+ */
+fun calendarWeeks(today: LocalDate, weeks: Int): List<List<LocalDate?>> {
+    val lastMonday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    return (weeks - 1 downTo 0).map { back ->
+        val monday = lastMonday.minusWeeks(back.toLong())
+        (0L..6L).map { offset -> monday.plusDays(offset).takeIf { !it.isAfter(today) } }
+    }
+}
 
 /**
  * Counts chapters by day. The streak is the run of days with at least one chapter that ends today, or
@@ -38,6 +71,7 @@ fun computeStats(events: List<ReadEventEntity>, today: LocalDate, zone: ZoneId =
         cursor = cursor.minusDays(1)
     }
     val last30 = within(30)
+    val weekStart = today.minusDays(6)
     return ReadingStats(
         total = events.size,
         last7Days = within(7),
@@ -50,6 +84,18 @@ fun computeStats(events: List<ReadEventEntity>, today: LocalDate, zone: ZoneId =
             .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
             .take(5)
             .map { it.key to it.value },
+        totalTimeMs = events.sumOf { it.durationMs },
+        last7DaysTimeMs = events.filter { !Instant.ofEpochMilli(it.at).atZone(zone).toLocalDate().isBefore(weekStart) }.sumOf { it.durationMs },
+        days = days,
+        topGenres = events.mapNotNull { it.genre }.groupingBy { it }.eachCount().entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .take(8)
+            .map { it.key to it.value },
+        timeBySeries = events.groupBy { it.seriesTitle }.mapValues { (_, rows) -> rows.sumOf { it.durationMs } }
+            .filterValues { it > 0 }.entries
+            .sortedByDescending { it.value }
+            .take(5)
+            .map { it.key to it.value },
     )
 }
 
@@ -58,6 +104,12 @@ class StatsStore(private val db: AppDatabase) {
 
     suspend fun recordRead(chapterId: String, seriesId: String, seriesTitle: String, genre: String? = null) {
         db.stats().recordOpen(chapterId, seriesId, seriesTitle, System.currentTimeMillis(), genre)
+    }
+
+    /** Chapters opened today. */
+    suspend fun readToday(zone: ZoneId = ZoneId.systemDefault()): Int {
+        val today = LocalDate.now(zone)
+        return db.stats().observe().first().count { Instant.ofEpochMilli(it.at).atZone(zone).toLocalDate() == today }
     }
 
     /** Adds [ms] of reader time to a chapter already recorded by [recordRead]. */

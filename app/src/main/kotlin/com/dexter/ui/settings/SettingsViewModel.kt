@@ -10,6 +10,7 @@ import com.dexter.data.LibraryData
 import com.dexter.data.Settings
 import com.dexter.data.decodeBackup
 import com.dexter.notify.AutoBackupWorker
+import com.dexter.notify.GoalReminderWorker
 import com.dexter.notify.NewChaptersWorker
 import com.dexter.ui.LogFailures
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +42,14 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         viewModelScope.launch(LogFailures) {
             app.settingsStore.update { it.copy(checkIntervalMinutes = minutes) }
             NewChaptersWorker.schedule(app, minutes)
+        }
+    }
+
+    /** Saves the hour of the goal reminder, or -1 for none, and schedules it. */
+    fun setGoalReminder(hour: Int) {
+        viewModelScope.launch(LogFailures) {
+            app.settingsStore.update { it.copy(goalReminderHour = hour) }
+            GoalReminderWorker.sync(app, hour)
         }
     }
 

@@ -3,17 +3,28 @@ package com.dexter.data
 import android.util.Xml
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 import okhttp3.Credentials
+import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.xmlpull.v1.XmlPullParser
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 
 /** Which cloud storage a [CloudAccount] points at. */
+@Serializable
 enum class CloudProviderType(val label: String) {
     WEBDAV("WebDAV"),
     GOOGLE_DRIVE("Google Drive"),
@@ -80,6 +91,33 @@ suspend fun CloudFileProvider.cachedArchive(entry: CloudEntry, cacheDir: File): 
         }
         out
     }
+
+/**
+ * Calls [build] with the current access token, and retries once with a refreshed token on 401.
+ * The caller closes the returned response. Throws [IOException] when there is no token, the
+ * refresh fails, or the retry is still unauthorized.
+ */
+internal suspend fun OkHttpClient.callWithBearer(
+    label: String,
+    tokens: suspend () -> OAuthTokens?,
+    onTokenRefresh: suspend () -> OAuthTokens?,
+    build: (accessToken: String) -> Request,
+): Response = withContext(Dispatchers.IO) {
+    var access = tokens()?.accessToken ?: throw IOException("$label is not signed in.")
+    var response = newCall(build(access)).execute()
+    if (response.code == 401) {
+        response.close()
+        access = onTokenRefresh()?.accessToken
+            ?: throw IOException("$label sign-in expired. Sign in again from Settings.")
+        response = newCall(build(access)).execute()
+    }
+    response
+}
+
+/** Parses an ISO-8601 instant ("2024-01-01T00:00:00.000Z") to epoch millis, or 0 when unparseable. */
+internal fun parseCloudInstant(value: String?): Long = runCatching {
+    java.time.Instant.parse(value).toEpochMilli()
+}.getOrDefault(0L)
 
 /**
  * A WebDAV provider over plain OkHttp: PROPFIND for listings, GET for file bytes. Works against
@@ -183,35 +221,212 @@ class WebDavProvider(
 }
 
 /**
- * Google Drive access. STUB: listing and streaming need OAuth 2.0 (the Drive REST API), which the
- * app does not wire up yet. TODO: run the OAuth consent flow, keep the refresh token in the
- * encrypted vault, and implement [CloudFileProvider] against
- * https://www.googleapis.com/drive/v3/files with alt=media downloads.
+ * Google Drive access through the Drive v3 REST API with an OAuth 2.0 Bearer token.
+ *
+ * Drive is ID-addressed, not path-addressed, so a [CloudEntry.path] carries the Drive item ID
+ * (the "root" folder when listing ""). Tokens come from the caller-supplied lambdas so this
+ * class never touches the token store directly; [onTokenRefresh] must persist the fresh tokens
+ * itself (see [cloudProviderFor]).
  */
-class GoogleDriveProvider(override val account: CloudAccount) : CloudFileProvider {
-    override suspend fun list(dirPath: String): List<CloudEntry> =
-        throw UnsupportedOperationException("Google Drive needs OAuth first (see class KDoc)")
+class GoogleDriveProvider(
+    override val account: CloudAccount,
+    private val client: OkHttpClient,
+    private val tokens: suspend () -> OAuthTokens?,
+    private val onTokenRefresh: suspend () -> OAuthTokens?,
+) : CloudFileProvider {
+    init {
+        require(account.type == CloudProviderType.GOOGLE_DRIVE) { "GoogleDriveProvider needs a GOOGLE_DRIVE account" }
+    }
 
-    override suspend fun open(entry: CloudEntry): InputStream =
-        throw UnsupportedOperationException("Google Drive needs OAuth first (see class KDoc)")
+    private fun listRequest(accessToken: String, folderId: String, pageToken: String?): Request {
+        val url = HttpUrl.Builder()
+            .scheme("https")
+            .host("www.googleapis.com")
+            .addPathSegments("drive/v3/files")
+            .addQueryParameter("q", "'$folderId' in parents and trashed = false")
+            .addQueryParameter("fields", "files(id,name,mimeType,size,modifiedTime),nextPageToken")
+            .addQueryParameter("pageSize", "1000")
+            .addQueryParameter("orderBy", "folder,name")
+            .apply { if (pageToken != null) addQueryParameter("pageToken", pageToken) }
+            .build()
+        return Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $accessToken")
+            .get()
+            .build()
+    }
+
+    override suspend fun list(dirPath: String): List<CloudEntry> = withContext(Dispatchers.IO) {
+        val folderId = dirPath.ifBlank { "root" }
+        val entries = mutableListOf<CloudEntry>()
+        var pageToken: String? = null
+        do {
+            val response = client.callWithBearer("Google Drive", tokens, onTokenRefresh) { token ->
+                listRequest(token, folderId, pageToken)
+            }
+            response.use {
+                if (!it.isSuccessful) throw IOException("Drive list failed: ${it.code}")
+                val json = Json.parseToJsonElement(it.body?.string().orEmpty()).jsonObject
+                for (file in json["files"]?.jsonArray.orEmpty()) {
+                    val obj = file.jsonObject
+                    val id = obj["id"]?.jsonPrimitive?.content ?: continue
+                    val name = obj["name"]?.jsonPrimitive?.content ?: continue
+                    val mime = obj["mimeType"]?.jsonPrimitive?.content.orEmpty()
+                    entries += CloudEntry(
+                        path = id,
+                        name = name,
+                        isDirectory = mime == "application/vnd.google-apps.folder",
+                        size = obj["size"]?.jsonPrimitive?.longOrNull ?: 0L,
+                        modifiedAt = parseCloudInstant(obj["modifiedTime"]?.jsonPrimitive?.content),
+                    )
+                }
+                pageToken = json["nextPageToken"]?.jsonPrimitive?.content
+            }
+        } while (pageToken != null)
+        entries
+    }
+
+    override suspend fun open(entry: CloudEntry): InputStream = withContext(Dispatchers.IO) {
+        val response = client.callWithBearer("Google Drive", tokens, onTokenRefresh) { token ->
+            Request.Builder()
+                .url("https://www.googleapis.com/drive/v3/files/${entry.path}?alt=media")
+                .header("Authorization", "Bearer $token")
+                .get()
+                .build()
+        }
+        if (!response.isSuccessful) {
+            response.close()
+            throw IOException("Drive download failed: ${response.code}")
+        }
+        // The caller closes the stream; closing it releases the response.
+        response.body?.byteStream() ?: throw IOException("Empty Drive body")
+    }
 }
 
 /**
- * Dropbox access. STUB: listing and streaming need an OAuth 2.0 access token for the Dropbox API.
- * TODO: run the OAuth PKCE flow, keep the token in the encrypted vault, and implement
- * [CloudFileProvider] against /2/files/list_folder and /2/files/download.
+ * Dropbox access through the Dropbox API with an OAuth 2.0 Bearer token: /2/files/list_folder
+ * (with cursor pagination) for listings, /2/files/download for file bytes.
+ *
+ * Dropbox is path-addressed, so a [CloudEntry.path] carries the lowercase Dropbox path
+ * ("" is the account root). Tokens come from the caller-supplied lambdas so this class never
+ * touches the token store directly; [onTokenRefresh] must persist the fresh tokens itself
+ * (see [cloudProviderFor]).
  */
-class DropboxProvider(override val account: CloudAccount) : CloudFileProvider {
-    override suspend fun list(dirPath: String): List<CloudEntry> =
-        throw UnsupportedOperationException("Dropbox needs OAuth first (see class KDoc)")
+class DropboxProvider(
+    override val account: CloudAccount,
+    private val client: OkHttpClient,
+    private val tokens: suspend () -> OAuthTokens?,
+    private val onTokenRefresh: suspend () -> OAuthTokens?,
+) : CloudFileProvider {
+    init {
+        require(account.type == CloudProviderType.DROPBOX) { "DropboxProvider needs a DROPBOX account" }
+    }
 
-    override suspend fun open(entry: CloudEntry): InputStream =
-        throw UnsupportedOperationException("Dropbox needs OAuth first (see class KDoc)")
+    override suspend fun list(dirPath: String): List<CloudEntry> = withContext(Dispatchers.IO) {
+        val entries = mutableListOf<CloudEntry>()
+        var cursor: String? = null
+        var hasMore: Boolean
+        do {
+            val body = if (cursor == null) {
+                buildJsonObject {
+                    put("path", dirPath)
+                    put("recursive", false)
+                    put("include_deleted", false)
+                    put("limit", 2000)
+                }
+            } else {
+                buildJsonObject { put("cursor", cursor) }
+            }
+            val endpoint = if (cursor == null) "list_folder" else "list_folder/continue"
+            val response = client.callWithBearer("Dropbox", tokens, onTokenRefresh) { token ->
+                Request.Builder()
+                    .url("https://api.dropboxapi.com/2/files/$endpoint")
+                    .header("Authorization", "Bearer $token")
+                    .post(body.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+            }
+            response.use {
+                if (!it.isSuccessful) throw IOException("Dropbox list failed: ${it.code}")
+                val json = Json.parseToJsonElement(it.body?.string().orEmpty()).jsonObject
+                for (item in json["entries"]?.jsonArray.orEmpty()) {
+                    val obj = item.jsonObject
+                    val tag = obj[".tag"]?.jsonPrimitive?.content ?: continue
+                    if (tag == "deleted") continue
+                    val path = obj["path_lower"]?.jsonPrimitive?.content ?: continue
+                    entries += CloudEntry(
+                        path = path,
+                        name = obj["name"]?.jsonPrimitive?.content ?: path.substringAfterLast('/'),
+                        isDirectory = tag == "folder",
+                        size = obj["size"]?.jsonPrimitive?.longOrNull ?: 0L,
+                        modifiedAt = parseCloudInstant(obj["client_modified"]?.jsonPrimitive?.content),
+                    )
+                }
+                cursor = json["cursor"]?.jsonPrimitive?.content
+                hasMore = json["has_more"]?.jsonPrimitive?.content?.toBoolean() ?: false
+            }
+        } while (hasMore)
+        entries
+    }
+
+    override suspend fun open(entry: CloudEntry): InputStream = withContext(Dispatchers.IO) {
+        val arg = buildJsonObject { put("path", entry.path) }.toString()
+        val response = client.callWithBearer("Dropbox", tokens, onTokenRefresh) { token ->
+            Request.Builder()
+                .url("https://content.dropboxapi.com/2/files/download")
+                .header("Authorization", "Bearer $token")
+                .header("Dropbox-API-Arg", arg)
+                .post(ByteArray(0).toRequestBody())
+                .build()
+        }
+        if (!response.isSuccessful) {
+            response.close()
+            throw IOException("Dropbox download failed: ${response.code}")
+        }
+        // The caller closes the stream; closing it releases the response.
+        response.body?.byteStream() ?: throw IOException("Empty Dropbox body")
+    }
 }
 
-/** Builds the provider for an account. WebDAV works today; Drive and Dropbox throw until OAuth lands. */
-fun cloudProviderFor(account: CloudAccount, client: OkHttpClient): CloudFileProvider = when (account.type) {
+/** Builds the refresh callback for an OAuth provider: refresh, persist, and return fresh tokens. */
+private fun oauthRefresher(
+    client: OkHttpClient,
+    tokenStore: CloudTokenStore,
+    account: CloudAccount,
+    refresh: suspend (clientId: String, refreshToken: String) -> OAuthTokens,
+): suspend () -> OAuthTokens = {
+    val current = tokenStore.tokens(account.type, account.name)
+        ?: throw IOException("${account.type.label} is not signed in.")
+    val clientId = tokenStore.clientId(account.type)
+        ?: throw IOException("Missing ${account.type.label} client ID. Add it in Settings.")
+    val fresh = refresh(clientId, current.refreshToken)
+    tokenStore.saveTokens(account.type, account.name, fresh)
+    fresh
+}
+
+/**
+ * Builds the provider for an account. WebDAV connects directly; Drive and Dropbox read tokens
+ * from [tokenStore] and refresh them through it on 401, so callers only pass the store.
+ */
+fun cloudProviderFor(
+    account: CloudAccount,
+    client: OkHttpClient,
+    tokenStore: CloudTokenStore,
+): CloudFileProvider = when (account.type) {
     CloudProviderType.WEBDAV -> WebDavProvider(account, client)
-    CloudProviderType.GOOGLE_DRIVE -> GoogleDriveProvider(account)
-    CloudProviderType.DROPBOX -> DropboxProvider(account)
+    CloudProviderType.GOOGLE_DRIVE -> GoogleDriveProvider(
+        account = account,
+        client = client,
+        tokens = { tokenStore.tokens(account.type, account.name) },
+        onTokenRefresh = oauthRefresher(client, tokenStore, account) { id, rt ->
+            DriveOAuth.refresh(client, id, rt)
+        },
+    )
+    CloudProviderType.DROPBOX -> DropboxProvider(
+        account = account,
+        client = client,
+        tokens = { tokenStore.tokens(account.type, account.name) },
+        onTokenRefresh = oauthRefresher(client, tokenStore, account) { id, rt ->
+            DropboxOAuth.refresh(client, id, rt)
+        },
+    )
 }

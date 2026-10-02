@@ -1,5 +1,6 @@
 package com.dexter.ui.settings
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +35,10 @@ import androidx.compose.ui.unit.dp
 import com.dexter.data.CloudAccount
 import com.dexter.data.CloudEntry
 import com.dexter.data.CloudFileProvider
+import com.dexter.data.CloudOAuth
 import com.dexter.data.CloudProviderType
+import com.dexter.data.CloudTokenStore
+import com.dexter.data.OAuthAccount
 import com.dexter.data.LibraryStore
 import com.dexter.data.LocalSeries
 import com.dexter.data.NasShare
@@ -45,6 +50,7 @@ import com.dexter.data.WebDavProvider
 import com.dexter.data.cachedArchive
 import com.dexter.data.scanLocalRoot
 import com.dexter.data.toSavedSeries
+import com.dexter.ui.ChoiceChip
 import com.dexter.ui.library.SurpriseFilter
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -408,4 +414,146 @@ private fun WebDavBrowser(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
+}
+
+/**
+ * Google Drive and Dropbox accounts over OAuth. The user pastes their own OAuth client ID
+ * (Google, Desktop-app type) or app key (Dropbox); sign-in opens the provider's consent page
+ * in the browser and returns to the app, which keeps the refresh token.
+ */
+@Composable
+fun CloudOAuthSection(qol: QolPrefs) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val tokenStore: CloudTokenStore = koinInject()
+    val accounts by qol.oauthAccounts.collectAsState(initial = emptyList())
+    var adding by remember { mutableStateOf(false) }
+    var driveId by remember { mutableStateOf("") }
+    var dropboxKey by remember { mutableStateOf("") }
+    var keysLoaded by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var signedIn by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+
+    LaunchedEffect(Unit) {
+        driveId = tokenStore.clientId(CloudProviderType.GOOGLE_DRIVE).orEmpty()
+        dropboxKey = tokenStore.clientId(CloudProviderType.DROPBOX).orEmpty()
+        keysLoaded = true
+    }
+    LaunchedEffect(accounts) {
+        signedIn = accounts.associate { it.name to tokenStore.isSignedIn(it.provider, it.name) }
+    }
+
+    SectionTitle("Cloud (Drive / Dropbox)")
+    Text(
+        "Browse CBZ files on Google Drive or Dropbox. Paste your own OAuth client ID (Google Cloud Console, Desktop-app type) or app key (Dropbox App Console, with dexter://oauth/dropbox as a redirect URI).",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    if (keysLoaded) {
+        OutlinedTextField(
+            value = driveId,
+            onValueChange = { driveId = it },
+            label = { Text("Google OAuth client ID") },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            singleLine = true,
+        )
+        OutlinedTextField(
+            value = dropboxKey,
+            onValueChange = { dropboxKey = it },
+            label = { Text("Dropbox app key") },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            singleLine = true,
+        )
+        Row(Modifier.padding(horizontal = 16.dp)) {
+            TextButton(onClick = {
+                scope.launch {
+                    tokenStore.setClientId(CloudProviderType.GOOGLE_DRIVE, driveId)
+                    tokenStore.setClientId(CloudProviderType.DROPBOX, dropboxKey)
+                    message = "Keys saved."
+                }
+            }) { Text("Save keys") }
+        }
+    }
+    accounts.forEach { account ->
+        val isIn = signedIn[account.name] == true
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                Text(account.name, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    account.provider.label + if (isIn) " · signed in" else " · not signed in",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (isIn) {
+                TextButton(onClick = {
+                    scope.launch {
+                        tokenStore.clearTokens(account.provider, account.name)
+                        signedIn = signedIn + (account.name to false)
+                    }
+                }) { Text("Sign out") }
+            } else {
+                TextButton(onClick = {
+                    scope.launch {
+                        val url = try {
+                            when (account.provider) {
+                                CloudProviderType.GOOGLE_DRIVE -> CloudOAuth.startDriveSignIn(tokenStore, account.name, driveId)
+                                CloudProviderType.DROPBOX -> CloudOAuth.startDropboxSignIn(tokenStore, account.name, dropboxKey)
+                                CloudProviderType.WEBDAV -> null
+                            }
+                        } catch (e: Exception) {
+                            message = e.message ?: "Could not start sign-in."
+                            null
+                        }
+                        if (url != null) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    }
+                }) { Text("Sign in") }
+            }
+            IconButton(onClick = {
+                scope.launch {
+                    tokenStore.clearTokens(account.provider, account.name)
+                    qol.removeOauthAccount(account.name)
+                }
+            }) { Icon(Icons.Default.Delete, contentDescription = "Remove ${account.name}") }
+        }
+    }
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        TextButton(onClick = { adding = true }) { Text("Add cloud account") }
+    }
+    message?.let {
+        Text(
+            it,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+    if (adding) {
+        var name by remember { mutableStateOf("") }
+        var provider by remember { mutableStateOf(CloudProviderType.GOOGLE_DRIVE) }
+        AlertDialog(
+            onDismissRequest = { adding = false },
+            title = { Text("Add cloud account") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChoiceChip("Google Drive", provider == CloudProviderType.GOOGLE_DRIVE) { provider = CloudProviderType.GOOGLE_DRIVE }
+                        ChoiceChip("Dropbox", provider == CloudProviderType.DROPBOX) { provider = CloudProviderType.DROPBOX }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = name.isNotBlank(),
+                    onClick = {
+                        scope.launch { qol.addOauthAccount(OAuthAccount(name.trim(), provider)) }
+                        adding = false
+                    },
+                ) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } },
+        )
+    }
 }

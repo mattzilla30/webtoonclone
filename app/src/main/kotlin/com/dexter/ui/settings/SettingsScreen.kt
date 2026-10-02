@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.ContentRatings
 import com.dexter.data.Languages
+import com.dexter.data.LockMode
 import com.dexter.data.NasShareStore
 import com.dexter.data.PowerPrefs
 import com.dexter.data.ChapterBlacklist
@@ -62,6 +63,7 @@ import com.dexter.ui.AppLock
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.ConfirmDialog
+import com.dexter.ui.PinSetupScreen
 import com.dexter.ui.timeAgo
 import java.time.Instant
 import org.koin.compose.koinInject
@@ -200,6 +202,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                     val libraryStore: LibraryStore = koinInject()
                     LocalImportSection(qol, libraryStore)
                     WebDavSection(qol)
+                    CloudOAuthSection(qol)
                 }
 
                 run {
@@ -223,7 +226,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 SwitchRow("Incognito", "Read without saving history, reading positions, or stats.", settings.incognito) { on ->
                     viewModel.update { it.copy(incognito = on) }
                 }
-                SwitchRow("App lock", "Ask for your fingerprint, face, or PIN when Dexter opens or returns after 30 seconds.", settings.appLock) { on ->
+                SectionTitle("App lock")
+                SwitchRow("App lock", "Ask for your fingerprint, face, or PIN when Dexter opens or returns to the foreground.", settings.appLock) { on ->
                     // Turning the lock on or off asks first, so it only changes in your hands.
                     AppLock.authenticate(context, if (on) "Turn on app lock" else "Turn off app lock") { passed ->
                         if (passed) {
@@ -233,6 +237,28 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                             viewModel.showMessage("App lock needs a fingerprint, face, or screen lock set up on this phone.")
                         }
                     }
+                }
+                if (settings.appLock) {
+                    ChoiceRow(
+                        "Unlock with",
+                        listOf(
+                            LockMode.BiometricOrDeviceCredential to "Phone unlock",
+                            LockMode.AppPin to "App PIN",
+                        ),
+                        settings.lockMode,
+                    ) { mode -> viewModel.update { it.copy(lockMode = mode) } }
+                    if (settings.lockMode == LockMode.AppPin) {
+                        var showPinSetup by remember { mutableStateOf(false) }
+                        InfoRow("App PIN", subtitle = "Set the PIN Dexter asks for.", onClick = { showPinSetup = true })
+                        if (showPinSetup) {
+                            PinSetupScreen(onDone = { showPinSetup = false })
+                        }
+                    }
+                    ChoiceRow(
+                        "Lock again after",
+                        listOf(15_000L to "15 seconds", 30_000L to "30 seconds", 60_000L to "1 minute", 300_000L to "5 minutes"),
+                        settings.relockTimeoutMs,
+                    ) { ms -> viewModel.update { it.copy(relockTimeoutMs = ms) } }
                 }
 
                 SectionTitle("Titles")

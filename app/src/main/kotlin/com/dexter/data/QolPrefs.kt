@@ -93,6 +93,27 @@ class QolPrefs(private val context: Context) {
             it[webdavKey] = StoredJson.encodeToString(ListSerializer(WebDavAccount.serializer()), current)
         }
     }
+
+    private val oauthKey = stringPreferencesKey("oauth_accounts")
+
+    /** OAuth cloud accounts (Drive/Dropbox): just a name and provider. Tokens live in CloudTokenStore. */
+    val oauthAccounts: Flow<List<OAuthAccount>> = context.qolDataStore.data.map { prefs ->
+        decodeStored(ListSerializer(OAuthAccount.serializer()), prefs[oauthKey]).orEmpty()
+    }
+
+    suspend fun addOauthAccount(account: OAuthAccount) {
+        val current = oauthAccounts.first().filterNot { it.name == account.name }
+        context.qolDataStore.edit {
+            it[oauthKey] = StoredJson.encodeToString(ListSerializer(OAuthAccount.serializer()), current + account)
+        }
+    }
+
+    suspend fun removeOauthAccount(name: String) {
+        val current = oauthAccounts.first().filterNot { it.name == name }
+        context.qolDataStore.edit {
+            it[oauthKey] = StoredJson.encodeToString(ListSerializer(OAuthAccount.serializer()), current)
+        }
+    }
 }
 
 /** A WebDAV account without its password, for persistence. */
@@ -101,4 +122,11 @@ data class WebDavAccount(
     val name: String,
     val baseUrl: String,
     val username: String = "",
+)
+
+/** An OAuth cloud account: a name plus which provider it points at. */
+@Serializable
+data class OAuthAccount(
+    val name: String,
+    val provider: CloudProviderType,
 )

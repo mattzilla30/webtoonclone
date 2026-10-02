@@ -1,7 +1,7 @@
-// SCAFFOLD: minimal Wear OS companion module. Not compiled in this environment and not wired
-// into settings.gradle.kts yet; see the integration snippet in the task report for the include
-// line, the phone-side manifest entry for WearMessageReceiver, and the play-services-wearable
-// dependency the app module needs.
+// Wear OS companion module. New dependencies use the version catalog (libs.*) to stay aligned
+// with the app; the wear-compose and play-services-wearable pins below are the remaining
+// hardcoded versions to align. Register WearProgressListener in the wear manifest (see the
+// integration snippet in the task report).
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -25,6 +25,9 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.compose.bom))
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.activity.compose)
     implementation("androidx.wear.compose:compose-material:$wearComposeVersion")
     implementation("com.google.android.gms:play-services-wearable:$wearableVersion")
 }

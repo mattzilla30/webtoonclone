@@ -18,10 +18,9 @@ import org.koin.core.component.inject
  * to turn pages in the open reader, and [WearPaths.PROGRESS_REQUEST] to ask what is being read;
  * the phone answers on [WearPaths.PROGRESS_REPLY].
  *
- * SCAFFOLD: this compiles once the app module gains the `play-services-wearable` dependency and
- * the manifest entry from the integration snippet in the task report. Page-turn delivery to the
- * reader itself is the remaining hook: broadcast the turn request (e.g. a local broadcast the
- * reader screen collects) so it works while the reader is open.
+ * Page turns are pushed into [WearBridge.turns], which the reader screen collects while a chapter
+ * is open and applies like a volume-key press. Reading progress is pushed to the watch through
+ * [WearBridge.publishProgress] when the reader saves.
  */
 class WearMessageReceiver : WearableListenerService(), KoinComponent {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -31,7 +30,8 @@ class WearMessageReceiver : WearableListenerService(), KoinComponent {
     override fun onMessageReceived(event: MessageEvent) {
         when (event.path) {
             WearPaths.PAGE_PREVIOUS, WearPaths.PAGE_NEXT -> {
-                // TODO: forward to the open reader, e.g. via a local broadcast the reader collects.
+                val turn = if (event.path == WearPaths.PAGE_NEXT) WearBridge.PageTurn.Next else WearBridge.PageTurn.Previous
+                WearBridge.requestTurn(turn)
             }
             WearPaths.PROGRESS_REQUEST -> scope.launch {
                 runCatching {

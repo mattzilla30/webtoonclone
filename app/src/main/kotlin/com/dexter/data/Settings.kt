@@ -164,6 +164,10 @@ data class Settings(
     val mutedCollections: Set<String> = emptySet(),
     /** Ask for a fingerprint, face, or the phone's PIN when the app opens. */
     val appLock: Boolean = false,
+    /** Which secret the app lock asks for: the phone's own prompt, or a PIN the app stores itself. */
+    val lockMode: LockMode = LockMode.BiometricOrDeviceCredential,
+    /** How long the app may sit in the background before the lock asks again. */
+    val relockTimeoutMs: Long = 30_000L,
     val accent: Accent = Accent.Green,
     /** Vibration on taps, toggles, and long presses. */
     val haptics: Boolean = true,

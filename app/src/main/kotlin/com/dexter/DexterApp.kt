@@ -9,6 +9,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.dexter.data.AccountStore
 import com.dexter.data.BackupArchive
 import com.dexter.data.BackupService
+import com.dexter.data.CloudTokenStore
 import com.dexter.data.DownloadStore
 import com.dexter.data.ErrorLog
 import com.dexter.data.ImageReportInterceptor
@@ -69,7 +70,10 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val accountStore: AccountStore by inject()
     val mangaDexAccount: MangaDexAccount by inject()
     val trackers: Trackers by inject()
+    val cloudTokenStore: CloudTokenStore by inject()
     private val baseClient: OkHttpClient by inject(named(BASE_CLIENT))
+    /** Plain OkHttp client, shared for OAuth token exchanges. */
+    val oauthClient: OkHttpClient get() = baseClient
     private val meteredDataSaver: MeteredDataSaver by inject()
 
     /** The client with no response cache, for calls outside MangaDex such as the update check. */

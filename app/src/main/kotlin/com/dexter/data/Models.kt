@@ -231,6 +231,10 @@ data class LibraryData(
     val notes: Map<String, String> = emptyMap(),
     /** Pages you bookmarked, newest first. */
     val bookmarks: List<Bookmark> = emptyList(),
+    /** Your own freeform tags on a series, by series id. Distinct from MangaDex content tags. */
+    val seriesTags: Map<String, List<String>> = emptyMap(),
+    /** When each series first entered the library, by series id, for the "Date added" sort. */
+    val addedAt: Map<String, Long> = emptyMap(),
 ) {
     /** A saved copy of this series, if you have read, subscribed to, or listed it before. */
     fun knownSeries(id: String): SavedSeries? =

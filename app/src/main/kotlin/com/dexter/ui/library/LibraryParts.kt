@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -125,6 +126,11 @@ internal fun SelectionBar(
     onStatus: (ReadingStatus?) -> Unit,
     onCollection: (String) -> Unit,
     onDownload: () -> Unit,
+    onMarkRead: () -> Unit,
+    onMarkUnread: () -> Unit,
+    onTag: () -> Unit,
+    onHide: () -> Unit,
+    onDeleteDownloads: () -> Unit,
 ) {
     var statusMenu by remember { mutableStateOf(false) }
     var collectionMenu by remember { mutableStateOf(false) }
@@ -137,9 +143,11 @@ internal fun SelectionBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("$count selected", style = MaterialTheme.typography.labelLargeEmphasized, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp))
-        TextButton(onClick = onSelectAll) { Text("All") }
+        // Every action keeps a 48dp touch target even though the text buttons draw shorter.
+        val touch = Modifier.minimumInteractiveComponentSize()
+        TextButton(onClick = onSelectAll, modifier = touch) { Text("All") }
         Box {
-            TextButton(onClick = { statusMenu = true }) { Text("List") }
+            TextButton(onClick = { statusMenu = true }, modifier = touch) { Text("List") }
             DropdownMenu(expanded = statusMenu, onDismissRequest = { statusMenu = false }) {
                 ReadingStatus.entries.forEach { status ->
                     DropdownMenuItem(text = { Text(status.label) }, onClick = { statusMenu = false; onStatus(status) })
@@ -148,7 +156,7 @@ internal fun SelectionBar(
             }
         }
         Box {
-            TextButton(onClick = { collectionMenu = true }) { Text("Collection") }
+            TextButton(onClick = { collectionMenu = true }, modifier = touch) { Text("Collection") }
             DropdownMenu(expanded = collectionMenu, onDismissRequest = { collectionMenu = false }) {
                 collections.forEach { name ->
                     DropdownMenuItem(text = { Text(name) }, onClick = { collectionMenu = false; onCollection(name) })
@@ -156,9 +164,14 @@ internal fun SelectionBar(
                 DropdownMenuItem(text = { Text("New collection…") }, onClick = { collectionMenu = false; newCollection = true })
             }
         }
-        TextButton(onClick = onDownload) { Text("Save unread") }
-        TextButton(onClick = onDelete) { Text("Delete") }
-        TextButton(onClick = onClear) { Text("Done") }
+        TextButton(onClick = onTag, modifier = touch) { Text("Tag") }
+        TextButton(onClick = onMarkRead, modifier = touch) { Text("Mark read") }
+        TextButton(onClick = { onMarkUnread() }, modifier = touch) { Text("Mark unread") }
+        TextButton(onClick = onDownload, modifier = touch) { Text("Save unread") }
+        TextButton(onClick = onDeleteDownloads, modifier = touch) { Text("Delete downloads") }
+        TextButton(onClick = onHide, modifier = touch) { Text("Hide") }
+        TextButton(onClick = onDelete, modifier = touch) { Text("Delete") }
+        TextButton(onClick = onClear, modifier = touch) { Text("Done") }
     }
 }
 
@@ -179,6 +192,7 @@ internal fun LibraryTile(
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(
             onClick = { if (selecting) onSelect(!selected) else onOpen() },
+            onClickLabel = if (selecting) "Select" else "Open series",
             onLongClick = { onSelect(!selected) },
             onLongClickLabel = "Select",
         ),

@@ -74,11 +74,16 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.Chapter
+import com.dexter.data.ChapterBlacklist
 import com.dexter.data.ChapterListItem
 import com.dexter.data.factsLine
 import com.dexter.data.groupByVolume
 import com.dexter.data.languageName
 import com.dexter.data.nextChapterEstimate
+import com.dexter.data.ReadingListStore
+import com.dexter.data.WANT_TO_READ_LIST_ID
+import com.dexter.data.tropesForSeries
+import com.dexter.data.withoutBlacklisted
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
@@ -91,6 +96,7 @@ import com.dexter.ui.compact
 import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -120,6 +126,7 @@ fun SeriesScreen(
     val subscribed by viewModel.subscribed.collectAsStateWithLifecycle()
     val status by viewModel.status.collectAsStateWithLifecycle()
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
+    val offlineOnly by viewModel.offlineOnly.collectAsStateWithLifecycle()
     val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     var downloadMenu by remember { mutableStateOf(false) }
     var statusMenu by remember { mutableStateOf(false) }
@@ -145,6 +152,10 @@ fun SeriesScreen(
     var coverOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // The curated reading lists, including the "Want to read" pile.
+    val readingLists: ReadingListStore = koinInject()
+    val allReadingLists by readingLists.all.collectAsStateWithLifecycle(initialValue = emptyList())
+    LaunchedEffect(Unit) { readingLists.ensureWantToRead() }
     // Notifications need permission on Android 13 and later. Ask when the user first subscribes.
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
@@ -152,17 +163,34 @@ fun SeriesScreen(
         LoadView(state, onRetry = viewModel::load) { page ->
             val summary = page.detail.summary
             val readable = remember(page.chapters) { page.chapters.filter { it.externalUrl == null } }
+            // Blacklisted chapters stay out of the list until unblacklisted in settings.
+            val blacklist: ChapterBlacklist = koinInject()
+            val blacklistedIds by blacklist.blacklisted(summary.id).collectAsStateWithLifecycle(initialValue = emptySet())
             // The chapters as shown: filtered to unread or saved ones, and oldest first when chosen.
-            val shown = remember(page.chapters, oldestFirst, unreadOnly, savedOnly, lastRead?.chapterNumber, downloaded) {
-                var list = page.chapters
+            val shown = remember(page.chapters, oldestFirst, unreadOnly, savedOnly, offlineOnly, lastRead?.chapterNumber, downloaded, blacklistedIds) {
+                var list = page.chapters.withoutBlacklisted(blacklistedIds)
                 if (unreadOnly) list = list.filter { it.externalUrl == null && !isChapterRead(it.number, lastRead?.chapterNumber) }
-                if (savedOnly) list = list.filter { it.id in downloaded }
+                if (savedOnly || offlineOnly) list = list.filter { it.id in downloaded }
                 if (oldestFirst) list.asReversed() else list
             }
-            val listItems = remember(shown) { groupByVolume(shown) }
+            // Collapsible volume groups, and the flat list of what the LazyColumn shows for jump indexing.
+            val collapse = rememberCollapsedVolumes()
+            // Trope tags mapped from the MangaDex tags, for discovery by trope.
+            val tropes = remember(page.detail.tags) { tropesForSeries(page.detail.tags, emptyList()) }
+            val groups = remember(shown) { toVolumeGroups(groupByVolume(shown)) }
+            val flatSlots = remember(groups, collapse.collapsed) {
+                buildList {
+                    for (g in groups) {
+                        if (g.label.isNotEmpty()) add(ChapterListItem.VolumeHeader(g.label))
+                        if (g.label.isEmpty() || !collapse.isCollapsed(g.label)) {
+                            g.chapters.forEach { add(ChapterListItem.Entry(it)) }
+                        }
+                    }
+                }
+            }
             val nextExpected = remember(page.chapters, page.detail.status) { nextChapterEstimate(page.chapters.map { it.publishedAt }, page.detail.status) }
             // Oldest first and the saved filter need the whole list, not only the newest pages.
-            LaunchedEffect(oldestFirst, savedOnly, page.hasMore) { if ((oldestFirst || savedOnly) && page.hasMore) viewModel.loadAll() }
+            LaunchedEffect(oldestFirst, savedOnly, offlineOnly, page.hasMore) { if ((oldestFirst || savedOnly || offlineOnly) && page.hasMore) viewModel.loadAll() }
             val previousOf = remember(page.chapters) { previousReadableMap(page.chapters) }
             val unreadCount = remember(page.chapters, lastRead?.chapterNumber) { unreadChapterCount(page.chapters, lastRead?.chapterNumber) }
             // With older chapters still unloaded, the oldest loaded one is not Episode 1.
@@ -353,6 +381,20 @@ fun SeriesScreen(
                                 viewModel.toggleSubscribed(page.detail)
                             },
                         ) { Text(if (subscribed) "Subscribed" else "Subscribe") }
+                        // The "Want to read" pile: a curated list for series to try later.
+                        val wantToRead = allReadingLists.firstOrNull { it.id == WANT_TO_READ_LIST_ID }
+                        val inWantToRead = wantToRead?.entries?.any { it.seriesId == summary.id } == true
+                        ToggleButton(
+                            checked = inWantToRead,
+                            onCheckedChange = {
+                                haptics.performHapticFeedback(if (inWantToRead) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                                scope.launch {
+                                    val pile = readingLists.ensureWantToRead()
+                                    if (inWantToRead) readingLists.removeSeries(pile.id, summary.id)
+                                    else readingLists.addSeries(pile.id, summary.id, summary.title, summary.coverUrl)
+                                }
+                            },
+                        ) { Text(if (inWantToRead) "Want to read ✓" else "Want to read") }
                         if (subscribed) {
                             FilledTonalIconToggleButton(checked = notifyEnabled, onCheckedChange = { viewModel.setNotify(it) }) {
                                 Icon(
@@ -395,6 +437,10 @@ fun SeriesScreen(
                 }
                 if (page.detail.tags.isNotEmpty()) {
                     item { TagChips(page.detail.tags, onOpenTag, onBlockTag = viewModel::blockTag) }
+                }
+                // Trope tags mapped from the MangaDex tags, for discovery by trope.
+                if (tropes.isNotEmpty()) {
+                    item { TropeChips(tropes, onOpenTag) }
                 }
                 if (related.isNotEmpty()) {
                     item {
@@ -491,25 +537,21 @@ fun SeriesScreen(
                         },
                     )
                 }
-                items(
-                    listItems,
-                    key = { item -> if (item is ChapterListItem.Entry) item.chapter.id else "volume-${(item as ChapterListItem.VolumeHeader).label}" },
-                    // Headings and chapter rows recycle separately, so a scrolled-off row is reused for another row.
-                    contentType = { item -> if (item is ChapterListItem.Entry) 0 else 1 },
-                ) { item ->
-                    when (item) {
-                        is ChapterListItem.VolumeHeader -> Text(
-                            item.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
-                        )
-                        is ChapterListItem.Entry -> {
-                            val chapter = item.chapter
-                            val readable = chapter.externalUrl == null
-                            val previous = previousOf[chapter.id]
-                            EpisodeRow(
+                groups.forEach { group ->
+                    if (group.label.isNotEmpty()) {
+                        item(key = "volume-${group.label}") { VolumeGroupHeader(group, collapse) }
+                    }
+                    // A collapsed volume hides its chapters; the header above stays to reopen it.
+                    val chapters = if (group.label.isNotEmpty() && collapse.isCollapsed(group.label)) emptyList() else group.chapters
+                    items(
+                        chapters,
+                        // Chapter rows recycle separately from volume headers, so a scrolled-off row is reused for another row.
+                        key = { chapter -> chapter.id },
+                        contentType = { 0 },
+                    ) { chapter ->
+                        val readable = chapter.externalUrl == null
+                        val previous = previousOf[chapter.id]
+                        EpisodeRow(
                                 chapter,
                                 summary.coverUrl,
                                 read = isChapterRead(chapter.number, lastRead?.chapterNumber),
@@ -546,8 +588,13 @@ fun SeriesScreen(
                                     anchor = chapter.id
                                 },
                                 onComments = { viewModel.openComments(chapter) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+                                onBlacklist = {
+                                    scope.launch {
+                                        blacklist.add(summary.id, chapter.id)
+                                        viewModel.notifyBlacklisted(chapter)
+                                    }
+                                },
                             )
-                        }
                     }
                 }
                 if (loadingMore) {
@@ -561,13 +608,13 @@ fun SeriesScreen(
             }
             // Go to a typed chapter number. It may sit in a page not loaded yet, so the whole list loads first.
             val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
-            LaunchedEffect(pendingJump, listItems) {
+            LaunchedEffect(pendingJump, flatSlots) {
                 val wanted = pendingJump ?: return@LaunchedEffect
-                val at = listItems.indexOfFirst { it is ChapterListItem.Entry && (it.chapter.number == wanted || it.chapter.number.toDoubleOrNull() == wanted.toDoubleOrNull()) }
+                val at = flatSlots.indexOfFirst { it is ChapterListItem.Entry && (it.chapter.number == wanted || it.chapter.number.toDoubleOrNull() == wanted.toDoubleOrNull()) }
                 when {
                     at >= 0 -> {
                         // Items before the chapters: the header rows on a narrow screen, then the resume button and the controls.
-                        val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), bookmarks.isNotEmpty(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
+                        val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), bookmarks.isNotEmpty(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), tropes.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
                         listState.animateScrollToItem(before + 2 + at)
                         pendingJump = null
                     }
@@ -599,5 +646,5 @@ fun SeriesScreen(
 }
 
 /** How many list items come before the chapters on a narrow screen. It must match the header built above. */
-private fun headerItemCount(offline: Boolean, note: Boolean, bookmarks: Boolean, description: Boolean, tags: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
-    listOf(offline, true, true, note, bookmarks, description, tags, related, similar, noChapters).count { it }
+private fun headerItemCount(offline: Boolean, note: Boolean, bookmarks: Boolean, description: Boolean, tags: Boolean, tropes: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
+    listOf(offline, true, true, note, bookmarks, description, tags, tropes, related, similar, noChapters).count { it }

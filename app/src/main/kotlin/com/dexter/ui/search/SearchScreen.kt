@@ -35,12 +35,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.Order
+import com.dexter.data.QolPrefs
 import com.dexter.data.SearchFilters
 import com.dexter.data.activeFilters
 import com.dexter.ui.ChoiceChip
@@ -74,6 +77,10 @@ fun SearchScreen(
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
+    val gems by viewModel.gems.collectAsStateWithLifecycle()
+    // The hidden-gems feed on the idle screen is gated by its own toggle.
+    val qolPrefs = remember { QolPrefs(LocalContext.current) }
+    val gemsOn by qolPrefs.hiddenGemsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val savedSearches by viewModel.savedSearches.collectAsStateWithLifecycle()
     val authors by viewModel.authorSuggestions.collectAsStateWithLifecycle()
@@ -144,11 +151,12 @@ fun SearchScreen(
                         if (text.isNotEmpty()) {
                             Icon(
                                 Icons.Default.Clear, contentDescription = stringResource(R.string.clear),
-                                modifier = Modifier.size(18.dp).clickable {
+                                // A 42dp target around the 18dp glyph, so it is tappable without fat-fingering.
+                                modifier = Modifier.clickable {
                                     text = ""
                                     viewModel.onTyping("")
                                     viewModel.clear()
-                                },
+                                }.padding(12.dp).size(18.dp),
                             )
                         }
                     },
@@ -196,6 +204,9 @@ fun SearchScreen(
                         text = tag
                         viewModel.openTag(tag)
                     },
+                    gems = gems,
+                    gemsEnabled = gemsOn,
+                    onLoadGems = viewModel::loadGems,
                 )
             } else {
                 offlineSavedAt?.let { OfflineBanner(it, "results", onRetry = viewModel::retry) }

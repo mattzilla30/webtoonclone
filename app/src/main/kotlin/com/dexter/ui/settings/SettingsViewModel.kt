@@ -7,6 +7,7 @@ import coil3.SingletonImageLoader
 import com.dexter.DexterApp
 import com.dexter.data.Accounts
 import com.dexter.data.Backup
+import com.dexter.data.DuplicateGroup
 import com.dexter.data.HttpStatusException
 import com.dexter.data.LibraryData
 import com.dexter.data.Release
@@ -15,7 +16,9 @@ import com.dexter.data.decodeBackup
 import com.dexter.data.isNewer
 import com.dexter.data.latestRelease
 import com.dexter.data.parseMihonBackup
+import com.dexter.data.suggestedKeep
 import com.dexter.notify.AutoBackupWorker
+import com.dexter.notify.DownloadWorker
 import com.dexter.notify.GoalReminderWorker
 import com.dexter.notify.NewChaptersWorker
 import com.dexter.ui.LogFailures
@@ -243,12 +246,69 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         }
     }
 
+    private val _pendingArchive = MutableStateFlow<Uri?>(null)
+    val pendingArchive: StateFlow<Uri?> = _pendingArchive
+
+    /** Writes the full zip archive (data, covers, downloaded pages) to [uri]. */
+    fun exportArchive(uri: Uri) {
+        viewModelScope.launch(LogFailures) {
+            _message.value = runCatching {
+                app.backupArchive.exportTo(uri)
+                "Backup archive saved"
+            }.getOrElse { "Could not save the backup archive" }
+        }
+    }
+
+    /** Reads the backup out of a zip archive at [uri], then asks before replacing anything. */
+    fun readArchive(uri: Uri) {
+        viewModelScope.launch(LogFailures) {
+            val backup = runCatching { app.backupArchive.readArchive(uri) }.getOrNull()
+            if (backup == null) _message.value = "That file is not a backup archive from this app"
+            else {
+                _pendingArchive.value = uri
+                _pending.value = backup
+            }
+        }
+    }
+
+    fun cancelArchiveRestore() {
+        _pending.value = null
+        _pendingArchive.value = null
+    }
+
+    fun confirmArchiveRestore() {
+        val backup = _pending.value ?: return
+        val uri = _pendingArchive.value ?: return
+        _pending.value = null
+        _pendingArchive.value = null
+        viewModelScope.launch(LogFailures) {
+            _message.value = runCatching {
+                app.backupArchive.restoreArchive(uri, backup)
+                // The restored queue may hold chapters again; let the downloader drain it (Wi-Fi-only still applies).
+                DownloadWorker.start(app, app.settingsStore.current().downloadWifiOnly)
+                "Backup archive restored"
+            }.getOrElse { "Could not restore the backup archive" }
+        }
+    }
+
     /** Removes every series from the Recent list. Subscriptions, lists, and collections stay. */
     fun clearHistory() {
         viewModelScope.launch(LogFailures) {
             val ids = app.libraryStore.current().recent.mapTo(mutableSetOf()) { it.id }
             app.libraryStore.removeRecent(ids)
             _message.value = "Reading history cleared"
+        }
+    }
+
+    /** Removes every copy of each duplicated series except the suggested one to keep. */
+    fun removeDuplicateCopies(group: DuplicateGroup) {
+        viewModelScope.launch(LogFailures) {
+            val keep = suggestedKeep(group)
+            val drop = group.series.map { it.id }.toSet() - keep.id
+            app.libraryStore.removeRecent(drop)
+            app.libraryStore.removeSubscribed(drop)
+            app.libraryStore.removeLists(drop)
+            _message.value = "Removed ${drop.size} duplicate ${if (drop.size == 1) "copy" else "copies"}"
         }
     }
 

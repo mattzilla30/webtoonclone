@@ -22,6 +22,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -40,7 +41,6 @@ import com.dexter.data.ReadingMode
 import com.dexter.data.Settings
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.SyncedSlider
-import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
 
 /** Every readable chapter, oldest first, opened at the current one. Tapping one jumps to it. */
@@ -92,9 +92,16 @@ internal fun ReaderOptions(
     chosenMode: ReadingMode,
     seriesLook: Boolean,
     onSeriesLook: (Boolean) -> Unit,
+    zen: Boolean,
+    onZen: (Boolean) -> Unit,
+    seriesOrientation: ReaderOrientation,
+    onSeriesOrientation: (ReaderOrientation) -> Unit,
     onChange: ((Settings) -> Settings) -> Unit,
     onMode: (ReadingMode) -> Unit,
     onDismiss: () -> Unit,
+    /** Spread-aware pairing shift: 0 is the cover alone, 1 pairs it forward. Null hides the control. */
+    pairShift: Int = 0,
+    onPairShift: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
@@ -111,6 +118,12 @@ internal fun ReaderOptions(
                     ChoiceChip(label, settings.defaultReadingMode == value) { onChange { it.copy(defaultReadingMode = value) } }
                 }
             }
+
+            OptionSwitch(
+                "Zen reading mode: hide everything, volume keys turn pages, long-press to exit",
+                zen,
+                onZen,
+            )
 
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Separate look for this series", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -183,6 +196,19 @@ internal fun ReaderOptions(
                     }
                 }
                 OptionSwitch("Two pages side by side when sideways", settings.spreads) { on -> onChange { it.copy(spreads = on) } }
+                if (settings.spreads && onPairShift != null) {
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Page pairing", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onPairShift) {
+                            Text(if (pairShift == 0) "Cover alone" else "Shifted by one")
+                        }
+                    }
+                    Text(
+                        "When two-page spreads pair up wrong, shift the pairing by one page.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             } else {
                 OptionSwitch("Next episode follows on below", settings.continuousScroll) { on -> onChange { it.copy(continuousScroll = on) } }
                 OptionSwitch("Tap top or bottom to scroll", settings.tapToScroll) { on -> onChange { it.copy(tapToScroll = on) } }
@@ -196,6 +222,16 @@ internal fun ReaderOptions(
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ReaderOrientation.entries.forEach { choice ->
                     ChoiceChip(choice.name, settings.readerOrientation == choice) { onChange { it.copy(readerOrientation = choice) } }
+                }
+            }
+
+            Text("Screen direction for this series", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Auto follows the global choice above.
+                ReaderOrientation.entries.forEach { choice ->
+                    ChoiceChip(if (choice == ReaderOrientation.Auto) "Follow global" else choice.name, seriesOrientation == choice) {
+                        onSeriesOrientation(choice)
+                    }
                 }
             }
 

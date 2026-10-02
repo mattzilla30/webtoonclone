@@ -7,6 +7,7 @@ import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.dexter.data.AccountStore
+import com.dexter.data.BackupArchive
 import com.dexter.data.BackupService
 import com.dexter.data.DownloadStore
 import com.dexter.data.ErrorLog
@@ -15,8 +16,10 @@ import com.dexter.data.ImageReporter
 import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
+import com.dexter.data.MeteredDataSaver
 import com.dexter.data.SettingsStore
 import com.dexter.data.Trackers
+import com.dexter.cast.castModule
 import com.dexter.di.BASE_CLIENT
 import com.dexter.di.appModule
 import com.dexter.notify.AutoBackupWorker
@@ -58,10 +61,16 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val libraryStore: LibraryStore by inject()
     val downloadStore: DownloadStore by inject()
     val backupService: BackupService by inject()
+
+    /** The full backup archive: the backup JSON, series covers, and downloaded chapter pages in one zip. */
+    val backupArchive: BackupArchive by lazy {
+        BackupArchive(this, backupService, downloadStore, plainClient)
+    }
     val accountStore: AccountStore by inject()
     val mangaDexAccount: MangaDexAccount by inject()
     val trackers: Trackers by inject()
     private val baseClient: OkHttpClient by inject(named(BASE_CLIENT))
+    private val meteredDataSaver: MeteredDataSaver by inject()
 
     /** The client with no response cache, for calls outside MangaDex such as the update check. */
     val plainClient: OkHttpClient get() = baseClient
@@ -72,7 +81,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
         ErrorLog.init(this)
         startKoin {
             androidContext(this@DexterApp)
-            modules(appModule)
+            modules(appModule, castModule)
         }
         // Scheduling opens WorkManager's database, so it stays off the main thread and out of the launch.
         appScope.launch { NewChaptersWorker.schedule(this@DexterApp, settingsStore.current().checkIntervalMinutes) }
@@ -104,6 +113,8 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
                 reportImageLoads = settings.reportImageLoads
             }
         }
+        // Auto data saver on metered connections (reader UI settings).
+        meteredDataSaver.start(appScope)
     }
 
     /** Page and cover images. Loads from MangaDex@Home servers are reported when allowed. */

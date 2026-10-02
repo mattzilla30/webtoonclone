@@ -16,6 +16,7 @@ import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.ProgressStore
+import com.dexter.data.ReaderOrientation
 import com.dexter.data.ReadingMode
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesCacheStore
@@ -28,6 +29,7 @@ import com.dexter.data.applyLookChange
 import com.dexter.data.detectReadingMode
 import com.dexter.data.effectiveLook
 import com.dexter.data.findChapter
+import com.dexter.data.nextChapterIndex
 import com.dexter.data.resolveMode
 import com.dexter.data.withSeriesLook
 import com.dexter.notify.DownloadWorker
@@ -83,7 +85,7 @@ private const val RENEW_PAGES_MS = 60_000L
 internal const val MAX_SEGMENTS = 12
 
 class ReaderViewModel(
-    private val seriesId: String,
+    val seriesId: String,
     private val chapterId: String,
     /** A page to open at, such as a bookmark's, or -1 for where you left off. */
     private val openAtPage: Int,
@@ -146,6 +148,31 @@ class ReaderViewModel(
         viewModelScope.launch(LogFailures) { settingsStore.update { applyLookChange(it, seriesId, change) } }
     }
 
+    private val _zen = MutableStateFlow(false)
+
+    /**
+     * Zen reading mode: hides all chrome, shields taps, and routes navigation to the volume keys.
+     * A session toggle only, never saved.
+     */
+    val zen: StateFlow<Boolean> = _zen
+
+    fun setZen(on: Boolean) {
+        _zen.value = on
+    }
+
+    /** Saves a screen orientation for this series. Auto removes the choice so the global setting applies. */
+    fun setSeriesOrientation(orientation: ReaderOrientation) {
+        updateSettings { settings ->
+            settings.copy(
+                seriesOrientations = if (orientation == ReaderOrientation.Auto) {
+                    settings.seriesOrientations - seriesId
+                } else {
+                    settings.seriesOrientations + (seriesId to orientation)
+                },
+            )
+        }
+    }
+
     private val _state = MutableStateFlow<Load<ReaderPage>>(Load.Loading)
     val state: StateFlow<Load<ReaderPage>> = _state
 
@@ -158,6 +185,11 @@ class ReaderViewModel(
         _toast.value = null
     }
 
+    /** Shows a short message. */
+    fun toast(message: String) {
+        _toast.value = message
+    }
+
     /** The next chapter's first pages are preloaded once per reader session. */
     private var previewed = false
 
@@ -167,6 +199,13 @@ class ReaderViewModel(
     /** The series as the library knows it, and its saved copy, read once when the chapter loads. */
     private var known: SavedSeries? = null
     private var cachedDetail: SeriesDetail? = null
+
+    /** Skip-read advance: chapters at or below [lastReadNumber] are jumped over. Read once per load. */
+    private var skipRead = false
+    private var lastReadNumber: String? = null
+
+    /** The chapter the reader advances to from [index], skipping read chapters when that is on. */
+    private fun nextIndex(chapters: List<Chapter>, index: Int) = nextChapterIndex(chapters, index, lastReadNumber, skipRead)
 
     /** Chapters already recorded as read this session, so scrolling back and forth records each once. */
     private val entered = HashSet<String>()
@@ -217,6 +256,9 @@ class ReaderViewModel(
                     detected.value = detection.await()
                     cachedDetail = cached.await()
                     known = knownSeries.await()
+                    val lib = libraryStore.current()
+                    skipRead = settingsStore.current().skipReadChapters
+                    lastReadNumber = lib.recent.firstOrNull { it.id == seriesId }?.chapterNumber
                     val resume = saved?.takeIf { it.chapterId == chapterId }
                     Load.Ready(
                         ReaderPage(
@@ -237,7 +279,7 @@ class ReaderViewModel(
     }
 
     private fun segment(list: List<Chapter>, index: Int, chapter: Chapter, pages: List<String>) =
-        ChapterSegment(chapter, pages, index, list.getOrNull(index - 1)?.id, list.getOrNull(index + 1)?.id)
+        ChapterSegment(chapter, pages, index, list.getOrNull(index - 1)?.id, list.getOrNull(nextIndex(list, index))?.id)
 
     /** The pages of a chapter: the saved files when it is saved, the image server's addresses when not. */
     private suspend fun pagesFor(id: String, forceRefresh: Boolean = false): List<String> =
@@ -251,7 +293,7 @@ class ReaderViewModel(
         val page = (_state.value as? Load.Ready)?.value ?: return
         if (appendJob?.isActive == true || page.segments.size >= MAX_SEGMENTS) return
         val last = page.segments.last()
-        val nextIndex = last.index + 1
+        val nextIndex = nextIndex(page.chapters, last.index)
         val next = page.chapters.getOrNull(nextIndex) ?: return
         appendJob = viewModelScope.launch(LogFailures) {
             val pages = catching { pagesFor(next.id) }.getOrNull() ?: return@launch
@@ -271,6 +313,7 @@ class ReaderViewModel(
             val settings = settingsStore.current()
             if (!settings.incognito) {
                 recordRecent(segment.chapter)
+                lastReadNumber = segment.chapter.number
                 // A read marker on MangaDex too, when you are signed in with them on.
                 catching { account.markRead(seriesId, listOf(segment.chapter.id)) }
                 // AniList and MyAnimeList progress, for the trackers you signed in to.
@@ -290,7 +333,8 @@ class ReaderViewModel(
 
     /** With the setting on, queues the chapter after [segment] for saving, unless it is already saved. */
     private suspend fun saveNextChapter(segment: ChapterSegment, settings: Settings) {
-        val next = (_state.value as? Load.Ready)?.value?.chapters?.getOrNull(segment.index + 1) ?: return
+        val chapters = (_state.value as? Load.Ready)?.value?.chapters ?: return
+        val next = chapters.getOrNull(nextIndex(chapters, segment.index)) ?: return
         val series = known ?: return
         // The queue ignores a chapter it already holds, so there is no need to check for one here.
         if (!settings.autoDownloadNext || downloads.isSaved(next.id)) return

@@ -144,12 +144,14 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     }
 
     suspend fun recordRecent(series: SavedSeries) = modify(LibraryList.Recent) { recent ->
+        stampAddedIds(recent, listOf(series.id))
         (listOf(series.copy(at = System.currentTimeMillis())) + recent.filterNot { it.id == series.id }).take(MAX_RECENT)
     }
 
     suspend fun removeRecent(ids: Set<String>) = modify(LibraryList.Recent) { recent -> recent.filterNot { it.id in ids } }
 
     suspend fun toggleSubscribed(series: SavedSeries) = modify(LibraryList.Subscribed) { subscribed ->
+        stampAddedIds(subscribed, listOf(series.id))
         if (subscribed.any { it.id == series.id }) subscribed.filterNot { it.id == series.id } else listOf(series) + subscribed
     }
 
@@ -184,6 +186,7 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     /** Puts a series in a reading list with [status], or takes it out of the lists when [status] is null. */
     suspend fun setStatus(series: SavedSeries, status: ReadingStatus?) = modify(LibraryList.Lists) { lists ->
+        stampAddedIds(lists, listOf(series.id))
         val rest = lists.filterNot { it.id == series.id }
         if (status == null) rest else listOf(series.copy(status = status)) + rest
     }
@@ -191,13 +194,19 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     suspend fun removeLists(ids: Set<String>) = modify(LibraryList.Lists) { lists -> lists.filterNot { it.id in ids } }
 
     /** Undoes a removal by merging the earlier list back in. See [mergeRestore]. */
-    suspend fun restore(list: LibraryList, snapshot: List<SavedSeries>) = modify(list) { current -> mergeRestore(current, snapshot) }
+    suspend fun restore(list: LibraryList, snapshot: List<SavedSeries>) = modify(list) { current ->
+        stampAddedIds(current, snapshot.map { it.id })
+        mergeRestore(current, snapshot)
+    }
 
     /** Adds the series to the collection [name], or removes it when it is already there. Creates the collection if needed. */
     suspend fun toggleCollection(name: String, series: SavedSeries) = updateScalars { data ->
         val current = data.collections[name].orEmpty()
         val next = if (current.any { it.id == series.id }) current.filterNot { it.id == series.id } else listOf(series) + current
-        data.copy(collections = data.collections + (name to next))
+        data.copy(
+            collections = data.collections + (name to next),
+            addedAt = stampAdded(current, listOf(series.id), data.addedAt),
+        )
     }
 
     /** Follows the author, recording the series that exist now as seen. Unfollows when already followed. */
@@ -254,7 +263,10 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     suspend fun addToCollection(name: String, series: List<SavedSeries>) = updateScalars { data ->
         val current = data.collections[name].orEmpty()
         val added = series.filter { s -> current.none { it.id == s.id } }
-        data.copy(collections = data.collections + (name to (added + current)))
+        data.copy(
+            collections = data.collections + (name to (added + current)),
+            addedAt = stampAdded(current, added.map { it.id }, data.addedAt),
+        )
     }
 
     /**
@@ -264,10 +276,12 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     suspend fun importSeries(imported: List<ImportedSeries>) {
         val saved = imported.map { SavedSeries(it.id, it.title, it.coverUrl) }.associateBy { it.id }
         modify(LibraryList.Subscribed) { subscribed ->
+            stampAddedIds(subscribed, imported.map { it.id })
             val have = subscribed.mapTo(HashSet()) { it.id }
             subscribed + imported.filter { it.favorite && it.id !in have }.map { saved.getValue(it.id) }
         }
         modify(LibraryList.Recent) { recent ->
+            stampAddedIds(recent, imported.map { it.id })
             val have = recent.mapTo(HashSet()) { it.id }
             val read = imported.filter { it.lastReadChapterId != null && it.id !in have }
                 .map { SavedSeries(it.id, it.title, it.coverUrl, it.lastReadChapterId, it.lastReadNumber) }
@@ -280,6 +294,7 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
 
     /** Puts every one of [series] in a reading list with [status], or takes them out of the lists when [status] is null. */
     suspend fun setStatusAll(series: List<SavedSeries>, status: ReadingStatus?) = modify(LibraryList.Lists) { lists ->
+        stampAddedIds(lists, series.map { it.id })
         val ids = series.mapTo(HashSet()) { it.id }
         val rest = lists.filterNot { it.id in ids }
         if (status == null) rest else series.map { it.copy(status = status) } + rest
@@ -301,6 +316,31 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
     suspend fun setNote(seriesId: String, text: String) = updateScalars { data ->
         val note = text.trim()
         data.copy(notes = if (note.isEmpty()) data.notes - seriesId else data.notes + (seriesId to note))
+    }
+
+    /** Replaces your own tags on the series [id]. Blank tags are dropped and repeats removed. */
+    suspend fun setSeriesTags(id: String, tags: List<String>) = updateScalars { data ->
+        val clean = tags.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        data.copy(seriesTags = if (clean.isEmpty()) data.seriesTags - id else data.seriesTags + (id to clean))
+    }
+
+    /** Adds [tag] to every one of [ids], keeping the tags already there. */
+    suspend fun addSeriesTag(ids: Set<String>, tag: String) {
+        val clean = tag.trim()
+        if (clean.isEmpty() || ids.isEmpty()) return
+        updateScalars { data ->
+            data.copy(seriesTags = data.seriesTags + ids.associateWith { id -> (data.seriesTags[id].orEmpty() + clean).distinct() })
+        }
+    }
+
+    /** Removes [tag] from every one of [ids]. A series left with no tags drops out of the map. */
+    suspend fun removeSeriesTag(ids: Set<String>, tag: String) = updateScalars { data ->
+        data.copy(
+            seriesTags = ids.fold(data.seriesTags) { tags, id ->
+                val kept = tags[id].orEmpty() - tag
+                if (kept.isEmpty()) tags - id else tags + (id to kept)
+            },
+        )
     }
 
     suspend fun setLibrarySort(name: String) = updateScalars { it.copy(librarySort = name) }
@@ -356,13 +396,36 @@ class LibraryStore(private val context: Context, private val db: AppDatabase) {
         }
     }
 
-    private suspend fun modify(list: LibraryList, change: (List<SavedSeries>) -> List<SavedSeries>) {
+    private suspend fun modify(list: LibraryList, change: suspend (List<SavedSeries>) -> List<SavedSeries>) {
         ensureMigrated()
         db.withTransaction {
             val before = dao.get(list.key).map { it.toSaved() }
             val after = change(before)
             // A change that leaves the list as it was writes nothing, so no screen redraws for it.
             if (after != before) writeList(list, after)
+        }
+    }
+
+    /**
+     * Stamps series new to [before] and to [known] with [now], for the "Date added" sort. Series
+     * already seen keep their first stamp. Pure, so the DataStore call sites stay in charge of saving.
+     */
+    private fun stampAdded(
+        before: List<SavedSeries>,
+        ids: List<String>,
+        known: Map<String, Long>,
+        now: Long = System.currentTimeMillis(),
+    ): Map<String, Long> {
+        val have = before.mapTo(HashSet()) { it.id }
+        val fresh = ids.filter { it !in have && it !in known }
+        return if (fresh.isEmpty()) known else known + fresh.associateWith { now }
+    }
+
+    /** Records the first-seen time of [ids] new to [before] in the scalar store. */
+    private suspend fun stampAddedIds(before: List<SavedSeries>, ids: List<String>) {
+        updateScalars { data ->
+            val stamped = stampAdded(before, ids, data.addedAt)
+            if (stamped === data.addedAt) data else data.copy(addedAt = stamped)
         }
     }
 

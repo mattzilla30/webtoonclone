@@ -2,7 +2,11 @@ package com.dexter.ui.downloads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dexter.data.ComicInfo
+import com.dexter.data.ChapterIntegrity
+import com.dexter.data.DownloadIntegrity
 import com.dexter.data.DownloadStore
+import com.dexter.data.MangaDexRepository
 import com.dexter.data.Settings
 import com.dexter.data.SettingsStore
 import com.dexter.data.db.DownloadEntity
@@ -35,7 +39,12 @@ fun groupDownloads(rows: List<DownloadEntity>): List<SavedSeriesGroup> = rows
     }
     .sortedByDescending { group -> group.chapters.maxOf { it.savedAt } }
 
-class DownloadsViewModel(private val store: DownloadStore, private val settingsStore: SettingsStore) : ViewModel() {
+class DownloadsViewModel(
+    private val store: DownloadStore,
+    private val settingsStore: SettingsStore,
+    private val integrity: DownloadIntegrity,
+    private val repository: MangaDexRepository,
+) : ViewModel() {
     /** Chapters waiting to be saved, in order. */
     val queue: StateFlow<List<QueuedDownloadEntity>> = store.queue
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -95,11 +104,72 @@ class DownloadsViewModel(private val store: DownloadStore, private val settingsS
         viewModelScope.launch(LogFailures) { store.delete(chapterId) }
     }
 
+    /**
+     * Saves edited metadata for a downloaded chapter. The pages on disk are untouched; the next
+     * CBZ export embeds the new values in its ComicInfo.xml.
+     */
+    fun updateMetadata(chapterId: String, info: ComicInfo) {
+        viewModelScope.launch(LogFailures) {
+            val row = store.row(chapterId) ?: return@launch
+            store.updateRow(
+                row.copy(
+                    seriesTitle = info.series,
+                    number = info.number,
+                    title = info.title,
+                    volume = info.volume,
+                    groupName = info.translator,
+                ),
+            )
+            _toast.value = "Metadata updated"
+        }
+    }
+
     fun deleteSeries(seriesId: String) {
         viewModelScope.launch(LogFailures) { store.deleteSeries(seriesId) }
     }
 
     fun deleteAll() {
         viewModelScope.launch(LogFailures) { store.deleteAll() }
+    }
+
+    /** Chapters with problems per series, after a verify; null while a verify runs. */
+    private val _integrity = MutableStateFlow<Map<String, List<ChapterIntegrity>>?>(emptyMap())
+    val integrity: StateFlow<Map<String, List<ChapterIntegrity>>?> = _integrity
+
+    /** Checks every saved chapter of [seriesId]; only chapters with problems are reported. */
+    fun verifySeries(seriesId: String) {
+        viewModelScope.launch(LogFailures) {
+            _integrity.value = null
+            val bad = catching { integrity.verifySeries(seriesId) }.getOrDefault(emptyList())
+            _integrity.value = (_integrity.value ?: emptyMap()) + (seriesId to bad)
+            _toast.value = if (bad.isEmpty()) "All chapters verified" else "${bad.size} ${if (bad.size == 1) "chapter" else "chapters"} need repair"
+        }
+    }
+
+    /** Re-downloads a chapter's bad pages, then re-verifies. */
+    fun repairChapter(seriesId: String, report: ChapterIntegrity) {
+        viewModelScope.launch(LogFailures) {
+            _toast.value = "Repairing..."
+            val urls = catching { repository.pages(report.chapterId) }.getOrNull()
+            if (urls == null) {
+                _toast.value = "Could not fetch fresh page addresses"
+                return@launch
+            }
+            val fresh = catching { integrity.repairChapter(report.chapterId, report, urls) }.getOrNull()
+            if (fresh == null) {
+                _toast.value = "Repair failed"
+                return@launch
+            }
+            val current = (_integrity.value ?: emptyMap()).toMutableMap()
+            val remaining = current.getOrDefault(seriesId, emptyList()).filter { it.chapterId != report.chapterId } +
+                listOfNotNull(fresh.takeUnless { it.ok })
+            current[seriesId] = remaining
+            _integrity.value = current
+            _toast.value = if (fresh.ok) "Repaired" else "Still broken after repair"
+        }
+    }
+
+    fun clearIntegrity() {
+        _integrity.value = emptyMap()
     }
 }

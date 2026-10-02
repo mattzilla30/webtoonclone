@@ -83,7 +83,13 @@ fun chaptersOverCap(rows: List<DownloadEntity>, capBytes: Long, keep: String?): 
 }
 
 /** Chapters saved on the device: page files on disk and a row per finished chapter. */
-class DownloadStore(context: Context, private val db: AppDatabase, private val client: OkHttpClient) {
+class DownloadStore(
+    context: Context,
+    private val db: AppDatabase,
+    private val client: OkHttpClient,
+    /** Blacklisted chapters are never enqueued. Defaults so existing Koin wiring keeps compiling. */
+    private val blacklist: ChapterBlacklist = ChapterBlacklist(context),
+) {
     private val cbz = CbzExport(context)
 
     private val dao get() = db.downloads()
@@ -106,8 +112,9 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
     /** Chapters cancelled while they were being saved. The worker reads this to tell a cancel from a stop. */
     private val cancelled = ConcurrentHashMap.newKeySet<String>()
 
-    /** Puts [chapter] at the end of the queue. A chapter already waiting keeps its place. */
+    /** Puts [chapter] at the end of the queue. A chapter already waiting keeps its place. Blacklisted chapters are refused. */
     suspend fun enqueue(seriesId: String, seriesTitle: String, coverUrl: String?, chapter: Chapter) {
+        if (blacklist.isBlacklisted(seriesId, chapter.id)) return
         queueDao.insert(
             QueuedDownloadEntity(
                 chapterId = chapter.id,
@@ -123,6 +130,10 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
             ),
         )
     }
+
+    /** True when the user blacklisted [chapterId] of [seriesId]: it must not download or notify. */
+    suspend fun isBlacklisted(seriesId: String, chapterId: String): Boolean =
+        blacklist.isBlacklisted(seriesId, chapterId)
 
     /** The next chapter to save, or null when the queue is empty. */
     suspend fun nextQueued(): QueuedDownloadEntity? = queueDao.first()
@@ -183,6 +194,25 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
     suspend fun chaptersOf(seriesId: String): List<Chapter> = savedChapters(dao.forSeries(seriesId))
 
     suspend fun isSaved(chapterId: String) = dao.get(chapterId) != null
+
+    /** Ids of series with at least one saved chapter, for offline-only library views. */
+    suspend fun savedSeriesIds(): Set<String> = dao.observe().first().mapTo(HashSet()) { it.seriesId }
+
+    /**
+     * Re-inserts a downloaded chapter's row from a backup. The page files must already be in place;
+     * [prune] drops rows whose files are missing.
+     */
+    suspend fun restoreRow(row: SavedDownload) {
+        dao.insert(row.toEntity())
+    }
+
+    /** The folder holding [chapterId]'s page files, for the backup archive. */
+    fun dirFor(chapterId: String): File = File(root, chapterId)
+
+    /** The page files of [chapterId], in reading order, for the backup archive. */
+    suspend fun pageFiles(chapterId: String): List<File> = withContext(Dispatchers.IO) {
+        dirFor(chapterId).listFiles()?.sortedBy { it.name }.orEmpty()
+    }
 
     /** Exports saved chapters as CBZ files in Downloads/Dexter. Returns how many were written. */
     suspend fun exportCbz(chapterIds: List<String>): Int = chapterIds.count { id ->
@@ -249,6 +279,15 @@ class DownloadStore(context: Context, private val db: AppDatabase, private val c
         dao.delete(chapterId)
         File(root, chapterId).deleteRecursively()
         Unit
+    }
+
+    /** Replaces a saved chapter's row, for metadata edits. The pages on disk are untouched. */
+    suspend fun updateRow(row: DownloadEntity) = withContext(Dispatchers.IO) {
+        dao.insert(row)
+    }
+
+    suspend fun row(chapterId: String): DownloadEntity? = withContext(Dispatchers.IO) {
+        dao.get(chapterId)
     }
 
     suspend fun deleteSeries(seriesId: String) = withContext(Dispatchers.IO) {

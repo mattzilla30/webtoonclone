@@ -272,6 +272,7 @@ private fun ContinueCard(
     Box(
         modifier.combinedClickable(
             onClick = onOpen,
+            onClickLabel = "Continue reading",
             onLongClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 menu = true

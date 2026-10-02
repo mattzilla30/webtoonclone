@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -69,6 +70,7 @@ import com.dexter.data.Bookmark
 import com.dexter.data.Chapter
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SeriesDetail
+import com.dexter.data.TropeTag
 import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
@@ -133,6 +135,8 @@ internal fun EpisodeRow(
     onRangeTo: () -> Unit = {},
     onStartSelecting: () -> Unit = {},
     onComments: () -> Unit = {},
+    /** Hides the chapter from the list, downloads, and update checks, until unblacklisted in settings. */
+    onBlacklist: (() -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
@@ -199,6 +203,9 @@ internal fun EpisodeRow(
                 DropdownMenuItem(text = { Text("Select") }, onClick = { menu = false; onStartSelecting() })
             }
             DropdownMenuItem(text = { Text("Comments") }, onClick = { menu = false; onComments() })
+            if (onBlacklist != null) {
+                DropdownMenuItem(text = { Text("Never show again") }, onClick = { menu = false; onBlacklist() })
+            }
             if (onMarkRead != null) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.mark_read_up_to_here)) }, onClick = { menu = false; onMarkRead() })
             }
@@ -271,6 +278,34 @@ internal fun TagChips(tags: List<String>, onOpenTag: (String) -> Unit, onBlockTa
                     DropdownMenuItem(text = { Text("Search $tag") }, onClick = { menu = false; onOpenTag(tag) })
                     DropdownMenuItem(text = { Text("Block $tag") }, onClick = { menu = false; onBlockTag(tag) })
                 }
+            }
+        }
+    }
+}
+
+/** The series' trope tags, mapped from its MangaDex tags. Tapping one searches its source tag. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun TropeChips(tropes: List<TropeTag>, onOpenTag: (String) -> Unit) {
+    if (tropes.isEmpty()) return
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            "Tropes",
+            style = MaterialTheme.typography.labelLargeEmphasized,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            tropes.forEach { trope ->
+                val searchTag = (trope.matchTags + trope.matchGenres).firstOrNull()
+                AssistChip(
+                    onClick = { searchTag?.let(onOpenTag) },
+                    enabled = searchTag != null,
+                    label = { Text(trope.label) },
+                )
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.dexter.ui.reader
 
+import com.dexter.data.PageSegment
 import com.dexter.data.pagesOfSpread
 import com.dexter.data.spreadOf
 
@@ -13,8 +14,16 @@ sealed interface StripItem {
         override val key get() = "d:$chapterId"
     }
 
-    data class Page(override val segment: Int, val page: Int, val chapterId: String) : StripItem {
-        override val key get() = "p:$chapterId:$page"
+    data class Page(
+        override val segment: Int,
+        val page: Int,
+        val chapterId: String,
+        /** Which chunk of a split tall page this is; 0 when the page is whole. */
+        val part: Int = 0,
+        /** How many chunks a split tall page has; 1 when the page is whole. */
+        val parts: Int = 1,
+    ) : StripItem {
+        override val key get() = if (parts > 1) "p:$chapterId:$page#$part" else "p:$chapterId:$page"
     }
 
     data class End(override val segment: Int) : StripItem {
@@ -26,10 +35,24 @@ sealed interface StripItem {
 data class Cursor(val segment: Int, val page: Int)
 
 /** The strip for [segments]: each chapter's pages, a heading before every chapter after the first, and an end card. */
-fun buildStrip(segments: List<ChapterSegment>): List<StripItem> = buildList {
+fun buildStrip(segments: List<ChapterSegment>): List<StripItem> = buildStrip(segments, emptyMap())
+
+/**
+ * The strip for [segments], with tall-page splits applied. [splits] maps (chapter index, page index)
+ * to the page's chunks; a page with one chunk renders whole, and one with several renders as one
+ * strip item per chunk.
+ */
+fun buildStrip(segments: List<ChapterSegment>, splits: Map<Pair<Int, Int>, List<PageSegment>>): List<StripItem> = buildList {
     segments.forEachIndexed { s, segment ->
         if (s > 0) add(StripItem.Divider(s, segment.chapter.id))
-        segment.pages.indices.forEach { add(StripItem.Page(s, it, segment.chapter.id)) }
+        segment.pages.indices.forEach { page ->
+            val parts = splits[s to page].orEmpty()
+            if (parts.size > 1) {
+                parts.forEachIndexed { part, _ -> add(StripItem.Page(s, page, segment.chapter.id, part, parts.size)) }
+            } else {
+                add(StripItem.Page(s, page, segment.chapter.id))
+            }
+        }
     }
     if (segments.isNotEmpty()) add(StripItem.End(segments.lastIndex))
 }

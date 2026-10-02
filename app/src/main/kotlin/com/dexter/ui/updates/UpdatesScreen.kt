@@ -58,6 +58,7 @@ import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.OfflineBanner
 import com.dexter.ui.dayHeading
+import com.dexter.ui.discover.ScheduleList
 import com.dexter.ui.timeAgo
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
@@ -95,20 +96,34 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit, o
     val subscribedIds by viewModel.subscribedIds.collectAsStateWithLifecycle()
     val lastRead by viewModel.lastRead.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val schedule by viewModel.schedule.collectAsStateWithLifecycle()
+    var showSchedule by remember { mutableStateOf(false) }
     val state = if (subscribedOnly) subscribedState else allState
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             AppTopBar(stringResource(R.string.updates))
             if (subscribedIds.isNotEmpty()) {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    ChoiceChip("Subscribed only", subscribedOnly) { viewModel.setSubscribedOnly(!subscribedOnly) }
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceChip("Subscribed only", subscribedOnly && !showSchedule) {
+                        viewModel.setSubscribedOnly(!subscribedOnly)
+                        showSchedule = false
+                    }
+                    ChoiceChip("Schedule", showSchedule) {
+                        showSchedule = !showSchedule
+                        if (showSchedule) viewModel.loadSchedule()
+                    }
                 }
             }
             PullToRefreshBox(isRefreshing = state is Load.Loading, onRefresh = {
                 haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
                 viewModel.refresh()
             }, modifier = Modifier.fillMaxSize()) {
+                if (showSchedule) {
+                    LoadView(schedule ?: Load.Loading, onRetry = viewModel::loadSchedule) { schedules ->
+                        ScheduleList(schedules, onOpenSeries)
+                    }
+                } else {
                 LoadView(state, onRetry = viewModel::refresh) { entries ->
                     val rows = remember(entries) { withDayHeadings(entries) }
                     val listState = rememberLazyListState()
@@ -176,6 +191,7 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit, o
                         }
                         BackToTopButton(listState, Modifier.align(Alignment.BottomEnd))
                     }
+                }
                 }
             }
         }

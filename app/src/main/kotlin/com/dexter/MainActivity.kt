@@ -83,6 +83,12 @@ import com.dexter.ui.home.HomeViewModel
 import com.dexter.ui.library.LibraryScreen
 import com.dexter.ui.library.LibraryViewModel
 import com.dexter.ui.library.unreadSeriesCount
+import com.dexter.automation.DexterAutomation
+import com.dexter.data.ReadingStatus
+import com.dexter.data.StorageReport
+import com.dexter.data.analyzeStorage
+import com.dexter.ui.downloads.StorageAnalyzerScreen
+import com.dexter.ui.reader.GamepadKeys
 import com.dexter.ui.reader.ReaderScreen
 import com.dexter.ui.reader.ReaderViewModel
 import com.dexter.ui.reader.VolumeKeyPager
@@ -103,7 +109,10 @@ import com.dexter.ui.updates.UpdatesScreen
 import com.dexter.ui.updates.UpdatesViewModel
 import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import android.graphics.Color as AndroidColor
@@ -127,13 +136,29 @@ class MainActivity : ComponentActivity() {
             link is MangaDexLink.Chapter -> PendingOpen(null, link.id)
             intent.hasExtra(EXTRA_SERIES_ID) -> PendingOpen(intent.getStringExtra(EXTRA_SERIES_ID), intent.getStringExtra(EXTRA_CHAPTER_ID))
             intent.hasExtra(EXTRA_ROUTE) -> PendingOpen(null, null, intent.getStringExtra(EXTRA_ROUTE))
+            // Tasker / automation intents arrive via AutomationReceiver with the launcher activity.
+            intent.action == DexterAutomation.ACTION_OPEN_READER -> PendingOpen(
+                intent.getStringExtra(DexterAutomation.EXTRA_SERIES_ID),
+                intent.getStringExtra(DexterAutomation.EXTRA_CHAPTER_ID),
+            )
             else -> null
+        }
+    }
+
+    /** Resolves "open continue reading" from the automation intent against the library. */
+    private fun handleContinueReadingIntent(intent: Intent) {
+        if (intent.action != DexterAutomation.ACTION_OPEN_CONTINUE_READING) return
+        val app = application as DexterApp
+        lifecycleScope.launch {
+            val last = app.libraryStore.current().recent.firstOrNull { it.chapterId != null }
+            pending = last?.let { PendingOpen(it.id, it.chapterId) }
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pending = readPending(intent)
+        handleContinueReadingIntent(intent)
         finishSignIn(intent)
     }
 
@@ -166,10 +191,10 @@ class MainActivity : ComponentActivity() {
 
     /** While the reader is open and the setting is on, the volume keys scroll it instead of changing volume. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
-        VolumeKeyPager.handle(event) || super.onKeyDown(keyCode, event)
+        VolumeKeyPager.handle(event) || GamepadKeys.handle(event) || super.onKeyDown(keyCode, event)
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
-        VolumeKeyPager.handle(event) || super.onKeyUp(keyCode, event)
+        VolumeKeyPager.handle(event) || GamepadKeys.handle(event) || super.onKeyUp(keyCode, event)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -179,6 +204,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
         )
         pending = readPending(intent)
+        handleContinueReadingIntent(intent)
         finishSignIn(intent)
         val app = application as DexterApp
         setContent {
@@ -334,7 +360,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                             }
                                             screen("settings") {
                                                 val vm = koinViewModel<SettingsViewModel>()
-                                                SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") }, onOpenErrors = { nav.navigate("errors") })
+                                                SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") }, onOpenErrors = { nav.navigate("errors") }, onOpenStorage = { nav.navigate("storage") })
                                             }
                                             screen("series/{seriesId}") { entry ->
                                                 val seriesId = entry.arguments!!.getString("seriesId")!!
@@ -362,6 +388,27 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                     onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
                                                     onOpenSeries = openSeries,
                                                 )
+                                            }
+                                            screen("storage") {
+                                                val context = LocalContext.current
+                                                val app = context.applicationContext as DexterApp
+                                                val scope = rememberCoroutineScope()
+                                                val rows by app.downloadStore.saved.collectAsStateWithLifecycle(initialValue = emptyList())
+                                                val library by app.libraryStore.data.collectAsStateWithLifecycle(initialValue = app.libraryStore.latest)
+                                                var report by remember { mutableStateOf<StorageReport?>(null) }
+                                                LaunchedEffect(rows) {
+                                                    report = withContext(Dispatchers.IO) { analyzeStorage(File(context.filesDir, "downloads"), rows) }
+                                                }
+                                                val finished = remember(library) { library.lists.filter { it.status == ReadingStatus.Completed }.map { it.id }.toSet() }
+                                                report?.let {
+                                                    StorageAnalyzerScreen(
+                                                        report = it,
+                                                        finishedSeriesIds = finished,
+                                                        onDeleteChapter = { id -> scope.launch { app.downloadStore.delete(id) } },
+                                                        onDeleteSeries = { id -> scope.launch { app.downloadStore.deleteSeries(id) } },
+                                                        onBack = { nav.popBackStack() },
+                                                    )
+                                                }
                                             }
                                             screen("author/{authorId}?name={name}") { entry ->
                                                 val authorId = entry.arguments!!.getString("authorId")!!

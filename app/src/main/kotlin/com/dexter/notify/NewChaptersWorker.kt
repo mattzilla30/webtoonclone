@@ -25,11 +25,14 @@ import coil3.request.SuccessResult
 import coil3.toBitmap
 import com.dexter.DexterApp
 import com.dexter.MainActivity
+import com.dexter.data.Chapter
 import com.dexter.data.Order
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
+import com.dexter.data.UpdateCheckStore
 import com.dexter.data.isMuted
 import com.dexter.data.isWorthRetrying
+import com.dexter.data.seriesUpdateDue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import java.time.LocalTime
@@ -78,12 +81,19 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         }
         val library = app.libraryStore.current()
         val subscribed = library.subscribed
+        val subscribedIds = subscribed.mapTo(HashSet()) { it.id }
+        // A series with its own check interval only gets its feed read when that interval has passed.
+        val updateChecks = UpdateCheckStore(applicationContext)
+        val checkTimes = updateChecks.all()
+        val due = subscribed.filter { seriesUpdateDue(it.id, checkTimes[it.id], settings) }
+        val dueIds = due.mapTo(HashSet()) { it.id }
         var failed = false
         val found = mutableListOf<NewChapter>()
+        val downloadable = mutableListOf<NewChapter>()
 
         // One request covers up to 100 series. Only series with a new upload since the last look need their own feed read.
         val uploads = try {
-            app.repository.latestUploads(subscribed.map { it.id })
+            app.repository.latestUploads(due.map { it.id })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -95,7 +105,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         val fullCheck = now - library.fullCheckAt >= FULL_CHECK_MS
         val known = HashMap<String, Pair<String, String>>()
         val marks = HashMap<String, String>()
-        for (series in subscribed) {
+        for (series in due) {
             val newestUpload = uploads?.get(series.id)
             val lastUpload = if (fullCheck) null else library.uploadMarks[series.id]
             if (!needsFeedCheck(series, lastUpload, newestUpload)) {
@@ -113,8 +123,16 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             if (newestUpload != null) marks[series.id] = newestUpload
             val knownId = series.knownChapterId
-            if (latest != null && knownId != null && latest.id != knownId && library.notificationsEnabled && series.notify && !isMuted(series.id, library, settings)) {
-                found += NewChapter(series, latest.id, latest.number)
+            if (latest != null && knownId != null && latest.id != knownId) {
+                // A blacklisted chapter is invisible everywhere: no notification, no auto-download.
+                val blacklisted = app.downloadStore.isBlacklisted(series.id, latest.id)
+                if (library.notificationsEnabled && series.notify && !isMuted(series.id, library, settings) && !blacklisted) {
+                    found += NewChapter(series, latest.id, latest.number)
+                }
+                // Auto-download does not need notifications on, but it skips muted series like they do.
+                if (settings.autoDownloadNew && !isMuted(series.id, library, settings) && !blacklisted) {
+                    downloadable += NewChapter(series, latest.id, latest.number)
+                }
             }
             // First sighting only records the chapter, so old chapters never notify. With
             // notifications off the chapter is still recorded, so turning them on stays quiet.
@@ -125,7 +143,13 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         }
         // Everything found is written at once, so open screens redraw once per check, not once per series.
         // When the upload lookup failed, the marks from the last check stay as they were.
-        app.libraryStore.recordChecks(known, marks.takeIf { uploads != null }, fullCheckAt = now.takeIf { fullCheck && uploads != null })
+        // Series whose own interval has not passed keep their marks, so they are not read again next
+        // run; marks of series no longer subscribed still drop out.
+        val kept = library.uploadMarks.filterKeys { id -> id !in dueIds && id in subscribedIds }
+        app.libraryStore.recordChecks(known, (kept + marks).takeIf { uploads != null }, fullCheckAt = now.takeIf { fullCheck && uploads != null })
+        // On a failed run the retry re-checks everything, so timestamps are only kept when it passed.
+        if (!failed) for (series in due) updateChecks.markChecked(series.id, now)
+        val autoSaved = autoDownloadNew(downloadable, settings)
         if (library.notificationsEnabled) {
             for (author in library.followedAuthors) {
                 val newest = try {
@@ -161,9 +185,26 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
                 delay(300)
             }
         }
-        post(found, settings.notificationDigest)
+        post(found, settings.notificationDigest, autoSaved)
         app.libraryStore.markChecked(System.currentTimeMillis())
         return if (failed) Result.retry() else Result.success()
+    }
+
+    /**
+     * Queues newly found chapters for saving. The download worker's constraints honor [Settings.downloadWifiOnly],
+     * and it enforces [Settings.downloadCapMb] after each chapter. Returns the chapters actually queued.
+     */
+    private suspend fun autoDownloadNew(items: List<NewChapter>, settings: Settings): List<NewChapter> {
+        if (!settings.autoDownloadNew || items.isEmpty()) return emptyList()
+        val app = applicationContext as DexterApp
+        return items.filter { item ->
+            // A chapter saved meanwhile has nothing left to do. The queue ignores one it already holds.
+            if (app.downloadStore.isSaved(item.chapterId)) return@filter false
+            if (app.downloadStore.isBlacklisted(item.series.id, item.chapterId)) return@filter false
+            val chapter = Chapter(item.chapterId, item.number, "", "")
+            DownloadWorker.enqueue(applicationContext, app.downloadStore, item.series.id, item.series.title, item.series.coverUrl, chapter, settings.downloadWifiOnly)
+            true
+        }
     }
 
     /** The notification manager with the channel in place, or null when you have not allowed notifications. */
@@ -214,11 +255,15 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         )
     }
 
-    private suspend fun post(found: List<NewChapter>, digest: Boolean) {
+    private suspend fun post(found: List<NewChapter>, digest: Boolean, autoSaved: List<NewChapter> = emptyList()) {
         if (found.isEmpty()) return
         val manager = notifier() ?: return
+        val autoIds = autoSaved.mapTo(HashSet()) { it.chapterId }
         if (digest) {
-            val lines = digestLines(found.map { it.series.title to it.number })
+            val lines = digestLines(found.map { it.series.title to it.number }).toMutableList()
+            if (autoSaved.isNotEmpty()) {
+                lines += "Auto-saving ${autoSaved.size} ${if (autoSaved.size == 1) "chapter" else "chapters"} in the background."
+            }
             manager.notify(
                 DIGEST_ID,
                 newBuilder(digestTitle(found.size))
@@ -229,7 +274,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
             )
             return
         }
-        found.forEach { item -> manager.notify(item.series.id.hashCode(), single(item)) }
+        found.forEach { item -> manager.notify(item.series.id.hashCode(), single(item, item.chapterId in autoIds)) }
         if (found.size > 1) {
             manager.notify(DIGEST_ID, newBuilder(digestTitle(found.size)).setGroup(GROUP_KEY).setGroupSummary(true).build())
         }
@@ -243,7 +288,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         return (SingletonImageLoader.get(context).execute(request) as? SuccessResult)?.image?.toBitmap()
     }
 
-    private suspend fun single(item: NewChapter): Notification {
+    private suspend fun single(item: NewChapter, autoSaving: Boolean = false): Notification {
         val series = item.series
         val download = PendingIntent.getBroadcast(
             applicationContext,
@@ -276,6 +321,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         }
         return newBuilder(series.title)
             .setContentText("Chapter ${item.number} is out")
+            .setSubText(if (autoSaving) "Auto-saving in the background" else null)
             .setLargeIcon(cover(series.coverUrl))
             .setContentIntent(read)
             .setGroup(GROUP_KEY)

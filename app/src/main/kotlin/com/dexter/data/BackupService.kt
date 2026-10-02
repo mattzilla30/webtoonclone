@@ -3,7 +3,9 @@ package com.dexter.data
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import com.dexter.data.db.AppDatabase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 const val AUTO_BACKUP_FILE = "dexter-backup.json"
@@ -14,12 +16,17 @@ class BackupService(
     private val settings: SettingsStore,
     private val library: LibraryStore,
     private val progress: ProgressStore,
+    private val db: AppDatabase,
+    private val downloads: DownloadStore,
 ) {
     suspend fun create(): Backup = Backup(
         savedAt = System.currentTimeMillis(),
         library = library.current(),
         settings = settings.current(),
         progress = progress.export(),
+        history = db.stats().observe().first().map { it.toBackup() },
+        downloads = downloads.saved.first().map { it.toBackup() },
+        queue = db.queue().observe().first().map { it.toBackup() },
     )
 
     suspend fun writeTo(uri: Uri) {
@@ -61,5 +68,15 @@ class BackupService(
         // A backup comes from a phone that was already set up, so setup does not ask again.
         settings.update { backup.settings.copy(setupDone = true) }
         progress.replaceAll(backup.progress)
+        // Reading history and time, replacing what is here.
+        db.stats().clear()
+        backup.history.forEach { db.stats().insertIfAbsent(it.toEntity()) }
+        // Downloaded chapters: the rows whose page files are on the device stay, the rest drop out.
+        // A zip archive restores the files before this; a plain JSON backup on the same device already has them.
+        backup.downloads.forEach { downloads.restoreRow(it) }
+        downloads.prune()
+        // The queue, replacing what is waiting here.
+        db.queue().deleteAll()
+        backup.queue.forEach { db.queue().insert(it.toEntity()) }
     }
 }

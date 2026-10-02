@@ -99,6 +99,12 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
+    // Chromecast sender via the Default Media Receiver, so no receiver app registration is needed.
+    implementation("com.google.android.gms:play-services-cast-framework:22.3.1")
+
+    // Wear OS companion: answers progress requests and page-turn messages from the watch.
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+
     testImplementation(libs.junit)
 }
 

@@ -7,22 +7,28 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dexter.data.A11yPrefs
+import com.dexter.data.A11yState
 import com.dexter.data.Accent
 import com.dexter.data.Settings
 import com.dexter.data.ThemeMode
 
 val Green = Color(0xFF00DC64)
 
-private val Light = lightColorScheme(
+/** The light scheme. Internal so the colour-blind palettes in ColorBlindThemes.kt can derive from it. */
+internal val Light = lightColorScheme(
     primary = Color(0xFF006D33),
     onPrimary = Color.White,
     primaryContainer = Color(0xFF8FF7A8),
@@ -139,7 +145,10 @@ fun isDark(mode: ThemeMode, systemDark: Boolean): Boolean = when (mode) {
 fun DexterTheme(settings: Settings = Settings(), content: @Composable () -> Unit) {
     val dark = isDark(settings.theme, isSystemInDarkTheme())
     val context = LocalContext.current
-    val scheme: ColorScheme = remember(settings.theme, settings.dynamicColor, settings.accent, dark, context) {
+    // Accessibility: the dyslexia-friendly font and the color-blind-safe palettes.
+    val a11yPrefs = remember { A11yPrefs(context) }
+    val a11y by a11yPrefs.state.collectAsStateWithLifecycle(initialValue = A11yState())
+    val scheme: ColorScheme = remember(settings.theme, settings.dynamicColor, settings.accent, dark, context, a11y.cvdTheme) {
         val base = when {
             settings.dynamicColor && dark -> dynamicDarkColorScheme(context).let {
                 if (settings.theme == ThemeMode.Black) it.copy(background = Color.Black, surface = Color.Black) else it
@@ -149,13 +158,16 @@ fun DexterTheme(settings: Settings = Settings(), content: @Composable () -> Unit
             settings.theme == ThemeMode.Black -> Black
             else -> DarkScheme
         }
-        // Material You brings its own accent from the wallpaper.
-        if (settings.dynamicColor) base else withAccent(base, settings.accent, dark)
+        // A color-blind-safe palette replaces the base scheme when one is picked.
+        val cvd = cvdColorScheme(a11y.cvdTheme, dark)
+        if (cvd != null) cvd else if (settings.dynamicColor) base else withAccent(base, settings.accent, dark)
     }
+    val typography = remember(a11y) { dyslexiaTypography(Typography(), fontFamilyFor(context, a11y)) }
     MaterialExpressiveTheme(
         colorScheme = scheme,
         motionScheme = MotionScheme.expressive(),
         shapes = ExpressiveShapes,
+        typography = typography,
         content = content,
     )
 }

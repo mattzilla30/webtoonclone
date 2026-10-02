@@ -16,6 +16,9 @@ import com.dexter.data.subscriptionStart
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
+import com.dexter.ui.discover.ProfileEntry
+import com.dexter.ui.discover.buildTasteProfile
+import com.dexter.ui.discover.scoreCandidate
 import com.dexter.ui.friendlyError
 import com.dexter.ui.series.hasUnreadChapters
 import kotlinx.coroutines.CancellationException
@@ -44,24 +47,63 @@ class HomeViewModel(
     val becauseYouRead: StateFlow<Pair<String, List<SeriesSummary>>?> = becauseState
 
     /**
-     * Finds series like one you read lately. Each app open picks one of your last five, so the row changes
-     * instead of always following the newest. Series you already have are left out.
+     * Finds series like the ones you read. The taste profile comes from your library and reading
+     * history, and every candidate is scored against it on the device: no network model, no backend.
+     * The recommendations setting hides the row when it is off.
      */
     fun refreshBecause() {
         viewModelScope.launch(LogFailures) {
+            if (!settingsStore.current().recommendations) {
+                becauseState.value = null
+                return@launch
+            }
             val library = libraryStore.current()
-            val candidates = library.recent.filter { it.chapterId != null }.take(BECAUSE_POOL).shuffled()
             val known = (library.recent + library.subscribed + library.lists).mapTo(HashSet()) { it.id }
-            for (pick in candidates) {
-                val detail = catching { seriesCache.load(pick.id, repository.language) }.getOrNull()?.detail ?: continue
-                val like = catching { repository.similar(pick.id, detail.tags, limit = 14) }.getOrNull().orEmpty().filter { it.id !in known }
-                if (like.isNotEmpty()) {
-                    becauseState.value = pick.title to like.take(10)
+            val recent = library.recent.filter { it.chapterId != null }
+            // The profile leans on recent reads, then subscriptions. Details come from the on-device
+            // cache, so a series you never opened contributes nothing.
+            val entries = ArrayList<ProfileEntry>()
+            recent.forEachIndexed { index, saved ->
+                detailOf(saved.id)?.let { detail ->
+                    entries += ProfileEntry(detail.summary.genre, detail.tags, detail.summary.author, weight = 2.0 / (index + 1))
+                }
+            }
+            library.subscribed.forEach { saved ->
+                detailOf(saved.id)?.let { detail ->
+                    entries += ProfileEntry(detail.summary.genre, detail.tags, detail.summary.author, weight = 1.0)
+                }
+            }
+            val profile = buildTasteProfile(entries)
+            for (pick in recent.take(BECAUSE_POOL).shuffled()) {
+                val tags = detailOf(pick.id)?.tags.orEmpty()
+                val candidates = catching { repository.similar(pick.id, tags, limit = 14) }.getOrNull().orEmpty()
+                    .filter { it.id !in known }
+                if (candidates.isEmpty()) continue
+                // The listing is tag-based; the ranking is the profile, computed here on the device.
+                val ranked = if (profile.isEmpty()) {
+                    candidates.take(10)
+                } else {
+                    candidates.map { series ->
+                        val detail = detailOf(series.id)
+                        series to scoreCandidate(
+                            detail?.summary?.genre ?: series.genre,
+                            detail?.tags.orEmpty(),
+                            detail?.summary?.author ?: series.author,
+                            profile,
+                        )
+                    }.sortedByDescending { it.second }.map { it.first }.take(10)
+                }
+                if (ranked.isNotEmpty()) {
+                    becauseState.value = pick.title to ranked
                     return@launch
                 }
             }
+            becauseState.value = null
         }
     }
+
+    /** A series' cached detail, or null when the app has never opened it. Reads only the device. */
+    private suspend fun detailOf(id: String) = catching { seriesCache.load(id, repository.language) }.getOrNull()?.detail
 
     /** Series you read recently, newest first, for the Continue Reading row. */
     val recent: StateFlow<List<SavedSeries>> = libraryStore.stateOf(viewModelScope) { lib -> lib.recent.filter { it.chapterId != null }.take(10) }

@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "dexter"
 include(":app")
+include(":wear")

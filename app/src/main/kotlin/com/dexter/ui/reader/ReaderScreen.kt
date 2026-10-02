@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.os.BatteryManager
 import android.text.format.DateFormat
 import android.view.HapticFeedbackConstants
@@ -52,6 +53,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -62,6 +64,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
@@ -77,6 +81,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -87,22 +92,40 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import coil3.BitmapImage
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
+import com.dexter.cast.CastManager
+import com.dexter.data.A11yPrefs
+import com.dexter.data.A11yState
 import com.dexter.data.PageFit
+import com.dexter.data.PageSegment
 import com.dexter.data.PageTransition
+import com.dexter.data.PowerPrefs
+import com.dexter.data.PowerState
 import com.dexter.data.ReaderBackground
 import com.dexter.data.ReaderOrientation
+import com.dexter.data.ReaderUi
+import com.dexter.data.ReaderUiPrefs
 import com.dexter.data.ReadingMode
 import com.dexter.data.Settings
 import com.dexter.data.TapAction
-import com.dexter.data.pagesOfSpread
-import com.dexter.data.spreadCount
-import com.dexter.data.tapAction
+import com.dexter.data.firstPageOfPair
+import com.dexter.data.splitTallPage
+import com.dexter.tts.ReaderTtsService
+import com.dexter.tts.TtsPageEvents
+import com.dexter.data.isColorful
+import com.dexter.data.isSpreadAspect
+import com.dexter.data.pairIndexOf
+import com.dexter.data.pairPages
+import com.dexter.data.tabletReadingMode
+import com.dexter.tts.ReaderTtsService
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
+import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
@@ -112,8 +135,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import org.koin.compose.koinInject
 import java.util.Date
 import kotlin.math.absoluteValue
+import kotlin.math.max
 import kotlin.time.Duration.Companion.seconds
 
 /** The color behind the pages, chosen in settings. */
@@ -121,6 +146,42 @@ fun readerBackgroundColor(background: ReaderBackground): Color = when (backgroun
     ReaderBackground.Dark -> Color(0xFF181818)
     ReaderBackground.Black -> Color.Black
     ReaderBackground.White -> Color.White
+}
+
+/**
+ * The mean colour of [bitmap], sampled from a tiny downscale so it costs almost nothing.
+ * Feeds the smart background tint.
+ */
+private fun averageColor(bitmap: Bitmap): Color {
+    val w = bitmap.width.coerceAtLeast(1)
+    val h = bitmap.height.coerceAtLeast(1)
+    val scale = 24f / max(w, h)
+    val sw = (w * scale).toInt().coerceAtLeast(1)
+    val sh = (h * scale).toInt().coerceAtLeast(1)
+    val small = Bitmap.createScaledBitmap(bitmap, sw, sh, true)
+    val pixels = IntArray(sw * sh)
+    small.getPixels(pixels, 0, sw, 0, 0, sw, sh)
+    if (small !== bitmap) small.recycle()
+    var r = 0L
+    var g = 0L
+    var b = 0L
+    for (pixel in pixels) {
+        r += (pixel shr 16) and 0xFF
+        g += (pixel shr 8) and 0xFF
+        b += pixel and 0xFF
+    }
+    val n = pixels.size.coerceAtLeast(1).toFloat()
+    return Color(r / n / 255f, g / n / 255f, b / n / 255f)
+}
+
+/** Mixes [sampled] into [base] so a vivid page tints the background without shouting over the chrome. */
+private fun blendColors(base: Color, sampled: Color, amount: Float): Color {
+    val t = amount.coerceIn(0f, 1f)
+    return Color(
+        red = base.red + (sampled.red - base.red) * t,
+        green = base.green + (sampled.green - base.green) * t,
+        blue = base.blue + (sampled.blue - base.blue) * t,
+    )
 }
 
 private const val PRELOAD_AHEAD = 4
@@ -157,13 +218,28 @@ fun ReaderScreen(
     val chosenMode by viewModel.chosenMode.collectAsStateWithLifecycle()
     val hasSeriesLook by viewModel.hasSeriesLook.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val zen by viewModel.zen.collectAsStateWithLifecycle()
     var showOptions by remember { mutableStateOf(false) }
     val zoom = remember { ZoomState() }
+    // Spread-aware pairing shift, toggled from the reader options: 0 is the cover alone, 1 pairs it forward.
+    var pairShift by remember { mutableIntStateOf(0) }
+
+    // The batch-A reader UI preferences: toolbar layout, binge mode, stylus, device class, and more.
+    val context = LocalContext.current
+    val uiPrefs = remember { ReaderUiPrefs(context) }
+    val readerUi by uiPrefs.ui.collectAsStateWithLifecycle(initialValue = ReaderUi())
+    // Per-device-class reading mode: a series' own choice wins, otherwise a wide window reads paged.
+    val widthDp = windowWidthDp()
+    val readingMode = remember(mode, chosenMode, widthDp, readerUi) {
+        effectiveReadingMode(chosenMode, mode, readerUi.deviceClassMode, widthDp, readerUi.tabletReadingMode())
+    }
 
     // Lock the screen direction while the reader is open, and give it back when it closes.
+    // A series with its own orientation wins over the global one.
     val activity = LocalActivity.current
-    DisposableEffect(activity, settings.readerOrientation) {
-        activity?.requestedOrientation = when (settings.readerOrientation) {
+    DisposableEffect(activity, settings.readerOrientation, settings.seriesOrientations) {
+        val orientation = settings.seriesOrientations[viewModel.seriesId] ?: settings.readerOrientation
+        activity?.requestedOrientation = when (orientation) {
             ReaderOrientation.Auto -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             ReaderOrientation.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             ReaderOrientation.Landscape -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -194,8 +270,9 @@ fun ReaderScreen(
     }
 
     // With the setting on, the volume keys turn pages or scroll instead of changing the volume.
-    DisposableEffect(settings.volumeKeys) {
-        VolumeKeyPager.active = settings.volumeKeys
+    // Zen mode always routes navigation to the volume keys, even with the setting off.
+    DisposableEffect(settings.volumeKeys, zen) {
+        VolumeKeyPager.active = settings.volumeKeys || zen
         onDispose { VolumeKeyPager.active = false }
     }
 
@@ -209,8 +286,12 @@ fun ReaderScreen(
                 viewModel = viewModel,
                 page = page,
                 settings = settings,
-                mode = mode,
+                mode = readingMode,
+                readerUi = readerUi,
+                uiPrefs = uiPrefs,
+                pairShift = pairShift,
                 zoom = zoom,
+                zen = zen,
                 optionsOpen = showOptions,
                 onOpenChapter = onOpenChapter,
                 onBack = onBack,
@@ -221,13 +302,19 @@ fun ReaderScreen(
         if (showOptions) {
             ReaderOptions(
                 settings = settings,
-                mode = mode,
+                mode = readingMode,
                 chosenMode = chosenMode,
                 seriesLook = hasSeriesLook,
                 onSeriesLook = viewModel::setSeriesLook,
+                zen = zen,
+                onZen = viewModel::setZen,
+                seriesOrientation = settings.seriesOrientations[viewModel.seriesId] ?: ReaderOrientation.Auto,
+                onSeriesOrientation = viewModel::setSeriesOrientation,
                 onChange = viewModel::updateSettings,
                 onMode = viewModel::setMode,
                 onDismiss = { showOptions = false },
+                pairShift = pairShift,
+                onPairShift = { pairShift = (pairShift + 1) % 2 },
             )
         }
 
@@ -248,7 +335,12 @@ private fun ReaderContent(
     page: ReaderPage,
     settings: Settings,
     mode: ReadingMode,
+    readerUi: ReaderUi,
+    uiPrefs: ReaderUiPrefs,
+    /** Spread-aware pairing shift, toggled from the reader options. */
+    pairShift: Int,
     zoom: ZoomState,
+    zen: Boolean,
     optionsOpen: Boolean,
     onOpenChapter: (String) -> Unit,
     onBack: () -> Unit,
@@ -263,6 +355,12 @@ private fun ReaderContent(
     // Bumped on every touch of the bars, so auto-hide waits for you to stop using them.
     var barTouch by remember { mutableIntStateOf(0) }
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
+    val eInk = settings.eInkMode
+    val reduceMotion = remember(context, settings) { reduceMotionEnabled(context, settings) }
+    // Guided panel stepping keeps its own camera state for the page on screen.
+    val guided = remember { GuidedState() }
+    // Smart background: each sampled page colour, by strip item key or pager spread index.
+    val smartColors = remember { mutableStateMapOf<String, Color>() }
 
     // Fullscreen: the status and navigation bars hide with the reader's own bars. A swipe from an edge shows
     // them for a moment, and they come back for good when the reader closes.
@@ -278,9 +376,23 @@ private fun ReaderContent(
     var showChapters by remember { mutableStateOf(false) }
     var jumpTo by remember { mutableStateOf<String?>(null) }
     var menuFor by remember { mutableStateOf<Cursor?>(null) }
+    var showThumbnails by remember { mutableStateOf(false) }
+    var showSleepDialog by remember { mutableStateOf(false) }
+    val topActions = remember(readerUi.topActionsCsv) { toolbarActionsOrDefault(readerUi.topActionsCsv, defaultTopActions) }
+    val bottomActions = remember(readerUi.bottomActionsCsv) { toolbarActionsOrDefault(readerUi.bottomActionsCsv, defaultBottomActions) }
     var container by remember { mutableStateOf(IntSize.Zero) }
     val onPage = if (settings.readerBackground == ReaderBackground.White) Color.Black else Color.White
-    val colorFilter = remember(settings.readerFilter) { readerColorFilter(settings.readerFilter) }
+    // E-ink mode forces high contrast: no dimming and no colour filter over the pages.
+    val colorFilter = remember(settings.readerFilter, eInk) {
+        if (eInk) null else readerColorFilter(settings.readerFilter)
+    }
+    // Color page detection: pages found to be color skip the dimming and greyscale night filters.
+    val colorPages = remember { mutableStateMapOf<String, Boolean>() }
+    val reportPageColor: ((String, Boolean) -> Unit)? =
+        if (readerUi.colorPageExempt) { key, colorful -> colorPages[key] = colorful } else null
+    /** The filter for one page: color pages are exempt when the setting is on. */
+    fun filterFor(key: String?): ColorFilter? =
+        if (readerUi.colorPageExempt && key != null && colorPages[key] == true) null else colorFilter
 
     // With the setting on, the bars hide a few seconds after they show, unless a sheet or dialog is open.
     LaunchedEffect(barsVisible, settings.autoHideBars, optionsOpen, showChapters, jumpTo, menuFor, barTouch) {
@@ -292,7 +404,36 @@ private fun ReaderContent(
     // In the vertical strip, continuous reading joins the chapters that follow onto the end.
     val continuous = !paged && settings.continuousScroll
     val segments = if (continuous) page.segments else page.segments.take(1)
-    val strip = remember(segments) { buildStrip(segments) }
+    // Power-user prefs: gamepad page turning lives here.
+    val powerPrefs = remember { PowerPrefs(context) }
+    val power by powerPrefs.state.collectAsStateWithLifecycle(initialValue = PowerState())
+    // Accessibility prefs: TTS, voice control, and tall-page splitting.
+    val a11yPrefs = remember { A11yPrefs(context) }
+    val a11y by a11yPrefs.state.collectAsStateWithLifecycle(initialValue = A11yState())
+    // Tall-page splitting: a page's decoded height lands here, and pages taller than the setting
+    // split into chunks, each its own strip item that decodes only its crop.
+    val pageHeights = remember { mutableStateMapOf<String, Int>() }
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val maxSplitHeightPx = remember(configuration, density, a11y.tallSplitScreens) {
+        (configuration.screenHeightDp * density.density * a11y.tallSplitScreens).toInt().coerceAtLeast(1024)
+    }
+    val splits: Map<Pair<Int, Int>, List<PageSegment>> = remember(segments, paged, a11y.tallPageSplit, maxSplitHeightPx, pageHeights.toMap()) {
+        if (paged || !a11y.tallPageSplit) emptyMap()
+        else buildMap {
+            segments.forEachIndexed { s, segment ->
+                segment.pages.forEachIndexed { p, url ->
+                    val height = pageHeights[url] ?: return@forEachIndexed
+                    val parts = splitTallPage(height, maxSplitHeightPx)
+                    if (parts.size > 1) put(s to p, parts)
+                }
+            }
+        }
+    }
+    val strip = remember(segments, splits) { buildStrip(segments, splits) }
+    // Strip styling from the reader UI settings: the gap, the page corner rounding, the background.
+    val stripGap = readerUi.stripGapDp.takeIf { it >= 0 } ?: settings.pageGap
+    val stripBgChoice = parseStripBackground(readerUi.stripBg)
     val currentStrip by rememberUpdatedState(strip)
     val currentSegments by rememberUpdatedState(segments)
 
@@ -307,20 +448,67 @@ private fun ReaderContent(
     val pagedCount = pagedChapter.pages.size
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val spreads = paged && settings.spreads && landscape
+    // Spread-aware pairing: pages detected as wide (two-page spreads) keep a full-width slot while
+    // the rest pair up. Detections land as pages load, so the pairs recompute then.
+    val spreadFlags = remember { mutableStateMapOf<String, Boolean>() }
+    val pairs: List<List<Int>> = remember(pagedChapter, pagedCount, spreads, readerUi.spreadAware, pairShift, spreadFlags.toList()) {
+        if (!spreads) {
+            emptyList()
+        } else {
+            pairPages(
+                pagedCount,
+                isSpread = { index -> readerUi.spreadAware && spreadFlags[pagedChapter.pages.getOrNull(index)] == true },
+                shift = pairShift,
+            )
+        }
+    }
+    /** The pager page that shows [page], with spread-aware pairing. */
+    fun pagerIndexOfPage(page: Int): Int = if (spreads) pairIndexOf(pairs, page).takeIf { it >= 0 } ?: 0 else page
+    /** The first page the pager page at [index] shows, with spread-aware pairing. */
+    fun firstPageOfPairIndex(index: Int): Int = if (spreads) firstPageOfPair(pairs, index, pagedCount) else index
     // The pager has one extra page after the last image, for the end-of-chapter card.
-    val pagerCount = (if (spreads) spreadCount(pagedCount) else pagedCount) + 1
-    val pagerState = rememberPagerState(initialPage = pagerIndexOf(startPage, spreads)) { pagerCount }
+    val pagerCount = (if (spreads) pairs.size else pagedCount) + 1
+    val pagerState = rememberPagerState(initialPage = pagerIndexOfPage(startPage)) { pagerCount }
+
+    // A newly detected spread re-pairs the pages; stay on the pair holding the page you were on.
+    LaunchedEffect(pairs) {
+        if (!spreads || pairs.isEmpty()) return@LaunchedEffect
+        val target = pairIndexOf(pairs, cursor.page).takeIf { it >= 0 } ?: return@LaunchedEffect
+        cursor = Cursor(pagedSegment, firstPageOfPairIndex(target).coerceIn(0, (pagedCount - 1).coerceAtLeast(0)))
+        if (target != pagerState.currentPage) pagerState.scrollToPage(target.coerceAtMost(pagerCount - 1))
+    }
+
+    // Each page's aspect ratio, reported as it loads, feeds the spread detection above.
+    val reportAspect: ((String, Float) -> Unit)? =
+        if (spreads && readerUi.spreadAware) { url, aspect -> spreadFlags[url] = isSpreadAspect(aspect) } else null
 
     val current = page.segments.getOrElse(cursor.segment) { page.first }
     val count = current.pages.size
     val lastIndex = (count - 1).coerceAtLeast(0)
     val position = cursor.page.coerceIn(0, lastIndex)
 
+    // Chromecast: when a session starts, send the chapter to the TV; keep the TV on the visible page.
+    val castManager: CastManager = koinInject()
+    val isCasting by castManager.isCasting.collectAsStateWithLifecycle()
+    LaunchedEffect(isCasting, current.chapter.id) {
+        if (isCasting) {
+            castManager.startChapter(
+                pages = current.pages,
+                startIndex = position,
+                title = page.seriesTitle ?: "Dexter",
+                subtitle = "Ep. ${current.chapter.number}",
+            )
+        }
+    }
+    LaunchedEffect(position) {
+        if (castManager.isCasting.value) castManager.seekToPage(position)
+    }
+
     LaunchedEffect(paged, spreads, listState, pagerState) {
         if (paged) {
-            pagerState.scrollToPage(pagerIndexOf(cursor.page, spreads).coerceAtMost(pagerCount - 1))
+            pagerState.scrollToPage(pagerIndexOfPage(cursor.page).coerceAtMost(pagerCount - 1))
             snapshotFlow { pagerState.currentPage }.collect { index ->
-                cursor = Cursor(pagedSegment, pageOfPager(index, pagedCount, spreads).coerceIn(0, (pagedCount - 1).coerceAtLeast(0)))
+                cursor = Cursor(pagedSegment, firstPageOfPairIndex(index).coerceIn(0, (pagedCount - 1).coerceAtLeast(0)))
             }
         } else {
             listState.scrollToItem(stripIndexOf(strip, cursor.segment, cursor.page))
@@ -333,8 +521,36 @@ private fun ReaderContent(
     // A chapter coming on screen counts as read, and may save or delete its neighbours.
     LaunchedEffect(cursor.segment) { page.segments.getOrNull(cursor.segment)?.let(viewModel::enterSegment) }
 
-    // A new page or a new mode starts fully zoomed out.
-    LaunchedEffect(cursor, paged) { zoom.reset() }
+    /** True while guided panel stepping owns the camera instead of whole-page turns. */
+    val guidedStepping = paged && settings.guidedPanels
+
+    /** Moves the camera to the guided region: an instant cut with reduce motion, an ease otherwise. */
+    suspend fun zoomToGuidedRegion() {
+        val grid = guidedGrid(container)
+        val target = guidedTarget(guided.region, grid, rtl, container)
+        if (reduceMotion) zoom.snapTo(target.scale, target.offsetX, target.offsetY)
+        else zoom.animateTo(target.scale, target.offsetX, target.offsetY)
+    }
+
+    // A new page or a new mode starts fully zoomed out, unless guided stepping owns the camera.
+    LaunchedEffect(cursor, paged) { if (!guidedStepping) zoom.reset() }
+
+    // Guided stepping shows the whole page again when the page changes, unless the step itself turned it.
+    LaunchedEffect(cursor) { if (guided.armed) guided.armed = false else guided.reset() }
+
+    // Each guided step moves the camera to its region; stepping back out zooms back to the whole page.
+    LaunchedEffect(guided.region, guidedStepping) {
+        if (!guidedStepping) return@LaunchedEffect
+        if (guided.isWholePage) zoom.reset() else zoomToGuidedRegion()
+    }
+
+    // Zen mode hides the bars the moment it starts, and says how to get out.
+    LaunchedEffect(zen) {
+        if (zen) {
+            barsVisible = false
+            viewModel.toast("Zen mode: volume keys turn pages, long-press to exit")
+        }
+    }
 
     // How far down the page on screen you are, from 0 to 1. A tall webtoon page needs it to resume in place.
     val currentPaged by rememberUpdatedState(paged)
@@ -425,19 +641,80 @@ private fun ReaderContent(
         }
     }
 
-    // Tap navigation in paged mode slides, fades, or jumps, as set.
+    /** A light buzz on page turns, when the setting and haptics are both on. */
+    fun pageTurnHaptic() {
+        if (settings.hapticPageTurn && settings.haptics) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+    }
+
+    // Tap navigation in paged mode slides, fades, or jumps, as set. Reduce motion makes every turn instant.
     suspend fun PagerState.turnTo(index: Int) {
         val target = index.coerceIn(0, pagerCount - 1)
-        if (settings.pageTransition == PageTransition.Slide) animateScrollToPage(target) else scrollToPage(target)
+        if (target != currentPage) pageTurnHaptic()
+        if (settings.pageTransition == PageTransition.Slide && !reduceMotion) animateScrollToPage(target) else scrollToPage(target)
+    }
+
+    /**
+     * One guided step. Within the page the camera moves to the next region; past the last region it
+     * turns the page and opens on the first region, and symmetrically backwards. The step arms the
+     * guided state first, so the page-change reset does not wipe the region the new page opens on.
+     */
+    suspend fun guidedTurn(direction: Int) {
+        val grid = guidedGrid(container)
+        val count = grid * grid
+        if (direction > 0) {
+            if (guided.region + 1 < count) {
+                guided.show(guided.region + 1)
+                pageTurnHaptic()
+            } else {
+                val target = pagerState.currentPage + 1
+                if (target < pagerCount - 1) {
+                    guided.armed = true
+                    pagerState.turnTo(target)
+                    guided.show(0)
+                } else {
+                    // The end-of-chapter card gets a plain page turn, with no guided camera.
+                    pagerState.turnTo(target)
+                }
+            }
+        } else {
+            when {
+                guided.region > 0 -> {
+                    guided.show(guided.region - 1)
+                    pageTurnHaptic()
+                }
+                guided.region == 0 -> guided.show(-1)
+                else -> {
+                    val target = (pagerState.currentPage - 1).coerceAtLeast(0)
+                    if (target != pagerState.currentPage) {
+                        guided.armed = true
+                        pagerState.turnTo(target)
+                        guided.show(count - 1)
+                    }
+                }
+            }
+        }
+    }
+
+    /** One page forward or back in paged mode: a guided step when stepping is on, a page turn otherwise. */
+    suspend fun turnPage(direction: Int, onContentPage: Boolean) {
+        if (guidedStepping && onContentPage) guidedTurn(direction) else pagerState.turnTo(pagerState.currentPage + direction)
+    }
+
+    /** Scrolls the strip by most of a screen: smoothly, or instantly with reduce motion. */
+    suspend fun scrollStripBy(direction: Int) {
+        val amount = pageScrollAmount(listState.layoutInfo.viewportSize.height, direction)
+        if (reduceMotion) listState.scrollBy(amount) else listState.animateScrollBy(amount)
+        pageTurnHaptic()
     }
 
     // Volume keys turn a page in paged mode and scroll most of a screen in the vertical strip.
+    // Zen mode reaches this with the setting off, since it routes all navigation to the volume keys.
     LaunchedEffect(paged, listState, pagerState) {
         VolumeKeyPager.events.collect { direction ->
             if (paged) {
-                pagerState.turnTo(pagerState.currentPage + direction)
+                turnPage(direction, onContentPage = pagerState.currentPage < pagerCount - 1)
             } else {
-                listState.animateScrollBy(pageScrollAmount(listState.layoutInfo.viewportSize.height, direction))
+                scrollStripBy(direction)
             }
         }
     }
@@ -467,8 +744,79 @@ private fun ReaderContent(
 
     suspend fun goToPage(index: Int) {
         val target = index.coerceIn(0, lastIndex)
-        if (paged) pagerState.scrollToPage(pagerIndexOf(target, spreads)) else listState.scrollToItem(stripIndexOf(strip, cursor.segment, target))
+        if (paged) pagerState.scrollToPage(pagerIndexOfPage(target)) else listState.scrollToItem(stripIndexOf(strip, cursor.segment, target))
         cursor = Cursor(cursor.segment, target)
+    }
+
+    // Text-to-speech narration: reads page announcements aloud through a foreground service, so it
+    // keeps going with the screen off and headset buttons control it. Stops when the reader closes.
+    var narrationRunning by remember { mutableStateOf(ReaderTtsService.running) }
+    fun toggleNarration() {
+        if (ReaderTtsService.running) {
+            ReaderTtsService.toggle(context)
+        } else {
+            val total = current.pages.size
+            val texts = List(total) { i -> "Episode ${current.chapter.number}, page ${i + 1} of $total" }
+            ReaderTtsService.start(
+                context,
+                page.seriesTitle ?: "Dexter",
+                texts,
+                total.indices.toList().toIntArray(),
+                a11y.ttsAutoAdvance,
+            )
+        }
+        narrationRunning = ReaderTtsService.running
+    }
+    DisposableEffect(Unit) {
+        onDispose { if (ReaderTtsService.running) ReaderTtsService.stop(context) }
+    }
+    // The service broadcasts each narrated page; with auto-advance on, the reader follows along.
+    val ttsAutoAdvance by rememberUpdatedState(a11y.ttsAutoAdvance)
+    LaunchedEffect(Unit) {
+        TtsPageEvents.pages.collect { index -> if (ttsAutoAdvance) goToPage(index) }
+    }
+
+    // A Bluetooth clicker or gamepad turns pages while the reader is open, when the setting is on.
+    DisposableEffect(power.gamepadReader) {
+        GamepadKeys.active = power.gamepadReader
+        onDispose { GamepadKeys.active = false }
+    }
+    LaunchedEffect(power.gamepadReader, paged) {
+        if (!power.gamepadReader) return@LaunchedEffect
+        GamepadKeys.events.collect { direction ->
+            if (paged) turnPage(direction, onContentPage = pagerState.currentPage < pagerCount - 1)
+            else scrollStripBy(direction)
+        }
+    }
+
+    // Voice control: "next page", "go back", "scroll down" and friends, when the setting is on.
+    val voiceRecognizer = remember { VoiceRecognizer(context) }
+    DisposableEffect(voiceRecognizer) { onDispose { voiceRecognizer.destroy() } }
+    LaunchedEffect(a11y.voiceControl, paged) {
+        if (!a11y.voiceControl) return@LaunchedEffect
+        VoiceCommands.events.collect { command ->
+            when (command) {
+                VoiceCommand.NextPage -> if (paged) turnPage(1, onContentPage = pagerState.currentPage < pagerCount - 1) else scrollStripBy(1)
+                VoiceCommand.PreviousPage -> if (paged) turnPage(-1, onContentPage = true) else scrollStripBy(-1)
+                VoiceCommand.ScrollDown -> scrollStripBy(1)
+                VoiceCommand.ScrollUp -> scrollStripBy(-1)
+            }
+        }
+    }
+
+    /** The toolbar's extra actions: the thumbnail grid, the sleep timer, the binge toggle, narration. */
+    fun onToolbarAction(action: ToolbarAction) {
+        when (action) {
+            ToolbarAction.Thumbnails -> showThumbnails = true
+            ToolbarAction.SleepTimer -> showSleepDialog = true
+            ToolbarAction.Narration -> toggleNarration()
+            ToolbarAction.Binge -> {
+                val on = !readerUi.bingeMode
+                scope.launch { uiPrefs.setBingeMode(on) }
+                viewModel.toast(if (on) "Binge mode on" else "Binge mode off")
+            }
+            else -> Unit
+        }
     }
 
     /** The page under [y] in the strip, or the one on screen in paged mode. */
@@ -478,53 +826,98 @@ private fun ReaderContent(
         return (strip.getOrNull(item.index) as? StripItem.Page)?.let { Cursor(it.segment, it.page) } ?: cursor
     }
 
+    // Smart background: tint the reader background toward the colour of the page on screen.
+    val smartKey: String? = if (settings.smartBackground && !eInk) {
+        if (paged) "spread:${pagerState.currentPage}" else strip.getOrNull(listState.firstVisibleItemIndex)?.key
+    } else {
+        null
+    }
+    val pageTint = smartKey?.let { smartColors[it] }
+    val stripBgColor = stripBackgroundColor(stripBgChoice, settings)
+    val background = stripBgColor
+        ?: pageTint?.let { blendColors(readerBackgroundColor(settings.readerBackground), it, 0.55f) }
+        ?: readerBackgroundColor(settings.readerBackground)
+    // Pages report their mean colour as they load, for the tint above.
+    val reportColor: ((String, Color) -> Unit)? = if (settings.smartBackground && !eInk) {
+        { key, color -> smartColors[key] = color }
+    } else {
+        null
+    }
+
+    // The predictive-back animation shrinks this whole box away on Android 14+ instead of popping.
+    PredictiveBack(enabled = readerUi.predictiveBack, onBack = onBack) {
     Box(
         Modifier
             .fillMaxSize()
+            .background(background)
             .onSizeChanged { container = it }
-            .pointerInput(paged, rtl, settings.tapToScroll, pagerCount) {
+            .pointerInput(paged, rtl, settings, zen) {
                 detectTapGestures(
-                    onTap = { offset ->
+                    // Zen mode shields taps: they do nothing, and a long press is the way out.
+                    onTap = if (zen) {
+                        null
+                    } else { offset ->
                         if (!paged) {
-                            val third = size.height / 3f
-                            when {
-                                settings.tapToScroll && offset.y < third ->
-                                    scope.launch { listState.animateScrollBy(pageScrollAmount(listState.layoutInfo.viewportSize.height, -1)) }
-                                settings.tapToScroll && offset.y > 2 * third ->
-                                    scope.launch { listState.animateScrollBy(pageScrollAmount(listState.layoutInfo.viewportSize.height, 1)) }
-                                else -> barsVisible = !barsVisible
+                            if (settings.tapZonesInWebtoon || settings.tapToScroll) {
+                                when (webtoonTapAction(offset.y, size.height.toFloat(), settings.oneHandedMode)) {
+                                    TapAction.Previous -> scope.launch { scrollStripBy(-1) }
+                                    TapAction.Next -> scope.launch { scrollStripBy(1) }
+                                    TapAction.ToggleBars -> barsVisible = !barsVisible
+                                }
+                            } else {
+                                barsVisible = !barsVisible
                             }
                         } else {
-                            when (tapAction(offset.x, size.width.toFloat(), rtl)) {
+                            // Guided stepping stays off the end-of-chapter card, where taps turn pages as usual.
+                            val contentPage = pagerState.currentPage < pagerCount - 1
+                            when (
+                                tapZoneAction(
+                                    offset,
+                                    size,
+                                    settings.tapZoneLayout,
+                                    rtl,
+                                    invert = settings.invertTapZones,
+                                    oneHanded = settings.oneHandedMode,
+                                )
+                            ) {
                                 TapAction.ToggleBars -> barsVisible = !barsVisible
-                                TapAction.Next -> scope.launch { pagerState.turnTo(pagerState.currentPage + 1) }
-                                TapAction.Previous -> scope.launch { pagerState.turnTo(pagerState.currentPage - 1) }
+                                TapAction.Next -> scope.launch { turnPage(1, contentPage) }
+                                TapAction.Previous -> scope.launch { turnPage(-1, contentPage) }
                             }
                         }
                     },
-                    onDoubleTap = { offset ->
+                    onDoubleTap = if (zen) {
+                        null
+                    } else { offset ->
                         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         zoom.toggle(offset, container)
+                        guided.reset()
                     },
                     onLongPress = { offset ->
                         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        menuFor = pageAt(offset.y)
+                        if (zen) viewModel.setZen(false) else menuFor = pageAt(offset.y)
                     },
                 )
             }
             .zoomGestures(zoom) { container }
+            // The S-Pen barrel button turns pages: primary forward, secondary back.
+            .stylusPenButton(
+                enabled = readerUi.stylusPenButton,
+                onNext = { scope.launch { if (paged) turnPage(1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(1) } },
+                onPrevious = { scope.launch { if (paged) turnPage(-1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(-1) } },
+            )
             // Taps and swipes turn pages by sight. TalkBack gets the same moves as actions.
             .semantics {
                 customActions = listOf(
                     CustomAccessibilityAction("Next page") {
                         scope.launch {
-                            if (paged) pagerState.turnTo(pagerState.currentPage + 1) else listState.animateScrollBy(pageScrollAmount(listState.layoutInfo.viewportSize.height, 1))
+                            if (paged) turnPage(1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(1)
                         }
                         true
                     },
                     CustomAccessibilityAction("Previous page") {
                         scope.launch {
-                            if (paged) pagerState.turnTo(pagerState.currentPage - 1) else listState.animateScrollBy(pageScrollAmount(listState.layoutInfo.viewportSize.height, -1))
+                            if (paged) turnPage(-1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(-1)
                         }
                         true
                     },
@@ -559,7 +952,8 @@ private fun ReaderContent(
                     beyondViewportPageCount = 1,
                     modifier = Modifier.fillMaxSize(),
                 ) { index ->
-                    val fade = settings.pageTransition == PageTransition.Fade
+                    // Reduce motion turns the fade into an instant cut.
+                    val fade = settings.pageTransition == PageTransition.Fade && !reduceMotion
                     val layer = if (fade) {
                         Modifier.graphicsLayer {
                             // Each page stays in place and fades, instead of sliding.
@@ -572,8 +966,19 @@ private fun ReaderContent(
                     }
                     Box(Modifier.fillMaxSize().then(layer)) {
                         if (index < pagerCount - 1) {
-                            val shown = if (spreads) pagesOfSpread(index, pagedCount) else listOf(index)
-                            PagedPage(pagedChapter, shown, rtl, settings, colorFilter, viewModel::renewPages)
+                            val shown = if (spreads) pairs.getOrNull(index).orEmpty() else listOf(index)
+                            PagedPage(
+                                pagedChapter,
+                                shown,
+                                rtl,
+                                settings,
+                                ::filterFor,
+                                viewModel::renewPages,
+                                sampleKey = "spread:$index",
+                                onSampled = reportColor,
+                                onColorSampled = reportPageColor,
+                                onAspectSampled = reportAspect,
+                            )
                         } else {
                             EndOfChapter(
                                 segment = pagedChapter,
@@ -590,20 +995,27 @@ private fun ReaderContent(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.align(Alignment.TopCenter).widthIn(max = MAX_STRIP_WIDTH).fillMaxHeight(),
-                    verticalArrangement = Arrangement.spacedBy(settings.pageGap.dp),
+                    verticalArrangement = Arrangement.spacedBy(stripGap.dp),
                 ) {
                     // Keyed by chapter and page, so new page addresses and joined chapters keep your place.
                     items(strip, key = { it.key }, contentType = { it::class }) { item ->
                         when (item) {
                             is StripItem.Page -> {
                                 val segment = segments[item.segment]
+                                val url = segment.pages[item.page]
                                 PageImage(
-                                    url = segment.pages[item.page],
+                                    url = url,
                                     index = item.page,
                                     layout = PageLayout.Strip,
                                     crop = settings.cropBorders,
-                                    colorFilter = colorFilter,
+                                    segment = splits[item.segment to item.page]?.getOrNull(item.part),
+                                    colorFilter = filterFor(item.key),
                                     onGaveUp = { viewModel.renewPages(segment.chapter.id) },
+                                    colorKey = item.key,
+                                    onSampled = reportColor,
+                                    onColorSampled = reportPageColor,
+                                    onHeightSampled = if (a11y.tallPageSplit) { _, height -> pageHeights[url] = height } else null,
+                                    corner = readerUi.stripCornerDp.dp,
                                 )
                             }
                             is StripItem.Divider -> ChapterDivider(segments[item.segment], onPage)
@@ -624,12 +1036,41 @@ private fun ReaderContent(
             }
         }
 
-        // Dimming sits over the pages and under the bars. It does not take touches.
-        if (settings.readerDim > 0) {
+        // A patterned strip background draws behind the pages; plain colors replaced the background above.
+        StripPattern(stripBgChoice, Modifier.fillMaxSize())
+
+        // A hovering stylus gets a 2x magnifier under its tip.
+        val peekUrl = if (paged) pagedChapter.pages.getOrNull(position) else current.pages.getOrNull(position)
+        StylusHoverPeek(enabled = readerUi.stylusHoverPeek, pageUrl = peekUrl, containerSize = container)
+
+        // Dimming sits over the pages and under the bars. It does not take touches. E-ink mode skips it.
+        if (settings.readerDim > 0 && !eInk) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.readerDim.coerceIn(0, 70) / 100f)))
         }
 
-        if (!barsVisible) {
+        // Zen mode adds its own hard dim over everything but the bars, which are already hidden.
+        if (zen) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+        }
+
+        // The sleep timer stops auto-scroll and narration, and dims the screen, when it fires. A tap clears the dim.
+        var sleepDimmed by remember { mutableStateOf(false) }
+        SleepTimer(minutes = readerUi.sleepTimerMinutes) {
+            viewModel.updateSettings { it.copy(autoScrollLevel = 0) }
+            ReaderTtsService.stop(context)
+            sleepDimmed = true
+            viewModel.toast("Sleep timer: auto-scroll stopped, screen dimmed")
+        }
+        if (sleepDimmed) {
+            Box(
+                Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { sleepDimmed = false },
+            )
+        }
+
+        // Zen mode hides every last bit of chrome, counter included.
+        if (!barsVisible && !zen) {
             // A small counter stays visible when the bars are hidden, with the time and battery when that is on.
             val status by clockAndBattery(context, settings.showClock)
             Surface(
@@ -647,19 +1088,33 @@ private fun ReaderContent(
         }
 
         if (barsVisible) {
-            ReaderTopBar(
-                segment = current,
-                seriesTitle = page.seriesTitle,
-                bookmarked = bookmarks.any { it.chapterId == current.chapter.id && it.page == position },
-                incognito = settings.incognito,
-                onBookmark = {
-                    barTouch++
-                    viewModel.toggleBookmark(current.chapter, position)
-                },
-                onBack = onBack,
-                onOpenOptions = onOpenOptions,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
+            val bookmarked = bookmarks.any { it.chapterId == current.chapter.id && it.page == position }
+            // One-handed mode drops the top bar: its actions move into the bottom bar, near the thumb.
+            if (!settings.oneHandedMode) {
+                ReaderTopBar(
+                    segment = current,
+                    seriesTitle = page.seriesTitle,
+                    bookmarked = bookmarked,
+                    incognito = settings.incognito,
+                    castManager = castManager,
+                    onBookmark = {
+                        barTouch++
+                        viewModel.toggleBookmark(current.chapter, position)
+                    },
+                    onBack = onBack,
+                    onOpenOptions = onOpenOptions,
+                    actions = topActions,
+                    onToolbarAction = ::onToolbarAction,
+                    showNarration = a11y.ttsEnabled,
+                    narrationRunning = narrationRunning,
+                    voiceButton = if (a11y.voiceControl) {
+                        { VoiceControlButton(voiceRecognizer) }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
             ReaderBottomBar(
                 segment = current,
                 position = position,
@@ -672,6 +1127,20 @@ private fun ReaderContent(
                 onJump = { jumpTo = (position + 1).toString() },
                 onChapters = { showChapters = true },
                 onOpenChapter = onOpenChapter,
+                oneHanded = settings.oneHandedMode,
+                onBack = onBack,
+                bookmarked = bookmarked,
+                onBookmark = {
+                    barTouch++
+                    viewModel.toggleBookmark(current.chapter, position)
+                },
+                onOpenOptions = onOpenOptions,
+                actions = bottomActions,
+                topActions = topActions,
+                pageUrls = current.pages,
+                scrubberPreview = readerUi.scrubberPreview,
+                onPageCounter = { if (readerUi.thumbnailsEnabled) showThumbnails = true else jumpTo = (position + 1).toString() },
+                onToolbarAction = ::onToolbarAction,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -704,6 +1173,51 @@ private fun ReaderContent(
             }
         }
 
+        // Binge mode: at the end of a chapter, count down and open the next one automatically.
+        var bingeDismissed by remember { mutableStateOf<String?>(null) }
+        val bingeNext = page.chapters.firstOrNull { it.id == current.nextId }
+        val atChapterEnd = if (paged) {
+            pagerState.currentPage >= pagerCount - 1
+        } else {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisible != null && strip.isNotEmpty() && lastVisible.index >= strip.lastIndex
+        }
+        // In the continuous strip the next chapter joins on its own, so there is nothing to binge to.
+        val bingeContinuing = !paged && continuous && current.nextId != null && segments.size < MAX_SEGMENTS
+        if (readerUi.bingeMode && atChapterEnd && current.nextId != null && !bingeContinuing && bingeDismissed != current.chapter.id) {
+            BingeCountdown(
+                seconds = readerUi.bingeSeconds,
+                nextLabel = bingeNext?.let { "Ep. ${it.number}" } ?: "the next episode",
+                onAdvance = { current.nextId?.let(onOpenChapter) },
+                onCancel = { bingeDismissed = current.chapter.id },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 128.dp),
+            )
+        }
+
+        if (showThumbnails) {
+            ChapterThumbnailSheet(
+                pages = current.pages,
+                position = position,
+                onSelect = { index ->
+                    showThumbnails = false
+                    scope.launch { goToPage(index) }
+                },
+                onGoToPage = {
+                    showThumbnails = false
+                    jumpTo = (position + 1).toString()
+                },
+                onDismiss = { showThumbnails = false },
+            )
+        }
+
+        if (showSleepDialog) {
+            SleepTimerDialog(
+                currentMinutes = readerUi.sleepTimerMinutes,
+                onSelect = { minutes -> scope.launch { uiPrefs.setSleepTimerMinutes(minutes) } },
+                onDismiss = { showSleepDialog = false },
+            )
+        }
+
         if (showChapters) {
             ChapterPicker(
                 chapters = page.chapters,
@@ -715,6 +1229,7 @@ private fun ReaderContent(
                 onDismiss = { showChapters = false },
             )
         }
+    }
     }
 }
 
@@ -748,8 +1263,12 @@ private fun PagedPage(
     shown: List<Int>,
     rtl: Boolean,
     settings: Settings,
-    colorFilter: ColorFilter?,
+    filterFor: (String?) -> ColorFilter?,
     onGaveUp: (String) -> Unit,
+    sampleKey: String? = null,
+    onSampled: ((String, Color) -> Unit)? = null,
+    onColorSampled: ((String, Boolean) -> Unit)? = null,
+    onAspectSampled: ((String, Float) -> Unit)? = null,
 ) {
     val renew = { onGaveUp(segment.chapter.id) }
     if (shown.size > 1) {
@@ -757,7 +1276,10 @@ private fun PagedPage(
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             (if (rtl) shown.reversed() else shown).forEach { index ->
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    PageImage(segment.pages[index], index, PageLayout.Screen, settings.cropBorders, colorFilter, renew)
+                    PageImage(
+                        segment.pages[index], index, PageLayout.Screen, settings.cropBorders, filterFor(sampleKey), renew,
+                        sampleKey, onSampled, onColorSampled, onAspectSampled,
+                    )
                 }
             }
         }
@@ -766,12 +1288,21 @@ private fun PagedPage(
     val index = shown.firstOrNull() ?: return
     val url = segment.pages[index]
     when (settings.pageFit) {
-        PageFit.Screen -> PageImage(url, index, PageLayout.Screen, settings.cropBorders, colorFilter, renew)
+        PageFit.Screen -> PageImage(
+            url, index, PageLayout.Screen, settings.cropBorders, filterFor(sampleKey), renew,
+            sampleKey, onSampled, onColorSampled, onAspectSampled,
+        )
         PageFit.Width -> Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            PageImage(url, index, PageLayout.Strip, settings.cropBorders, colorFilter, renew)
+            PageImage(
+                url, index, PageLayout.Strip, settings.cropBorders, filterFor(sampleKey), renew,
+                sampleKey, onSampled, onColorSampled, onAspectSampled,
+            )
         }
         PageFit.Height -> Box(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
-            PageImage(url, index, PageLayout.Height, settings.cropBorders, colorFilter, renew)
+            PageImage(
+                url, index, PageLayout.Height, settings.cropBorders, filterFor(sampleKey), renew,
+                sampleKey, onSampled, onColorSampled, onAspectSampled,
+            )
         }
     }
 }
@@ -782,7 +1313,27 @@ private fun PagedPage(
  * natural height. Fitted to the screen, it shows whole. At the screen's height, it may run off the sides.
  */
 @Composable
-private fun PageImage(url: String, index: Int, layout: PageLayout, crop: Boolean, colorFilter: ColorFilter?, onGaveUp: () -> Unit) {
+private fun PageImage(
+    url: String,
+    index: Int,
+    layout: PageLayout,
+    crop: Boolean,
+    colorFilter: ColorFilter?,
+    onGaveUp: () -> Unit,
+    colorKey: String? = null,
+    onSampled: ((String, Color) -> Unit)? = null,
+    /** Reports whether the loaded page is color, for the night-filter exemption. */
+    onColorSampled: ((String, Boolean) -> Unit)? = null,
+    /** Reports the loaded page's width-to-height ratio, for spread detection. */
+    onAspectSampled: ((String, Float) -> Unit)? = null,
+    /** Reports the loaded page's pixel height, for tall-page splitting. */
+    onHeightSampled: ((String, Int) -> Unit)? = null,
+    /** When set, only this chunk of a split tall page is decoded. */
+    segment: PageSegment? = null,
+    onHeightSampled: ((String, Int) -> Unit)? = null,
+    /** Rounded page corners in the strip; 0 is square. */
+    corner: Dp = 0.dp,
+) {
     val context = LocalPlatformContext.current
     // Bumping the attempt count rebuilds the image, which asks the server again.
     var attempt by remember { mutableIntStateOf(0) }
@@ -791,7 +1342,7 @@ private fun PageImage(url: String, index: Int, layout: PageLayout, crop: Boolean
     var failed by remember(url) { mutableStateOf(false) }
     var loaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val request = remember(url, crop) { pageRequest(context, url, crop) }
+    val request = remember(url, crop, segment) { pageRequest(context, url, crop, segment) }
     val size = when (layout) {
         PageLayout.Strip -> Modifier.fillMaxWidth()
         PageLayout.Screen -> Modifier.fillMaxSize()
@@ -802,6 +1353,7 @@ private fun PageImage(url: String, index: Int, layout: PageLayout, crop: Boolean
             // Until it loads, a page in the strip holds a placeholder height. The image itself stays unbounded, so it decodes at full height.
             .then(if (layout != PageLayout.Strip || loaded) Modifier else Modifier.heightIn(min = if (failed) 200.dp else PLACEHOLDER_HEIGHT))
             .then(if (loaded) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))
+            .then(if (corner > 0.dp && layout == PageLayout.Strip) Modifier.clip(RoundedCornerShape(corner)) else Modifier)
             .then(
                 if (failed) {
                     Modifier.clickable {
@@ -825,9 +1377,32 @@ private fun PageImage(url: String, index: Int, layout: PageLayout, crop: Boolean
                 },
                 colorFilter = colorFilter,
                 modifier = size,
-                onSuccess = {
+                onSuccess = { loadedImage ->
                     loaded = true
                     failed = false
+                    val bitmap = (loadedImage.result.image as? BitmapImage)?.bitmap
+                    if (bitmap != null) {
+                        // Smart background: report this page's mean colour once its bitmap is in hand.
+                        val key = colorKey
+                        val report = onSampled
+                        if (key != null && report != null) {
+                            scope.launch(Dispatchers.Default) { report(key, averageColor(bitmap)) }
+                        }
+                        // Color pages are exempt from the night filters; wide pages feed spread detection.
+                        val colorKey2 = colorKey
+                        val colorReport = onColorSampled
+                        if (colorKey2 != null && colorReport != null) {
+                            scope.launch(Dispatchers.Default) { colorReport(colorKey2, isColorful(bitmap)) }
+                        }
+                        val aspectReport = onAspectSampled
+                        if (aspectReport != null) {
+                            aspectReport(url, bitmap.width.toFloat() / bitmap.height.coerceAtLeast(1))
+                        }
+                        val heightReport = onHeightSampled
+                        if (heightReport != null) {
+                            heightReport(url, bitmap.height)
+                        }
+                    }
                 },
                 onError = {
                     loaded = false

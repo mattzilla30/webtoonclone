@@ -57,6 +57,14 @@
                 <data android:host="anilist" />
                 <data android:host="mal" />
             </intent-filter>
+            <!-- Google Drive and Dropbox return here after OAuth sign-in. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dexter" />
+                <data android:host="oauth" />
+            </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
         <receiver

@@ -11,28 +11,38 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.Button
+import androidx.wear.compose.material.LinearProgressIndicator
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.google.android.gms.wearable.Wearable
 
 /**
- * SCAFFOLD: Wear OS companion. Shows what the phone is reading at a glance and works as a
- * page-turn remote: the two buttons send [PAGE_NEXT]/[PAGE_PREVIOUS] messages to the phone,
- * which answers progress on [PROGRESS_REPLY]. Message paths must match the phone's
- * `com.dexter.platform.WearPaths`; they are duplicated here so the wear module builds standalone.
+ * Wear OS companion. Shows what the phone is reading at a glance and works as a page-turn
+ * remote: the two buttons send [PAGE_NEXT]/[PAGE_PREVIOUS] messages to the phone, which answers
+ * progress on [PROGRESS_REPLY]. That reply arrives through [WearProgressListener] into
+ * [WatchState], which this screen renders.
+ *
+ * Message paths must match the phone's `com.dexter.platform.WearPaths`; they are duplicated
+ * here so the wear module builds standalone. Keep them in sync.
  */
 class WearMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { WatchScreen(::sendPageTurn) } }
+        setContent { MaterialTheme { WatchScreen(::sendPageTurn, ::requestProgress) } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh the at-a-glance view every time the watch screen comes up.
+        requestProgress()
     }
 
     private fun sendPageTurn(path: String) {
@@ -47,8 +57,6 @@ class WearMainActivity : ComponentActivity() {
             val client = Wearable.getMessageClient(this)
             nodes.forEach { client.sendMessage(it.id, PROGRESS_REQUEST, null) }
         }
-        // The reply arrives via a WearableListenerService; this scaffold reads the last known
-        // value back through the Data Layer instead of holding a listener. See the TODO below.
     }
 
     companion object {
@@ -60,25 +68,56 @@ class WearMainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun WatchScreen(onTurn: (String) -> Unit) {
-    var status by remember { mutableStateOf("Dexter remote") }
-    LaunchedEffect(Unit) {
-        // TODO: register a WearableListenerService for PROGRESS_REPLY and render seriesTitle,
-        // chapterNumber, and a progress bar from the payload.
-    }
+private fun WatchScreen(onTurn: (String) -> Unit, onRefresh: () -> Unit) {
+    val progress by WatchState.progress.collectAsState()
+
+    // Ask the phone what is being read when the screen first appears; the reply flows back
+    // through WearProgressListener into WatchState. onResume covers later visits.
+    LaunchedEffect(Unit) { onRefresh() }
+
     Column(
         Modifier.fillMaxSize().padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(status, style = MaterialTheme.typography.caption3)
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Button(onClick = { onTurn(WearMainActivity.PAGE_PREVIOUS); status = "Previous page" }) {
-                Text("<")
+        val current = progress
+        if (current == null) {
+            Text(
+                "Open a chapter on your phone",
+                style = MaterialTheme.typography.caption2,
+                textAlign = TextAlign.Center,
+            )
+            Button(onClick = onRefresh, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Refresh")
             }
-            Button(onClick = { onTurn(WearMainActivity.PAGE_NEXT); status = "Next page" }) {
-                Text(">")
-            }
+        } else {
+            Text(
+                current.seriesTitle,
+                style = MaterialTheme.typography.title3,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                "Ch. ${current.chapterNumber}",
+                style = MaterialTheme.typography.caption1,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            LinearProgressIndicator(
+                progress = current.share,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            )
+            Text(
+                "Page ${current.page + 1} of ${current.total}",
+                style = MaterialTheme.typography.caption2,
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            Button(onClick = { onTurn(WearMainActivity.PAGE_PREVIOUS) }) { Text("<") }
+            Button(onClick = { onTurn(WearMainActivity.PAGE_NEXT) }) { Text(">") }
         }
     }
 }

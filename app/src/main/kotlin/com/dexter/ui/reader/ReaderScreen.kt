@@ -116,6 +116,7 @@ import com.dexter.data.splitTallPage
 import com.dexter.tts.ReaderTtsService
 import com.dexter.tts.TtsPageEvents
 import com.dexter.data.isColorful
+import com.dexter.platform.WearBridge
 import com.dexter.data.isSpreadAspect
 import com.dexter.data.pairIndexOf
 import com.dexter.data.pairPages
@@ -376,6 +377,7 @@ private fun ReaderContent(
     var showChapters by remember { mutableStateOf(false) }
     var jumpTo by remember { mutableStateOf<String?>(null) }
     var menuFor by remember { mutableStateOf<Cursor?>(null) }
+    var ocrUrl by remember { mutableStateOf<String?>(null) }
     var showThumbnails by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
     val topActions = remember(readerUi.topActionsCsv) { toolbarActionsOrDefault(readerUi.topActionsCsv, defaultTopActions) }
@@ -565,6 +567,10 @@ private fun ReaderContent(
     fun save(at: Cursor, fraction: Float) {
         val segment = page.segments.getOrNull(at.segment) ?: return
         viewModel.saveProgress(segment.chapter.id, at.page, fraction, segment.pages.size)
+        // Keep the paired watch's at-a-glance view in step with the reader.
+        page.seriesTitle?.let { title ->
+            WearBridge.publishProgress(context, title, segment.chapter.number, at.page, segment.pages.size)
+        }
     }
 
     // True until the reader is back at your place within the start page. Saving waits, so the old place is not lost to "top of page".
@@ -715,6 +721,17 @@ private fun ReaderContent(
                 turnPage(direction, onContentPage = pagerState.currentPage < pagerCount - 1)
             } else {
                 scrollStripBy(direction)
+            }
+        }
+    }
+
+    // Watch remote: a page turn from the paired watch behaves like a volume-key press.
+    LaunchedEffect(paged, listState, pagerState) {
+        WearBridge.turns.collect { turn ->
+            if (turn == WearBridge.PageTurn.Next) {
+                if (paged) turnPage(1, onContentPage = pagerState.currentPage < pagerCount - 1) else scrollStripBy(1)
+            } else {
+                if (paged) turnPage(-1, onContentPage = true) else scrollStripBy(-1)
             }
         }
     }
@@ -1168,10 +1185,14 @@ private fun ReaderContent(
                     onShare = { viewModel.sharePage(url, segment.chapter, at.page) { context.startActivity(it) } },
                     onCopy = { viewModel.copyPage(url, segment.chapter, at.page) },
                     onBookmark = { viewModel.toggleBookmark(segment.chapter, at.page) },
+                    onOcr = { menuFor = null; ocrUrl = url },
                     onDismiss = { menuFor = null },
                 )
             }
         }
+
+        // On-demand OCR: recognize the page's text and let the reader tap blocks to copy, share, or translate.
+        ocrUrl?.let { OcrLookupSheet(imageUrl = it, onDismiss = { ocrUrl = null }) }
 
         // Binge mode: at the end of a chapter, count down and open the next one automatically.
         var bingeDismissed by remember { mutableStateOf<String?>(null) }
@@ -1486,6 +1507,7 @@ private fun PageMenu(
     onShare: () -> Unit,
     onCopy: () -> Unit,
     onBookmark: () -> Unit,
+    onOcr: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1494,6 +1516,7 @@ private fun PageMenu(
             "Save to Pictures" to onSave,
             "Share" to onShare,
             "Copy" to onCopy,
+            "Recognize text" to onOcr,
             (if (bookmarked) "Remove bookmark" else "Bookmark this page") to onBookmark,
         ).forEach { (label, action) ->
             Text(

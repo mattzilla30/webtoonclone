@@ -23,6 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -30,7 +31,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -59,8 +65,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.dexter.data.CloudOAuth
+import com.dexter.data.LocalChapter
+import com.dexter.data.PageSource
+import com.dexter.data.QolPrefs
 import com.dexter.data.ReaderBackground
 import com.dexter.data.Settings
+import com.dexter.data.localChapterById
 import com.dexter.notify.EXTRA_CHAPTER_ID
 import com.dexter.notify.EXTRA_ROUTE
 import com.dexter.notify.EXTRA_SERIES_ID
@@ -114,6 +125,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
 import android.graphics.Color as AndroidColor
 
@@ -168,7 +180,9 @@ class MainActivity : ComponentActivity() {
         val app = application as DexterApp
         lifecycleScope.launch {
             val message = try {
+                // Cloud OAuth (dexter://oauth/...) is tried when the tracker redirect does not match.
                 app.trackers.handleRedirect(uri)
+                    ?: CloudOAuth.handleRedirect(uri, app.oauthClient, app.cloudTokenStore)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -209,6 +223,11 @@ class MainActivity : ComponentActivity() {
         val app = application as DexterApp
         setContent {
             val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = app.settingsStore.latest)
+            // Push the lock config down; LockScreen reads it live.
+            LaunchedEffect(settings.lockMode, settings.relockTimeoutMs) {
+                AppLock.lockMode = settings.lockMode
+                AppLock.relockTimeoutMs = settings.relockTimeoutMs
+            }
             DexterNav(settings, openCount, pending) { pending = null }
         }
         holdFirstFrameForSettings(app)
@@ -367,8 +386,15 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                 val vm = koinViewModel<SeriesViewModel> { parametersOf(seriesId) }
                                                 SeriesScreen(
                                                     vm,
-                                                    onOpenChapter = { nav.navigate("series/$seriesId/$it") },
-                                                    onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
+                                                    // Local series read through the local reader route; MangaDex ids keep the old one.
+                                                    onOpenChapter = {
+                                                        if (seriesId.startsWith("local:")) nav.navigate("local/$seriesId/$it")
+                                                        else nav.navigate("series/$seriesId/$it")
+                                                    },
+                                                    onOpenBookmark = { chapter, page ->
+                                                        if (seriesId.startsWith("local:")) nav.navigate("local/$seriesId/$chapter?page=$page")
+                                                        else nav.navigate("series/$seriesId/$chapter?page=$page")
+                                                    },
                                                     onHome = { nav.navigateTab("home") },
                                                     onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
                                                     onOpenSeries = openSeries,
@@ -434,6 +460,52 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                         // The screen under the reader is the one that opened it: the series page, Home, Stats, or an author.
                                                         onBack = { nav.popBackStack() },
                                                     )
+                                                }
+                                            }
+                                            screen(
+                                                "local/{seriesId}/{chapterId}?page={page}",
+                                                arguments = listOf(navArgument("page") { type = NavType.IntType; defaultValue = -1 }),
+                                            ) { entry ->
+                                                val seriesId = entry.arguments!!.getString("seriesId")!!
+                                                val chapterId = entry.arguments!!.getString("chapterId")!!
+                                                // A bookmark opens at its page. Otherwise the reader picks up where you left off.
+                                                val page = entry.arguments!!.getInt("page", -1)
+                                                val qol: QolPrefs = koinInject()
+                                                val folder by qol.localFolder.collectAsStateWithLifecycle(initialValue = null)
+                                                var localChapter by remember(chapterId) { mutableStateOf<LocalChapter?>(null) }
+                                                var unresolved by remember(chapterId) { mutableStateOf(false) }
+                                                LaunchedEffect(folder, chapterId) {
+                                                    val root = folder?.let(::File)?.takeIf { it.isDirectory }
+                                                    localChapter = root?.let { localChapterById(chapterId, it) }
+                                                    unresolved = localChapter == null
+                                                }
+                                                val chapter = localChapter
+                                                when {
+                                                    chapter != null -> {
+                                                        val vm = koinViewModel<ReaderViewModel>(key = "local:$chapterId@$page") {
+                                                            parametersOf(seriesId, chapterId, page, PageSource.Local(chapter))
+                                                        }
+                                                        // The reader stays dark in a light app, so its bars and text keep their contrast.
+                                                        DarkTheme {
+                                                            ReaderScreen(
+                                                                vm,
+                                                                // The next chapter replaces this one, so Back leaves the reader instead of stepping through chapters.
+                                                                onOpenChapter = { nav.navigate("local/$seriesId/$it") { popUpTo("local/{seriesId}/{chapterId}?page={page}") { inclusive = true } } },
+                                                                onBack = { nav.popBackStack() },
+                                                            )
+                                                        }
+                                                    }
+                                                    unresolved -> Column(
+                                                        Modifier.fillMaxSize().padding(24.dp),
+                                                        verticalArrangement = Arrangement.Center,
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                    ) {
+                                                        Text("Could not find that chapter in the local folder.")
+                                                        TextButton(onClick = { nav.popBackStack() }) { Text("Back") }
+                                                    }
+                                                    else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                        CircularProgressIndicator()
+                                                    }
                                                 }
                                             }
                                         }

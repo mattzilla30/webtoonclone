@@ -19,6 +19,8 @@ import com.dexter.data.NasShareStore
 import com.dexter.data.OfflineStore
 import com.dexter.data.PowerPrefs
 import com.dexter.data.ProgressStore
+import com.dexter.data.CloudTokenStore
+import com.dexter.data.PageSource
 import com.dexter.data.QolPrefs
 import com.dexter.data.ReaderUiPrefs
 import com.dexter.data.ReadingListStore
@@ -89,6 +91,7 @@ val appModule = module {
     // Batch B+C feature stores: QoL prefs, smart lists, reading lists, NAS shares, download
     // integrity, reader-UI prefs, metered data saver, accessibility/power prefs, chapter blacklist.
     single { QolPrefs(androidContext()) }
+    single { CloudTokenStore(androidContext()) }
     single { SmartListStore(androidContext()) }
     single { ReadingListStore(androidContext()) }
     single { NasShareStore(androidContext()) }
@@ -107,6 +110,12 @@ val appModule = module {
     viewModel { StatsViewModel(get(), get()) }
     viewModel { SettingsViewModel(androidApplication() as DexterApp) }
     viewModel { params -> SeriesViewModel(params.get<String>(0), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
-    viewModel { params -> ReaderViewModel(params.get<String>(0), params.get<String>(1), params.get<Int>(2), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication()) }
+    viewModel { params ->
+        ReaderViewModel(
+            params.get<String>(0), params.get<String>(1), params.get<Int>(2), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidApplication(),
+            pageSource = params.getOrNull<PageSource>(3) ?: PageSource.MangaDex(params.get<String>(1)),
+            qol = get(),
+        )
+    }
     viewModel { params -> AuthorViewModel(params.get<String>(0), get(), get(), get()) }
 }

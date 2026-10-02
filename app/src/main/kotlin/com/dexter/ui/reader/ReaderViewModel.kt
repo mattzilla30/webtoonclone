@@ -13,9 +13,12 @@ import com.dexter.data.DownloadStore
 import com.dexter.data.Genres
 import com.dexter.data.ImageExport
 import com.dexter.data.LibraryStore
+import com.dexter.data.LocalChapter
 import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
+import com.dexter.data.PageSource
 import com.dexter.data.ProgressStore
+import com.dexter.data.QolPrefs
 import com.dexter.data.ReaderOrientation
 import com.dexter.data.ReadingMode
 import com.dexter.data.SavedSeries
@@ -29,9 +32,16 @@ import com.dexter.data.applyLookChange
 import com.dexter.data.detectReadingMode
 import com.dexter.data.effectiveLook
 import com.dexter.data.findChapter
+import com.dexter.data.isLocal
+import com.dexter.data.localChapters
 import com.dexter.data.nextChapterIndex
 import com.dexter.data.resolveMode
+import com.dexter.data.resolvePages
+import com.dexter.data.scanLocalRoot
+import com.dexter.data.toLocalChapter
+import com.dexter.data.toReaderChapter
 import com.dexter.data.withSeriesLook
+import java.io.File
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
@@ -100,6 +110,9 @@ class ReaderViewModel(
     private val account: MangaDexAccount,
     private val trackers: Trackers,
     private val context: Application,
+    /** Where pages come from. Defaults to the MangaDex path, so existing call sites keep working. */
+    private val pageSource: PageSource = PageSource.MangaDex(chapterId),
+    private val qol: QolPrefs,
 ) : ViewModel() {
     /** The settings as this series' reader sees them, with its own dimming and background when it has them. */
     val settings: StateFlow<Settings> = settingsStore.settings
@@ -221,6 +234,8 @@ class ReaderViewModel(
      */
     suspend fun nextChapterPreview(count: Int, segment: ChapterSegment): List<String> {
         if (previewed) return emptyList()
+        // Local pages are files on disk; there is nothing to preload over the network.
+        if (pageSource.isLocal()) return emptyList()
         val next = segment.nextId ?: return emptyList()
         previewed = true
         // A saved chapter opens from the device, so there is nothing to preload.
@@ -238,8 +253,9 @@ class ReaderViewModel(
                 coroutineScope {
                     val preferredGroup = settingsStore.current().preferredGroups[seriesId]
                     val chapters = async {
-                        // With no connection, the chapters saved on this device are the list.
-                        catching { readableChapters(preferredGroup, fresh = false) }
+                        // Local content lists the scanned chapters; a bare archive is one chapter alone.
+                        if (pageSource.isLocal()) localChapterList()
+                        else catching { readableChapters(preferredGroup, fresh = false) }
                             .getOrElse { error -> downloads.chaptersOf(seriesId).ifEmpty { throw error } }
                     }
                     val pages = async { pagesFor(chapterId, forceRefresh) }
@@ -281,9 +297,13 @@ class ReaderViewModel(
     private fun segment(list: List<Chapter>, index: Int, chapter: Chapter, pages: List<String>) =
         ChapterSegment(chapter, pages, index, list.getOrNull(index - 1)?.id, list.getOrNull(nextIndex(list, index))?.id)
 
-    /** The pages of a chapter: the saved files when it is saved, the image server's addresses when not. */
+    /**
+     * The pages of a chapter: local files for local content (an empty result becomes a load error),
+     * the saved files when a MangaDex chapter is saved, the image server's addresses when not.
+     */
     private suspend fun pagesFor(id: String, forceRefresh: Boolean = false): List<String> =
-        downloads.pagesOf(id) ?: repository.pages(id, forceRefresh)
+        if (pageSource.isLocal()) resolvePages(pageSource, context.cacheDir).ifEmpty { error("Could not read the chapter's pages") }
+        else downloads.pagesOf(id) ?: repository.pages(id, forceRefresh)
 
     /**
      * Joins the chapter after the last one in the strip onto its end, for continuous reading. Does nothing
@@ -314,12 +334,15 @@ class ReaderViewModel(
             if (!settings.incognito) {
                 recordRecent(segment.chapter)
                 lastReadNumber = segment.chapter.number
-                // A read marker on MangaDex too, when you are signed in with them on.
-                catching { account.markRead(seriesId, listOf(segment.chapter.id)) }
-                // AniList and MyAnimeList progress, for the trackers you signed in to.
-                catching { trackers.pushProgress(seriesId, segment.chapter.number) }
+                if (!pageSource.isLocal()) {
+                    // A read marker on MangaDex too, when you are signed in with them on.
+                    catching { account.markRead(seriesId, listOf(segment.chapter.id)) }
+                    // AniList and MyAnimeList progress, for the trackers you signed in to.
+                    catching { trackers.pushProgress(seriesId, segment.chapter.number) }
+                }
             }
-            saveNextChapter(segment, settings)
+            // Local chapters are already files: nothing to auto-download.
+            if (!pageSource.isLocal()) saveNextChapter(segment, settings)
             // With the setting on, opening a chapter deletes the saved copy of the one before it.
             if (settings.deleteAfterRead) segment.prevId?.let { prev -> if (downloads.isSaved(prev)) downloads.delete(prev) }
         }
@@ -327,6 +350,8 @@ class ReaderViewModel(
 
     /** Reads the series' tags and language from the saved copy [cached], or from MangaDex when there is none. */
     private suspend fun detectMode(cached: SeriesDetail?): ReadingMode {
+        // Local series carry no tags or language; skip the doomed network lookup.
+        if (pageSource.isLocal()) return ReadingMode.Vertical
         val detail = cached ?: catching { repository.series(seriesId) }.getOrNull()
         return if (detail != null) detectReadingMode(detail.tags, detail.originalLanguage) else ReadingMode.Vertical
     }
@@ -384,6 +409,8 @@ class ReaderViewModel(
      * this asks MangaDex for new ones for that page's chapter and swaps them in, keeping your place.
      */
     fun renewPages(segmentChapterId: String) {
+        // File addresses do not expire.
+        if (pageSource.isLocal()) return
         val now = System.currentTimeMillis()
         if (now - pagesRenewedAt < RENEW_PAGES_MS) return
         pagesRenewedAt = now
@@ -401,6 +428,10 @@ class ReaderViewModel(
 
     /** Opens the chapter's discussion thread through [open], or says there is none yet. */
     fun openComments(chapter: Chapter, open: (String) -> Unit) {
+        if (pageSource.isLocal()) {
+            _toast.value = "No comments for local chapters"
+            return
+        }
         viewModelScope.launch(LogFailures) {
             val url = catching { repository.chapterCommentsUrl(chapter.id) }
             when {
@@ -460,4 +491,23 @@ class ReaderViewModel(
     /** The chapters that open in the reader, oldest first. */
     private suspend fun readableChapters(preferredGroup: String?, fresh: Boolean): List<Chapter> =
         repository.allChapters(seriesId, preferredGroup, fresh).filter { it.externalUrl == null }
+
+    /**
+     * The chapter list for local content: every chapter of the series the opened chapter belongs
+     * to, oldest first, so the chapter drawer and continuous reading work. A bare archive is one
+     * chapter alone. Always contains the opened chapter, so the lookup below cannot miss.
+     */
+    private suspend fun localChapterList(): List<Chapter> {
+        val src = pageSource
+        if (src is PageSource.Archive) return listOf(src.file.toLocalChapter().toReaderChapter())
+        val local = (src as? PageSource.Local)?.localChapter ?: error("Chapter not found")
+        val root = qol.localFolder.first()?.let(::File)?.takeIf { it.isDirectory }
+            ?: return listOf(local.toReaderChapter())
+        val dir = runCatching { scanLocalRoot(root) }.getOrDefault(emptyList())
+            .firstOrNull { it.id == local.seriesId }?.dir
+            ?: return listOf(local.toReaderChapter())
+        return runCatching { localChapters(dir) }.getOrDefault(emptyList())
+            .map { it.toReaderChapter() }
+            .ifEmpty { listOf(local.toReaderChapter()) }
+    }
 }

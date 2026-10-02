@@ -2,7 +2,8 @@ package com.dexter.ui.reader
 
 import coil3.PlatformContext
 import coil3.request.ImageRequest
-import coil3.request.transformations
+import com.dexter.data.PageSegment
+import com.dexter.data.SplitSegment
 
 /**
  * The cache key for a page image. MangaDex serves a page from different servers over time, but the
@@ -18,12 +19,23 @@ fun pageCacheKey(url: String): String {
 /**
  * A request for one page, cached under [pageCacheKey]. Showing a page and loading it ahead use the same keys.
  * With [crop], plain margins are trimmed, and the trimmed copy keeps its own place in the memory cache.
+ * With [segment], only that chunk of a split tall page is decoded, under its own cache key.
  */
-fun pageRequest(context: PlatformContext, url: String, crop: Boolean = false): ImageRequest {
+fun pageRequest(context: PlatformContext, url: String, crop: Boolean = false, segment: PageSegment? = null): ImageRequest {
     val key = pageCacheKey(url)
+    val memoryKey = when {
+        segment != null -> "$key#split${segment.index}"
+        crop -> "$key#crop"
+        else -> key
+    }
     return ImageRequest.Builder(context).data(url)
-        .memoryCacheKey(if (crop) "$key#crop" else key)
+        .memoryCacheKey(memoryKey)
         .diskCacheKey(key)
-        .apply { if (crop) transformations(CropBorders()) }
+        .transformations(
+            listOfNotNull(
+                CropBorders().takeIf { crop },
+                segment?.let { SplitSegment(it) },
+            ),
+        )
         .build()
 }

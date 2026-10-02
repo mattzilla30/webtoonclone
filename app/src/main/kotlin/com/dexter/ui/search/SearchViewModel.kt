@@ -17,6 +17,8 @@ import com.dexter.data.subscriptionStart
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
+import com.dexter.ui.discover.HiddenGem
+import com.dexter.ui.discover.fetchHiddenGems
 import com.dexter.ui.friendlyError
 import com.dexter.ui.home.subscriptionMessage
 import kotlinx.coroutines.CancellationException
@@ -215,7 +217,8 @@ class SearchViewModel(
         if (query.isEmpty()) return clear()
         val term = query
         viewModelScope.launch(LogFailures) { library.addSearch(term) }
-        begin(Request(title = term, tag = null))
+        // A keyword that names a tag searches the theme too, not just titles.
+        begin(Request(title = term, tag = themeTagFor(term)))
     }
 
     /** Lists series with a MangaDex tag: a genre, theme, format, or content tag. */
@@ -237,6 +240,20 @@ class SearchViewModel(
         viewModelScope.launch(LogFailures) {
             val series = catching { repository.randomSeries() }.getOrNull()
             if (series != null) onFound(series.id) else _message.value = "Could not find a series. Try again."
+        }
+    }
+
+    /** The hidden-gems feed, loaded once on demand; null until the first load. */
+    private val _gems = MutableStateFlow<List<HiddenGem>?>(null)
+    val gems: StateFlow<List<HiddenGem>?> = _gems
+
+    /** Loads the hidden-gems feed once, excluding series already in the library. */
+    fun loadGems() {
+        if (_gems.value != null) return
+        viewModelScope.launch(LogFailures) {
+            val lib = catching { library.current() }.getOrNull()
+            val exclude = lib?.let { (it.recent + it.subscribed + it.lists).mapTo(HashSet()) { series -> series.id } } ?: emptySet()
+            _gems.value = fetchHiddenGems(repository, exclude)
         }
     }
 
@@ -312,7 +329,15 @@ class SearchViewModel(
         val order = _sort.value
         val filters = _filters.value
         val fetch: suspend (page: Int) -> List<SeriesSummary> = { p ->
-            repository.browse(title = req.title, tag = req.tag, page = p, order = order, withStats = req.title == null, filters = filters)
+            if (req.title != null && req.tag != null) {
+                // Theme matches list first, then title matches; both pages stay in step for load-more.
+                mergeSearchResults(
+                    repository.browse(tag = req.tag, page = p, order = order, filters = filters),
+                    repository.browse(title = req.title, page = p, order = order, filters = filters),
+                )
+            } else {
+                repository.browse(title = req.title, tag = req.tag, page = p, order = order, withStats = req.title == null, filters = filters)
+            }
         }
         request = req
         _message.value = null

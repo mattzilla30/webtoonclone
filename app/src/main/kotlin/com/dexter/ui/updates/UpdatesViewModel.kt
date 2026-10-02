@@ -10,6 +10,8 @@ import com.dexter.data.UpdateEntry
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
+import com.dexter.ui.discover.SeriesSchedule
+import com.dexter.ui.discover.typicalWeekday
 import com.dexter.ui.friendlyError
 import com.dexter.ui.series.isChapterRead
 import kotlinx.coroutines.CancellationException
@@ -92,6 +94,32 @@ class UpdatesViewModel(
                 throw e
             } catch (e: Exception) {
                 Load.Error(friendlyError(e, "Could not load your subscriptions"))
+            }
+        }
+    }
+
+    private val _schedule = MutableStateFlow<Load<List<SeriesSchedule>>?>(null)
+
+    /** Followed series grouped by their usual update weekday. Null until first opened. */
+    val schedule: StateFlow<Load<List<SeriesSchedule>>?> = _schedule
+
+    /** Derives each followed series' usual update weekday from its recent chapter upload dates. */
+    fun loadSchedule() {
+        if (_schedule.value != null) return
+        _schedule.value = Load.Loading
+        viewModelScope.launch(LogFailures) {
+            _schedule.value = try {
+                val followed = libraryStore.current().subscribed
+                val schedules = followed.mapNotNull { series ->
+                    val chapters = catching { repository.allChapters(series.id) }.getOrNull().orEmpty()
+                    val weekday = typicalWeekday(chapters.take(12).map { it.publishedAt })
+                    weekday?.let { SeriesSchedule(series.id, series.title, series.coverUrl, it, chapters.size.coerceAtMost(12)) }
+                }
+                Load.Ready(schedules.sortedWith(compareBy({ it.weekday }, { it.title })))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Load.Error(friendlyError(e, "Could not build the schedule"))
             }
         }
     }

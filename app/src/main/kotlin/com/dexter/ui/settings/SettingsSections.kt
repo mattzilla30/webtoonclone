@@ -1,9 +1,6 @@
 package com.dexter.ui.settings
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import com.dexter.data.Accent
 import com.dexter.data.ReaderBackground
 import com.dexter.data.Settings

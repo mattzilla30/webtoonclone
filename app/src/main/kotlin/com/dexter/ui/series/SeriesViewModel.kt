@@ -122,6 +122,11 @@ class SeriesViewModel(
         }
     }
 
+    /** Confirms a chapter was blacklisted; the list itself filters through [ChapterBlacklist]. */
+    fun notifyBlacklisted(chapter: Chapter) {
+        _toast.value = "Ep. ${chapter.number} will never show again. Settings can undo it."
+    }
+
     /** Opens the chapter's discussion thread through [open], or says there is none yet. */
     fun openComments(chapter: Chapter, open: (String) -> Unit) {
         viewModelScope.launch(LogFailures) {
@@ -194,6 +199,10 @@ class SeriesViewModel(
     val downloaded: StateFlow<Set<String>> = downloads.saved
         .map { rows -> rows.filter { it.seriesId == seriesId }.mapTo(mutableSetOf()) { it.chapterId } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** When on, the chapter list shows only chapters saved on the device. */
+    val offlineOnly: StateFlow<Boolean> = settingsStore.settings.map { it.offlineOnly }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), settingsStore.latest.offlineOnly)
 
     /** Chapters waiting or being saved, by id, with progress from 0 to 1. A chapter still waiting reads 0. */
     val downloading: StateFlow<Map<String, Float>> = combine(downloads.queue, downloads.active) { queue, active ->

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -46,7 +45,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.ContentRatings
 import com.dexter.data.Languages
+import com.dexter.data.NasShareStore
+import com.dexter.data.PowerPrefs
+import com.dexter.data.ChapterBlacklist
+import com.dexter.data.A11yPrefs
+import com.dexter.data.QolPrefs
+import com.dexter.data.LibraryStore
 import com.dexter.data.ReadingStatus
+import com.dexter.data.archiveFileName
+import com.dexter.data.findDuplicateSeries
 import com.dexter.data.formatBytes
 import com.dexter.data.libraryText
 import com.dexter.data.resetReaderSettings
@@ -57,9 +64,10 @@ import com.dexter.ui.ChoiceChip
 import com.dexter.ui.ConfirmDialog
 import com.dexter.ui.timeAgo
 import java.time.Instant
+import org.koin.compose.koinInject
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit, onOpenErrors: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit, onOpenErrors: () -> Unit, onOpenStorage: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val cacheBytes by viewModel.cacheBytes.collectAsStateWithLifecycle()
@@ -67,6 +75,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     val message by viewModel.message.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val pending by viewModel.pending.collectAsStateWithLifecycle()
+    val pendingArchive by viewModel.pendingArchive.collectAsStateWithLifecycle()
     val accounts by viewModel.accounts.collectAsStateWithLifecycle()
     val release by viewModel.release.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
@@ -81,6 +90,12 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     }
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) viewModel.setAutoBackupFolder(uri)
+    }
+    val archiveExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) viewModel.exportArchive(uri)
+    }
+    val archiveImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.readArchive(uri)
     }
     var pickTag by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
@@ -112,16 +127,19 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     }
     pending?.let { backup ->
         AlertDialog(
-            onDismissRequest = viewModel::cancelRestore,
+            onDismissRequest = { if (pendingArchive != null) viewModel.cancelArchiveRestore() else viewModel.cancelRestore() },
             title = { Text(stringResource(R.string.restore_this_backup)) },
             text = {
                 Text(
-                    "It has ${backup.library.subscribed.size} subscriptions, ${backup.library.lists.size} listed series, and ${backup.library.recent.size} recent reads. " +
-                        "Your current library and settings will be replaced.",
+                    if (pendingArchive != null)
+                        "It holds the library, settings, reading positions, history, downloads, and covers from the archive. Your current library and settings will be replaced."
+                    else
+                        "It has ${backup.library.subscribed.size} subscriptions, ${backup.library.lists.size} listed series, and ${backup.library.recent.size} recent reads. " +
+                            "Your current library and settings will be replaced.",
                 )
             },
-            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text(stringResource(R.string.restore)) } },
-            dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.cancel)) } },
+            confirmButton = { TextButton(onClick = { if (pendingArchive != null) viewModel.confirmArchiveRestore() else viewModel.confirmRestore() }) { Text(stringResource(R.string.restore)) } },
+            dismissButton = { TextButton(onClick = { if (pendingArchive != null) viewModel.cancelArchiveRestore() else viewModel.cancelRestore() }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     release?.let { latest ->
@@ -167,6 +185,39 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 AppearanceSection(settings, viewModel::update)
 
                 ReadingSection(settings, viewModel::update)
+
+                LibraryExtrasSection(settings, viewModel::update)
+
+                ReaderExtrasSection(settings, viewModel::update)
+
+                ReaderUiSection()
+
+                run {
+                    val qol = remember(context) { QolPrefs(context) }
+                    QolSettingsSection(qol)
+                    val nas = remember(context) { NasShareStore(context) }
+                    NasSharesSection(nas)
+                    val libraryStore: LibraryStore = koinInject()
+                    LocalImportSection(qol, libraryStore)
+                    WebDavSection(qol)
+                }
+
+                run {
+                    val a11y = remember(context) { A11yPrefs(context) }
+                    A11ySection(a11y)
+                    val power = remember(context) { PowerPrefs(context) }
+                    val blacklist = remember(context) { ChapterBlacklist(context) }
+                    val duplicates = remember(library) {
+                        findDuplicateSeries((library.recent + library.subscribed + library.lists).distinctBy { it.id })
+                    }
+                    PowerSection(
+                        prefs = power,
+                        blacklist = blacklist,
+                        onOpenStorage = onOpenStorage,
+                        duplicates = duplicates,
+                        onRemoveDuplicateCopies = viewModel::removeDuplicateCopies,
+                    )
+                }
 
                 SectionTitle("Privacy")
                 SwitchRow("Incognito", "Read without saving history, reading positions, or stats.", settings.incognito) { on ->
@@ -356,6 +407,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                     onMal = { id -> viewModel.signInMal(id) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
                     onSignOutAniList = viewModel::signOutAniList,
                     onSignOutMal = viewModel::signOutMal,
+                )
+
+                DownloadSyncSection(
+                    settings = settings,
+                    subscribed = library.subscribed,
+                    update = viewModel::update,
+                    onExportArchive = { archiveExportLauncher.launch(archiveFileName()) },
+                    onImportArchive = { archiveImportLauncher.launch(arrayOf("application/zip", "*/*")) },
                 )
 
                 SectionTitle("Backup")

@@ -1,5 +1,6 @@
 package com.dexter.ui.reader
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -14,6 +15,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.unit.IntSize
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 const val MIN_SCALE = 1f
 const val MAX_SCALE = 4f
@@ -47,6 +50,21 @@ class ZoomState {
         scale = 1f
         offsetX = 0f
         offsetY = 0f
+    }
+
+    /** Jumps straight to a zoom and offset: an instant cut for reduce-motion and e-ink mode. */
+    fun snapTo(scale: Float, offsetX: Float, offsetY: Float) {
+        this.scale = clampScale(scale)
+        this.offsetX = offsetX
+        this.offsetY = offsetY
+    }
+
+    /** Eases to a zoom and offset, for the guided panel camera. */
+    suspend fun animateTo(scale: Float, offsetX: Float, offsetY: Float) = coroutineScope {
+        val target = Triple(clampScale(scale), offsetX, offsetY)
+        launch { Animatable(this@ZoomState.scale).animateTo(target.first) { this@ZoomState.scale = value } }
+        launch { Animatable(this@ZoomState.offsetX).animateTo(target.second) { this@ZoomState.offsetX = value } }
+        launch { Animatable(this@ZoomState.offsetY).animateTo(target.third) { this@ZoomState.offsetY = value } }
     }
 
     /** Applies a pinch: zoom by [zoomChange] around [focus], then move by [pan]. */

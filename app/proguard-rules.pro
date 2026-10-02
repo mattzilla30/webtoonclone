@@ -28,3 +28,6 @@
     public static int d(...);
     public static int i(...);
 }
+
+# Chromecast: the provider is referenced only from manifest XML, so R8 would strip it in release builds.
+-keep class com.dexter.cast.DexterCastOptionsProvider { *; }

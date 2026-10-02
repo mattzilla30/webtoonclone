@@ -53,6 +53,12 @@ class MangaDexRepository(
     /** Set from Settings. Read on the network threads, so all three are volatile. */
     @Volatile var dataSaver = false
 
+    /**
+     * Set by MeteredDataSaver on metered connections when the user chose auto data saver.
+     * Either this or [dataSaver] is enough for saver images.
+     */
+    @Volatile var meteredSaver = false
+
     @Volatile var originalTitles = false
 
     /** The MangaDex language code for chapters, titles, and descriptions. */
@@ -495,7 +501,7 @@ class MangaDexRepository(
     suspend fun pages(chapterId: String, forceRefresh: Boolean = false): List<String> {
         ensureSettings()
         // The two image sets have different addresses, so the saver choice is part of the key.
-        val saver = dataSaver
+        val saver = dataSaver || meteredSaver
         val key = "$chapterId:${if (saver) "saver" else "full"}"
         if (!forceRefresh) pageUrls.get(key)?.let { return it }
         val home = fetchJson<AtHomeDto>("$API/at-home/server/$chapterId".toHttpUrl())

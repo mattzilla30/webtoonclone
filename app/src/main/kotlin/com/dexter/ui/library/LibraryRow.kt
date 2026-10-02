@@ -5,6 +5,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -43,6 +44,8 @@ internal fun LibraryRow(
     onSelect: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     newCount: Int? = null,
+    /** Blur the cover until the series is started, when spoiler-safe blur is on. */
+    blurCover: Boolean = false,
 ) {
     Surface(
         shape = MaterialTheme.shapes.medium,
@@ -51,6 +54,7 @@ internal fun LibraryRow(
             .clip(MaterialTheme.shapes.medium)
             .combinedClickable(
                 onClick = { if (selecting) onSelect(!selected) else onOpen() },
+                onClickLabel = if (selecting) "Select" else "Open series",
                 onLongClick = { onSelect(!selected) },
                 onLongClickLabel = "Select",
             ),
@@ -59,7 +63,16 @@ internal fun LibraryRow(
             Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Cover(series.coverUrl, null, Modifier.width(44.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
+            if (blurCover) {
+                SpoilerSafeCover(
+                    blurred = true,
+                    modifier = Modifier.width(44.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small),
+                ) {
+                    Cover(series.coverUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
+                }
+            } else {
+                Cover(series.coverUrl, null, Modifier.width(44.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
+            }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 if (showNew) {
                     Text(newCount?.let { "$it new" } ?: stringResource(R.string.new_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)

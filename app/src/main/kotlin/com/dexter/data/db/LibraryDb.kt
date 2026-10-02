@@ -154,6 +154,9 @@ interface StatsDao {
 
     @Query("SELECT * FROM read_events")
     fun observe(): Flow<List<ReadEventEntity>>
+
+    @Query("DELETE FROM read_events")
+    suspend fun clear()
 }
 
 /** A chapter waiting to be saved. [position] orders the queue, smallest first. */

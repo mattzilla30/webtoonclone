@@ -31,6 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
+import com.dexter.data.ComicInfo
+import com.dexter.data.db.DownloadEntity
 import com.dexter.data.formatBytes
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
@@ -50,8 +52,11 @@ fun DownloadsScreen(
     val active by viewModel.active.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val toast by viewModel.toast.collectAsStateWithLifecycle()
+    val integrity by viewModel.integrity.collectAsStateWithLifecycle()
     val total = groups.orEmpty().sumOf { it.bytes }
     var confirmRemoveAll by rememberSaveable { mutableStateOf(false) }
+    // The downloaded chapter whose ComicInfo metadata is being edited.
+    var editingMetadata by remember { mutableStateOf<DownloadEntity?>(null) }
     if (confirmRemoveAll) {
         ConfirmDialog(
             title = stringResource(R.string.remove_all_downloads_title),
@@ -139,8 +144,35 @@ fun DownloadsScreen(
                                     Text(group.title, style = MaterialTheme.typography.titleSmallEmphasized)
                                     Text("${group.chapters.size} chapters, ${formatBytes(group.bytes)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
+                                TextButton(onClick = { viewModel.verifySeries(group.seriesId) }) { Text("Verify") }
                                 TextButton(onClick = { viewModel.exportCbz(group.chapters.map { it.chapterId }) }) { Text("CBZ") }
                                 TextButton(onClick = { viewModel.deleteSeries(group.seriesId) }) { Text(stringResource(R.string.remove)) }
+                            }
+                        }
+                        // Chapters that failed verification, with a repair button each.
+                        val problems = integrity?.get(group.seriesId).orEmpty()
+                        if (problems.isNotEmpty()) {
+                            item(key = "integrity-${group.seriesId}") {
+                                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                    problems.forEach { report ->
+                                        val chapter = group.chapters.firstOrNull { it.chapterId == report.chapterId }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    "Ep. ${chapter?.number ?: "?"}: ${report.badPages.size} bad ${if (report.badPages.size == 1) "page" else "pages"}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.error,
+                                                )
+                                                Text(
+                                                    report.badPages.take(3).joinToString { "${it.index + 1} (${it.problem.name.lowercase()})" },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            TextButton(onClick = { viewModel.repairChapter(group.seriesId, report) }) { Text("Repair") }
+                                        }
+                                    }
+                                }
                             }
                         }
                         items(group.chapters, key = { it.chapterId }) { chapter ->
@@ -162,6 +194,7 @@ fun DownloadsScreen(
                                         Text(formatBytes(chapter.bytes), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     TextButton(onClick = { viewModel.exportCbz(listOf(chapter.chapterId)) }) { Text("CBZ") }
+                                    TextButton(onClick = { editingMetadata = chapter }) { Text("Edit") }
                                     TextButton(onClick = { viewModel.delete(chapter.chapterId) }) { Text(stringResource(R.string.remove)) }
                                 }
                             }
@@ -176,6 +209,25 @@ fun DownloadsScreen(
                 viewModel.clearToast()
             }
             Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) { Text(message) }
+        }
+        // The ComicInfo metadata editor: edits land on the saved chapter and in the next CBZ export.
+        editingMetadata?.let { row ->
+            ComicInfoEditorDialog(
+                fileName = "Ep. ${row.number} · ${row.seriesTitle}",
+                info = ComicInfo(
+                    series = row.seriesTitle,
+                    number = row.number,
+                    title = row.title,
+                    volume = row.volume,
+                    translator = row.groupName,
+                    pageCount = row.pageCount,
+                ),
+                onSave = { info ->
+                    viewModel.updateMetadata(row.chapterId, info)
+                    editingMetadata = null
+                },
+                onDismiss = { editingMetadata = null },
+            )
         }
     }
 }

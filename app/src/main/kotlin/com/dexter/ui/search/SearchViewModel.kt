@@ -220,7 +220,8 @@ class SearchViewModel(
         query = text.trim()
         if (query.isEmpty()) return clear()
         val term = query
-        viewModelScope.launch(LogFailures) { library.addSearch(term) }
+        // Incognito keeps no history, searches included.
+        viewModelScope.launch(LogFailures) { if (!settingsStore.current().incognito) library.addSearch(term) }
         // A keyword that names a tag searches the theme too, not just titles.
         begin(Request(title = term, tag = themeTagFor(term)))
     }

@@ -92,7 +92,9 @@ class DownloadIntegrity(
         hashes: Map<String, Map<String, String>> = emptyMap(),
     ): List<ChapterIntegrity> = withContext(Dispatchers.IO) {
         store.chaptersOf(seriesId).mapNotNull { chapter ->
-            verifyChapter(chapter.id, null, hashes[chapter.id]).takeUnless { it.ok }
+            // Prefer caller-supplied hashes; otherwise use the ones recorded at download time.
+            val expected = hashes[chapter.id] ?: store.loadPageHashes(chapter.id)
+            verifyChapter(chapter.id, null, expected).takeUnless { it.ok }
         }
     }
 
@@ -124,7 +126,9 @@ class DownloadIntegrity(
                 }
             }.awaitAll()
         }
-        verifyChapter(report.chapterId, report.expectedPages)
+        // The repaired pages have new bytes: re-record hashes so later checks use them.
+        runCatching { store.savePageHashes(report.chapterId) }
+        verifyChapter(report.chapterId, report.expectedPages, store.loadPageHashes(report.chapterId))
     }
 
     private fun fetchTo(url: String, out: File) {

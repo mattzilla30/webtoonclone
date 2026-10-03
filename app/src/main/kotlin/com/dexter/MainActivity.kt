@@ -122,6 +122,7 @@ import com.dexter.ui.updates.UpdatesViewModel
 import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
@@ -476,11 +477,14 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                 // A bookmark opens at its page. Otherwise the reader picks up where you left off.
                                                 val page = entry.arguments!!.getInt("page", -1)
                                                 val qol: QolPrefs = koinInject()
-                                                val folder by qol.localFolder.collectAsStateWithLifecycle(initialValue = null)
+                                                // Null until the setting loads, then "" when no folder is set, so the lookup waits for the real value.
+                                                val folderFlow = remember(qol) { qol.localFolder.map { it.orEmpty() } }
+                                                val folder by folderFlow.collectAsStateWithLifecycle(initialValue = null)
                                                 var localChapter by remember(chapterId) { mutableStateOf<LocalChapter?>(null) }
                                                 var unresolved by remember(chapterId) { mutableStateOf(false) }
                                                 LaunchedEffect(folder, chapterId) {
-                                                    val root = folder?.let(::File)?.takeIf { it.isDirectory }
+                                                    val loaded = folder ?: return@LaunchedEffect
+                                                    val root = loaded.takeIf { it.isNotEmpty() }?.let(::File)?.takeIf { it.isDirectory }
                                                     localChapter = root?.let { localChapterById(chapterId, it) }
                                                     unresolved = localChapter == null
                                                 }

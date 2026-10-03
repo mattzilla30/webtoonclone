@@ -376,7 +376,6 @@ private fun ReaderContent(
     var showChapters by remember { mutableStateOf(false) }
     var jumpTo by remember { mutableStateOf<String?>(null) }
     var menuFor by remember { mutableStateOf<Cursor?>(null) }
-    var ocrUrl by remember { mutableStateOf<String?>(null) }
     var showThumbnails by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
     val topActions = remember(readerUi.topActionsCsv) { toolbarActionsOrDefault(readerUi.topActionsCsv, defaultTopActions) }
@@ -1191,14 +1190,10 @@ private fun ReaderContent(
                         onShare = { viewModel.sharePage(url, segment.chapter, at.page) { context.startActivity(it) } },
                         onCopy = { viewModel.copyPage(url, segment.chapter, at.page) },
                         onBookmark = { viewModel.toggleBookmark(segment.chapter, at.page) },
-                        onOcr = { menuFor = null; ocrUrl = url },
                         onDismiss = { menuFor = null },
                     )
                 }
             }
-
-            // On-demand OCR: recognize the page's text and let the reader tap blocks to copy, share, or translate.
-            ocrUrl?.let { OcrLookupSheet(imageUrl = it, onDismiss = { ocrUrl = null }) }
 
             // Binge mode: at the end of a chapter, count down and open the next one automatically.
             var bingeDismissed by remember { mutableStateOf<String?>(null) }
@@ -1512,7 +1507,6 @@ private fun PageMenu(
     onShare: () -> Unit,
     onCopy: () -> Unit,
     onBookmark: () -> Unit,
-    onOcr: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -1521,7 +1515,6 @@ private fun PageMenu(
             "Save to Pictures" to onSave,
             "Share" to onShare,
             "Copy" to onCopy,
-            "Recognize text" to onOcr,
             (if (bookmarked) "Remove bookmark" else "Bookmark this page") to onBookmark,
         ).forEach { (label, action) ->
             Text(

@@ -103,9 +103,6 @@ dependencies {
 
     // Chromecast sender via the Default Media Receiver, so no receiver app registration is needed.
     implementation("com.google.android.gms:play-services-cast-framework:22.3.1")
-    // On-device text recognition for the reader's Recognize text lookup (Latin and Japanese).
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 
     // Wear OS companion: answers progress requests and page-turn messages from the watch.
     implementation("com.google.android.gms:play-services-wearable:19.0.0")

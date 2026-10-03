@@ -50,9 +50,11 @@ class ChromecastSession private constructor(
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The launched receiver's transport id and session id, once it is running. */
-    private var transportId: String? = null
-    private var sessionId: String? = null
-    private var launched = CompletableDeferred<Unit>()
+    @Volatile private var transportId: String? = null
+
+    @Volatile private var sessionId: String? = null
+
+    @Volatile private var launched = CompletableDeferred<Unit>()
 
     @Volatile private var closed = false
 

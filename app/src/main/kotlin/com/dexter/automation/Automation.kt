@@ -6,7 +6,9 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import com.dexter.data.PowerPrefs
 import com.dexter.notify.NewChaptersWorker
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Public automation actions. Send these as explicit broadcasts to Dexter (for example from Tasker,
@@ -52,8 +54,19 @@ object DexterAutomation {
  */
 class AutomationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val enabled = runBlocking { PowerPrefs(context).current().taskerEnabled }
-        if (!enabled) return
+        // DataStore reads off the main thread; goAsync keeps the broadcast alive until the read finishes.
+        val pending = goAsync()
+        val app = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                if (PowerPrefs(app).current().taskerEnabled) handle(app, intent)
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    private fun handle(context: Context, intent: Intent) {
         when (intent.action) {
             DexterAutomation.ACTION_LIBRARY_UPDATE -> {
                 // A forced check runs outside the schedule; the worker still honours quiet hours.

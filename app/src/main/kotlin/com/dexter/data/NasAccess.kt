@@ -151,7 +151,10 @@ class NasTreeReader(private val context: Context) {
         val ext = entry.name.substringAfterLast('.', "cbz")
         val out = dir.resolve("${entry.uri.toString().hashCode().toString(16)}.$ext")
         if (!out.exists() || out.length() == 0L) {
-            open(entry).use { input -> out.outputStream().use { input.copyTo(it) } }
+            // Copy to a side file first, so a copy cut off partway never passes for a whole archive.
+            val partial = dir.resolve(out.name + ".part")
+            open(entry).use { input -> partial.outputStream().use { input.copyTo(it) } }
+            if (!partial.renameTo(out)) throw java.io.IOException("Could not cache ${entry.name}")
         }
         out
     }

@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -853,10 +854,12 @@ private fun ReaderContent(
     }
 
     // Smart background: tint the reader background toward the colour of the page on screen.
-    val smartKey: String? = if (settings.smartBackground && !eInk) {
-        if (paged) "spread:${pagerState.currentPage}" else strip.getOrNull(listState.firstVisibleItemIndex)?.key
-    } else {
-        null
+    // Derived, so scrolling recomposes the reader only when the page on screen changes, not every frame.
+    val smartOn = settings.smartBackground && !eInk
+    val smartKey: String? by remember(smartOn, paged, strip) {
+        derivedStateOf {
+            if (!smartOn) null else if (paged) "spread:${pagerState.currentPage}" else strip.getOrNull(listState.firstVisibleItemIndex)?.key
+        }
     }
     val pageTint = smartKey?.let { smartColors[it] }
     val stripBgColor = stripBackgroundColor(stripBgChoice, settings)
@@ -1211,11 +1214,16 @@ private fun ReaderContent(
             // Binge mode: at the end of a chapter, count down and open the next one automatically.
             var bingeDismissed by remember { mutableStateOf<String?>(null) }
             val bingeNext = page.chapters.firstOrNull { it.id == current.nextId }
-            val atChapterEnd = if (paged) {
-                pagerState.currentPage >= pagerCount - 1
-            } else {
-                val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                lastVisible != null && strip.isNotEmpty() && lastVisible.index >= strip.lastIndex
+            // Derived, so the strip's scrolling does not recompose the reader on every frame.
+            val atChapterEnd by remember(paged, pagerCount, strip) {
+                derivedStateOf {
+                    if (paged) {
+                        pagerState.currentPage >= pagerCount - 1
+                    } else {
+                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                        lastVisible != null && strip.isNotEmpty() && lastVisible.index >= strip.lastIndex
+                    }
+                }
             }
             // In the continuous strip the next chapter joins on its own, so there is nothing to binge to.
             val bingeContinuing = !paged && continuous && current.nextId != null && segments.size < MAX_SEGMENTS

@@ -70,7 +70,7 @@ class CastManager private constructor(private val context: Context, private val 
     /** The TV being cast to, or null. */
     val connected: StateFlow<CastDevice?> = _connected.asStateFlow()
 
-    private var chromecast: ChromecastSession? = null
+    @Volatile private var chromecast: ChromecastSession? = null
     private var discovery: Job? = null
     private var nsdListener: NsdManager.DiscoveryListener? = null
 

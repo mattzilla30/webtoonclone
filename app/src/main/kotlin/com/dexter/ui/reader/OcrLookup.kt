@@ -1,5 +1,6 @@
 package com.dexter.ui.reader
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -269,10 +270,12 @@ private fun openTranslator(context: Context, text: String) {
         putExtra("tl", language)
         putExtra("text", text)
     }
-    if (appIntent.resolveActivity(context.packageManager) != null) {
+    // Since Android 11 the app cannot see whether Translate is installed without declaring it, so
+    // it simply tries the app and falls back to the web page when nothing answers.
+    try {
         context.startActivity(appIntent)
-    } else {
+    } catch (e: ActivityNotFoundException) {
         val url = "https://translate.google.com/?sl=auto&tl=$language&text=${Uri.encode(text)}"
-        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
     }
 }

@@ -353,6 +353,8 @@ class SearchViewModel(
                 endReached = true
                 Load.Ready(saved.series)
             } else {
+                // No cached copy: the previous search's offline banner must not linger over this error.
+                _offlineSavedAt.value = null
                 Load.Error(friendlyError(e, "Search failed"))
             }
         }

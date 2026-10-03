@@ -197,6 +197,7 @@ class HomeViewModel(
 
     private var seenOpen = 0
     private var loadJob: Job? = null
+    private var refreshGeneration = 0
 
     /**
      * Reloads with fresh random picks when the app has been opened since the last load.
@@ -215,7 +216,9 @@ class HomeViewModel(
         if (_state.value !is Load.Ready) return retry()
         _refreshing.value = true
         load(showSpinner = false, force = true)
-        loadJob?.invokeOnCompletion { _refreshing.value = false }
+        // A second pull cancels the first job; only the latest refresh may stop the spinner.
+        val generation = ++refreshGeneration
+        loadJob?.invokeOnCompletion { if (generation == refreshGeneration) _refreshing.value = false }
         refreshBecause()
     }
 

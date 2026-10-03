@@ -108,6 +108,24 @@ class ReadingListStore(private val context: Context) {
         update(id) { list -> list.copy(entries = list.entries.filterNot { it.seriesId == seriesId }) }
     }
 
+    /** Removes every series in [seriesIds] in a single write. */
+    suspend fun removeEntries(id: String, seriesIds: Set<String>) {
+        update(id) { list -> list.copy(entries = list.entries.filterNot { it.seriesId in seriesIds }) }
+    }
+
+    /**
+     * Puts back entries removed earlier, in their old order. Entries added since the
+     * removal stay on top, mirroring [mergeRestore].
+     */
+    suspend fun restoreEntries(id: String, snapshot: List<ReadingListEntry>) {
+        update(id) { list ->
+            val snapshotIds = snapshot.mapTo(HashSet()) { it.seriesId }
+            val kept = list.entries.filter { it.seriesId !in snapshotIds }
+            val restored = snapshot.map { entry -> list.entries.firstOrNull { it.seriesId == entry.seriesId } ?: entry }
+            list.copy(entries = kept + restored)
+        }
+    }
+
     /** Moves a series to [toIndex], clamping into the list. */
     suspend fun moveSeries(id: String, seriesId: String, toIndex: Int) {
         update(id) { list ->

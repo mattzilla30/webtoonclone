@@ -4,6 +4,7 @@ import android.content.Context
 import com.dexter.data.db.AppDatabase
 import com.dexter.data.db.DownloadEntity
 import com.dexter.data.db.QueuedDownloadEntity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -35,6 +36,12 @@ import kotlin.coroutines.resumeWithException
 private const val PAGE_TRIES = 3
 
 private const val PAGES_AT_ONCE = 3
+
+/** Pages are usually a few hundred KB; assume this much each so the free-space check stays safe. */
+private const val EXPECTED_BYTES_PER_PAGE = 2L * 1024 * 1024
+
+/** Refuse to download below this much free space, even for a tiny chapter. */
+private const val MIN_FREE_BYTES = 100L * 1024 * 1024
 
 /** The file name for page [index] of [total], padded so a directory listing sorts in reading order. */
 fun pageFileName(index: Int, total: Int, url: String): String {
@@ -155,10 +162,11 @@ class DownloadStore(
     /** Takes [chapterId] out of the queue, and stops it if it is being saved right now. */
     suspend fun cancel(chapterId: String) {
         queueDao.delete(chapterId)
-        running[chapterId]?.let { job ->
-            cancelled += chapterId
-            job.cancel()
-        }
+        // Always record the cancel, even when nothing is saving yet: the worker fetches the page
+        // list over the network before save() registers its job, and a cancel in that window must
+        // still stop the chapter instead of saving it after all.
+        cancelled += chapterId
+        running[chapterId]?.cancel()
     }
 
     /** Empties the queue and stops the chapter being saved. */
@@ -195,7 +203,16 @@ class DownloadStore(
 
     /** Drops rows whose page files are gone, such as after a restore from Android's cloud backup. */
     suspend fun prune() = withContext(Dispatchers.IO) {
+        // Chapters being saved right now keep their in-progress files: a `.part` sweep must not
+        // race a re-download and eat its pages.
+        val busy = running.keys + _active.value.keys
+        // Hash-recording temps live next to the chapter dirs, where the `.part` sweep inside each
+        // dir can't see them; drop the stale ones so they don't accumulate.
+        root.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".sha256.part") && it.name.removeSuffix(".sha256.part") !in busy }
+            ?.forEach { it.delete() }
         dao.observe().first().forEach { row ->
+            if (row.chapterId in busy) return@forEach
             val dir = File(root, row.chapterId)
             // Interrupted writes leave `.part` files behind. They are never pages, so sweep them
             // here instead of letting them fail the page count and drop a good chapter's row.
@@ -221,6 +238,18 @@ class DownloadStore(
 
     /** The folder holding [chapterId]'s page files, for the backup archive. */
     fun dirFor(chapterId: String): File = File(root, chapterId)
+
+    /** The downloads root, for the backup archive's containment checks. */
+    internal val rootDir: File get() = root
+
+    /**
+     * Drops the recorded page hashes for [chapterId], finished sidecar and in-progress temp, e.g.
+     * after a restore writes different pages. Verification then degrades to presence checks.
+     */
+    internal fun clearPageHashes(chapterId: String) {
+        hashFile(chapterId).delete()
+        File(root, "$chapterId.sha256.part").delete()
+    }
 
     /** The page files of [chapterId], in reading order, for the backup archive. */
     suspend fun pageFiles(chapterId: String): List<File> = withContext(Dispatchers.IO) {
@@ -280,9 +309,13 @@ class DownloadStore(
         try {
             withContext(Dispatchers.IO + supervisor) {
                 running[chapter.id] = coroutineContext.job
+                // Check before touching anything: wiping the old dir first would lose the chapter
+                // for nothing when the disk can't hold the new one.
+                val needed = maxOf(MIN_FREE_BYTES, urls.size * EXPECTED_BYTES_PER_PAGE)
+                if (root.usableSpace < needed) throw IOException("Not enough storage space to download this chapter")
                 val dir = File(root, chapter.id).also { it.deleteRecursively(); it.mkdirs() }
                 // A re-download must not keep the previous download's hashes.
-                hashFile(chapter.id).delete()
+                clearPageHashes(chapter.id)
                 try {
                     // A few pages at a time. A page that fails cancels the rest, and the whole chapter fails with it.
                     val permits = Semaphore(PAGES_AT_ONCE)
@@ -318,7 +351,14 @@ class DownloadStore(
                     )
                     // Record page hashes while the files are known good, for later integrity checks.
                     // Best effort: a hashing failure must never fail an otherwise good download.
-                    runCatching { savePageHashes(chapter.id) }
+                    // A cancel landing in the hashing window must still cancel, so it is rethrown.
+                    try {
+                        savePageHashes(chapter.id)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // Best effort only.
+                    }
                 } catch (e: Exception) {
                     dir.deleteRecursively()
                     throw e
@@ -335,7 +375,7 @@ class DownloadStore(
     suspend fun delete(chapterId: String) = withContext(Dispatchers.IO) {
         dao.delete(chapterId)
         File(root, chapterId).deleteRecursively()
-        hashFile(chapterId).delete()
+        clearPageHashes(chapterId)
         Unit
     }
 
@@ -351,7 +391,7 @@ class DownloadStore(
     suspend fun deleteSeries(seriesId: String) = withContext(Dispatchers.IO) {
         dao.forSeries(seriesId).forEach {
             File(root, it.chapterId).deleteRecursively()
-            hashFile(it.chapterId).delete()
+            clearPageHashes(it.chapterId)
         }
         dao.deleteSeries(seriesId)
     }
@@ -396,8 +436,19 @@ class DownloadStore(
 
     private fun writePage(response: Response, target: File): Long {
         if (!response.isSuccessful) throw IOException("Page failed: ${response.code}")
+        // Some CDNs omit the header; when one is there, the page must be an image, not an
+        // error page or a login redirect served with a 200.
+        val contentType = response.header("Content-Type")
+        if (contentType != null && !contentType.startsWith("image/")) {
+            throw IOException("Page is not an image: $contentType")
+        }
         val temp = File(target.parentFile, target.name + ".part")
         response.body.byteStream().use { input -> temp.outputStream().use { input.copyTo(it) } }
+        // A 200 with an empty body is not a page; fail it like any bad page so it retries.
+        if (temp.length() == 0L) {
+            temp.delete()
+            throw IOException("Page is empty")
+        }
         if (!temp.renameTo(target)) throw IOException("Could not save page")
         return target.length()
     }

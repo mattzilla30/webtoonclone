@@ -19,6 +19,9 @@ class BackupService(
     private val progress: ProgressStore,
     private val db: AppDatabase,
     private val downloads: DownloadStore,
+    private val readingLists: ReadingListStore,
+    private val smartLists: SmartListStore,
+    private val blacklist: ChapterBlacklist,
 ) {
     suspend fun create(): Backup = Backup(
         savedAt = System.currentTimeMillis(),
@@ -28,6 +31,9 @@ class BackupService(
         history = db.stats().observe().first().map { it.toBackup() },
         downloads = downloads.saved.first().map { it.toBackup() },
         queue = db.queue().observe().first().map { it.toBackup() },
+        readingLists = readingLists.all.first(),
+        smartLists = smartLists.all.first(),
+        blacklist = blacklist.all().first(),
     )
 
     suspend fun writeTo(uri: Uri) {
@@ -125,5 +131,9 @@ class BackupService(
         // The queue, replacing what is waiting here.
         db.queue().deleteAll()
         backup.queue.forEach { db.queue().insert(it.toEntity()) }
+        // Reading lists, smart lists, and the chapter blacklist, replacing what is here.
+        readingLists.replaceAll(backup.readingLists)
+        smartLists.replaceAll(backup.smartLists)
+        blacklist.replaceAll(backup.blacklist)
     }
 }

@@ -54,6 +54,11 @@ class ReadingListStore(private val context: Context) {
         }
     }
 
+    /** Replaces every list, keeping ids and timestamps as they were in the backup. */
+    suspend fun replaceAll(lists: List<ReadingList>) {
+        write(lists)
+    }
+
     private suspend fun update(id: String, change: (ReadingList) -> ReadingList) {
         write(all.first().map { if (it.id == id) change(it).copy(updatedAt = System.currentTimeMillis()) else it })
     }
@@ -114,15 +119,21 @@ class ReadingListStore(private val context: Context) {
     }
 
     /**
-     * Puts back entries removed earlier, in their old order. Entries added since the
-     * removal stay on top, mirroring [mergeRestore].
+     * Puts back entries removed earlier at their original positions. Entries added since
+     * the removal keep their relative order at the end.
      */
     suspend fun restoreEntries(id: String, snapshot: List<ReadingListEntry>) {
         update(id) { list ->
             val snapshotIds = snapshot.mapTo(HashSet()) { it.seriesId }
-            val kept = list.entries.filter { it.seriesId !in snapshotIds }
-            val restored = snapshot.map { entry -> list.entries.firstOrNull { it.seriesId == entry.seriesId } ?: entry }
-            list.copy(entries = kept + restored)
+            val currentById = list.entries.associateBy { it.seriesId }
+            val result = ArrayList<ReadingListEntry>(snapshot.size)
+            snapshot.forEach { entry ->
+                // Kept entries stay at their original slot with current data; removed ones
+                // are restored from the snapshot.
+                result.add(currentById[entry.seriesId] ?: entry)
+            }
+            list.entries.filter { it.seriesId !in snapshotIds }.forEach { result.add(it) }
+            list.copy(entries = result)
         }
     }
 

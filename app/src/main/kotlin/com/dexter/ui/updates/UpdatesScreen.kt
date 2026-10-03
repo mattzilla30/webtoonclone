@@ -18,10 +18,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
@@ -86,7 +88,7 @@ private fun withDayHeadings(entries: List<UpdateEntry>): List<UpdateRow> {
 }
 
 @Composable
-fun UpdatesScreen(viewModel: UpdatesViewModel, onBack: () -> Unit, onOpenSeries: (String) -> Unit, onOpenChapter: (seriesId: String, chapterId: String) -> Unit) {
+fun UpdatesScreen(viewModel: UpdatesViewModel, onClose: () -> Unit, onOpenSeries: (String) -> Unit, onOpenChapter: (seriesId: String, chapterId: String) -> Unit) {
     val haptics = LocalHapticFeedback.current
     val allState by viewModel.state.collectAsStateWithLifecycle()
     val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
@@ -102,7 +104,12 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onBack: () -> Unit, onOpenSeries:
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            AppTopBar(stringResource(R.string.updates), onBack = onBack)
+            AppTopBar(
+                stringResource(R.string.updates),
+                actions = {
+                    IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close updates") }
+                },
+            )
             if (subscribedIds.isNotEmpty()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ChoiceChip("Subscribed only", subscribedOnly && !showSchedule) {

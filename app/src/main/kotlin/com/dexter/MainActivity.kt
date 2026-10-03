@@ -372,14 +372,24 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                     )
                                                 }
                                             }
-                                            screen("updates") {
+                                            // Updates is a bubble over Home, like Settings. Opening a series or chapter closes it first.
+                                            dialog("updates", dialogProperties = DialogProperties(usePlatformDefaultWidth = false)) {
                                                 val vm = koinViewModel<UpdatesViewModel>()
-                                                Box(Modifier.fillMaxSize()) {
+                                                val leaveTo: (String) -> Unit = { target ->
+                                                    nav.popBackStack()
+                                                    nav.navigate(target)
+                                                }
+                                                Surface(
+                                                    shape = MaterialTheme.shapes.extraLarge,
+                                                    color = MaterialTheme.colorScheme.background,
+                                                    tonalElevation = 6.dp,
+                                                    modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f),
+                                                ) {
                                                     UpdatesScreen(
                                                         vm,
-                                                        onBack = { nav.popBackStack() },
-                                                        onOpenSeries = openSeries,
-                                                        onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
+                                                        onClose = { nav.popBackStack() },
+                                                        onOpenSeries = { id -> leaveTo("series/$id") },
+                                                        onOpenChapter = { series, chapter -> leaveTo("series/$series/$chapter") },
                                                     )
                                                 }
                                             }

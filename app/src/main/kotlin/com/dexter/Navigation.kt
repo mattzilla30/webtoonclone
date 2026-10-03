@@ -27,10 +27,10 @@ import com.dexter.data.Settings
 import com.dexter.ui.LocalNavScope
 
 /**
- * The pages a series can open beside on a wide screen: Home, and My Series and Updates, which open from the
- * buttons at the top of Home.
+ * The pages a series can open beside on a wide screen: Home, and My Series, which opens from the heart
+ * button at the top of Home.
  */
-internal val paneRoutes = setOf("home", "library", "updates")
+internal val paneRoutes = setOf("home", "library")
 
 /** Opens a page that sits directly on Home, so Back from it always lands on Home. */
 internal fun NavHostController.navigateTab(route: String) {

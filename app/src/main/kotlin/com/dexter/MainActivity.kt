@@ -535,8 +535,15 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                     val vm = koinViewModel<SeriesViewModel>(key = "pane-$seriesId") { parametersOf(seriesId) }
                                     SeriesScreen(
                                         vm,
-                                        onOpenChapter = { nav.navigate("series/$seriesId/$it") },
-                                        onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
+                                        // Local series read through the local reader route, like the main screen.
+                                        onOpenChapter = {
+                                            if (seriesId.startsWith("local:")) nav.navigate("local/$seriesId/$it")
+                                            else nav.navigate("series/$seriesId/$it")
+                                        },
+                                        onOpenBookmark = { chapter, page ->
+                                            if (seriesId.startsWith("local:")) nav.navigate("local/$seriesId/$chapter?page=$page")
+                                            else nav.navigate("series/$seriesId/$chapter?page=$page")
+                                        },
                                         onHome = { paneSeries = null },
                                         onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
                                         onOpenSeries = { paneSeries = it },

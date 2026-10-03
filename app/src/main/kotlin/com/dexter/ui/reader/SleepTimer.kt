@@ -34,6 +34,11 @@ internal object SleepTimerClock {
     fun start(minutes: Int) {
         deadlineMs = if (minutes > 0) SystemClock.elapsedRealtime() + minutes * 60_000L else 0L
     }
+
+    /** Forgets any running countdown, e.g. when the reader closes. */
+    fun clear() {
+        deadlineMs = 0L
+    }
 }
 
 /**
@@ -46,10 +51,9 @@ internal fun SleepTimer(
     minutes: Int,
     onFire: () -> Unit,
 ) {
-    if (minutes <= 0) {
-        SleepTimerClock.start(0)
-        return
-    }
+    // No side effects here: turning the timer off goes through the dialog's onSelect,
+    // which already clears the clock.
+    if (minutes <= 0) return
     val deadline = remember(minutes) {
         val now = SystemClock.elapsedRealtime()
         // A new chapter recreates this composition; keep the running countdown instead of restarting it.

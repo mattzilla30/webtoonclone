@@ -199,8 +199,14 @@ class SearchViewModel(
 
     val recentSearches: StateFlow<List<String>> = library.stateOf(viewModelScope) { it.searches }
 
-    var query = ""
-        private set
+    private val _query = MutableStateFlow("")
+
+    /** The current search text. The screen mirrors this into its field when the ViewModel starts a search. */
+    val queryFlow: StateFlow<String> = _query
+
+    var query: String
+        get() = _query.value
+        private set(value) { _query.value = value }
 
     init {
         // Start from the sort you chose last time.

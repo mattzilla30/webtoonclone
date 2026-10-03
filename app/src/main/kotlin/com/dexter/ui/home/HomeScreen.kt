@@ -94,7 +94,6 @@ fun newLabel(count: Int?): String = if (count != null) "$count new" else "New"
 fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSeries: (String) -> Unit,
-    onOpenSearch: () -> Unit,
     onOpenChapter: (seriesId: String, chapterId: String) -> Unit,
     onBrowse: (label: String) -> Unit,
     openCount: Int,
@@ -160,13 +159,7 @@ fun HomeScreen(
                     }
                     home.hero?.let { hero ->
                         item {
-                            Hero(
-                                hero,
-                                subscribed = hero.id in subscribedIds,
-                                onSearch = onOpenSearch,
-                                onShuffle = viewModel::refresh,
-                                onSubscribe = { toggleSubscribe(hero) },
-                            ) { onOpenSeries(hero.id) }
+                            Hero(hero) { onOpenSeries(hero.id) }
                         }
                     }
 
@@ -371,10 +364,6 @@ private fun LongPressTip(onDismiss: () -> Unit) {
 @Composable
 private fun Hero(
     series: SeriesSummary,
-    subscribed: Boolean,
-    onSearch: () -> Unit,
-    onShuffle: () -> Unit,
-    onSubscribe: () -> Unit,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -386,17 +375,6 @@ private fun Hero(
         Box(Modifier.heightIn(min = 380.dp)) {
             Cover(series.coverUrl, series.title, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD9000000)))))
-            Row(Modifier.align(Alignment.TopEnd).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalIconToggleButton(checked = subscribed, onCheckedChange = { onSubscribe() }) {
-                    Icon(Icons.Default.Notifications, contentDescription = if (subscribed) "Unsubscribe" else "Subscribe")
-                }
-                FilledTonalIconButton(onClick = onShuffle) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Shuffle picks")
-                }
-                FilledTonalIconButton(onClick = onSearch) {
-                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
-                }
-            }
             Column(Modifier.align(Alignment.BottomStart).padding(20.dp).padding(top = 200.dp)) {
                 Text(series.title, color = Color.White, style = MaterialTheme.typography.headlineLargeEmphasized)
                 Text(

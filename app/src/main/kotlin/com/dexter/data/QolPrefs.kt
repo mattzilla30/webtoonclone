@@ -15,21 +15,17 @@ import kotlinx.serialization.builtins.ListSerializer
 private val Context.qolDataStore by preferencesDataStore(name = "qol")
 
 /**
- * Preferences for the quality-of-life batch: spoiler blur, the surprise-me filter, and trope tag
- * picks. Kept separate from [Settings] so this batch never touches the shared settings file.
+ * Preferences for the quality-of-life batch: spoiler blur, trope tag picks,
+ * and the Hidden gems feed. Kept separate from [Settings] so this batch never touches the shared settings file.
  */
 class QolPrefs(private val context: Context) {
     private val blurKey = booleanPreferencesKey("spoiler_blur")
-    private val surpriseKey = stringPreferencesKey("surprise_filter")
     private val tropesKey = stringSetPreferencesKey("trope_picks")
     private val hiddenGemsKey = booleanPreferencesKey("hidden_gems_enabled")
     private val nasHostKey = stringPreferencesKey("nas_default_host")
 
     /** Blur covers, chapter art, and progress-adjacent UI ahead of the current position. */
     val spoilerBlur: Flow<Boolean> = context.qolDataStore.data.map { it[blurKey] == true }
-
-    /** The last surprise-me filter the user picked, as a [SurpriseFilter] name, or null. */
-    val surpriseFilter: Flow<String?> = context.qolDataStore.data.map { it[surpriseKey] }
 
     /** Trope tag ids the user picked for discovery filtering. */
     val tropePicks: Flow<Set<String>> = context.qolDataStore.data.map { it[tropesKey].orEmpty() }
@@ -39,12 +35,6 @@ class QolPrefs(private val context: Context) {
 
     suspend fun setSpoilerBlur(on: Boolean) {
         context.qolDataStore.edit { it[blurKey] = on }
-    }
-
-    suspend fun setSurpriseFilter(name: String?) {
-        context.qolDataStore.edit { prefs ->
-            if (name == null) prefs.remove(surpriseKey) else prefs[surpriseKey] = name
-        }
     }
 
     suspend fun setTropePicks(ids: Set<String>) {

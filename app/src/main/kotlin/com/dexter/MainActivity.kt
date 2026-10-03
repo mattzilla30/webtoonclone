@@ -344,7 +344,6 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                     HomeScreen(
                                                         vm,
                                                         onOpenSeries = openSeries,
-                                                        onOpenSearch = { nav.navigateTab("search") },
                                                         onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
                                                         onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
                                                         openCount = openCount,

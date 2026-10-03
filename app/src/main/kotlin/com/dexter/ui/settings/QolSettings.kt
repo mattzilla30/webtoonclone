@@ -52,7 +52,6 @@ import com.dexter.data.scanLocalRoot
 import com.dexter.data.toSavedSeries
 import com.dexter.ui.CardRow
 import com.dexter.ui.ChoiceChip
-import com.dexter.ui.library.SurpriseFilter
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
@@ -60,8 +59,7 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Quality-of-life settings: spoiler-safe blur, the hidden-gems feed toggle, and the surprise-me
- * default filter. Backed by [QolPrefs], not the shared [com.dexter.data.Settings]. Wired into the
+ * Quality-of-life settings: spoiler-safe blur and the hidden-gems feed toggle. Backed by [QolPrefs], not the shared [com.dexter.data.Settings]. Wired into the
  * Settings screen by calling [QolSettingsSection]; see the insertion snippet in the task report.
  */
 @Composable
@@ -69,7 +67,6 @@ fun QolSettingsSection(qol: QolPrefs) {
     val scope = rememberCoroutineScope()
     val spoilerBlur by qol.spoilerBlur.collectAsState(initial = false)
     val hiddenGems by qol.hiddenGemsEnabled.collectAsState(initial = true)
-    val surpriseFilter by qol.surpriseFilter.collectAsState(initial = null)
 
     SettingsBlock("Quality of life") {
         SwitchRow(
@@ -82,11 +79,6 @@ fun QolSettingsSection(qol: QolPrefs) {
             "Show high-rated but little-followed series in Discover.",
             hiddenGems,
         ) { on -> scope.launch { qol.setHiddenGemsEnabled(on) } }
-        ChoiceRow(
-            "Surprise-me filter",
-            SurpriseFilter.entries.map { it to it.label },
-            SurpriseFilter.entries.firstOrNull { it.name == surpriseFilter } ?: SurpriseFilter.ANY,
-        ) { choice -> scope.launch { qol.setSurpriseFilter(choice.name.takeIf { it != SurpriseFilter.ANY.name }) } }
     }
 }
 

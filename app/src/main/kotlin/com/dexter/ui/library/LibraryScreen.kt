@@ -97,7 +97,6 @@ fun LibraryScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var unreadOnly by rememberSaveable { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
-    var surprise by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<String?>(null) }
     var tagging by remember { mutableStateOf(false) }
     var tagFilter by rememberSaveable { mutableStateOf(listOf<String>()) }
@@ -188,43 +187,10 @@ fun LibraryScreen(
             onDismiss = { tagging = false },
         )
     }
-    if (surprise) {
-        SurpriseMeDialog(
-            items = items,
-            lastReadNumber = lastReadById,
-            metas = queryMeta,
-            onPick = { onOpenSeries(it.id) },
-            onDismiss = { surprise = false },
-        )
-    }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            AppTopBar(
-                stringResource(R.string.my_series),
-                actions = {
-                    FilledTonalIconToggleButton(
-                        checked = library.notificationsEnabled,
-                        onCheckedChange = { viewModel.setNotifications(it) },
-                    ) {
-                        Icon(
-                            Icons.Default.Notifications,
-                            contentDescription = if (library.notificationsEnabled) "Notifications on" else "Notifications off",
-                        )
-                    }
-                    if (items.size > 1) {
-                        IconButton(onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            surprise = true
-                        }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Pick one at random")
-                        }
-                    }
-                    IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
-                    }
-                },
-            )
+            AppTopBar(stringResource(R.string.my_series))
             LibraryTabs(tab) { list ->
                 tabKey = list.key
                 selected.clear()

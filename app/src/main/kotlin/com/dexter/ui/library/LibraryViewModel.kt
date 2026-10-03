@@ -108,10 +108,6 @@ class LibraryViewModel(
         viewModelScope.launch(LogFailures) { store.setLibraryGrid(on) }
     }
 
-    fun setNotifications(enabled: Boolean) {
-        viewModelScope.launch(LogFailures) { store.setNotifications(enabled) }
-    }
-
     fun delete(list: LibraryList, ids: Set<String>) {
         viewModelScope.launch(LogFailures) {
             when (list) {

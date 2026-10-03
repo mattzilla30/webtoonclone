@@ -461,7 +461,8 @@ private fun ReaderContent(
     val startPage = page.startPage.coerceIn(0, (page.first.pages.size - 1).coerceAtLeast(0))
     // Saved across recreation, so rotating keeps your page instead of jumping to the chapter's start page.
     var cursor by rememberSaveable(stateSaver = CursorStateSaver) { mutableStateOf(Cursor(0, startPage)) }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = stripIndexOf(strip, 0, startPage))
+    // Starts from the restored cursor, so rotation resumes where you were instead of flashing the chapter start.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = stripIndexOf(strip, cursor.segment, cursor.page))
 
     // Paged mode shows one chapter at a time: the one you were in when it opened.
     val pagedSegment = remember(paged) { cursor.segment.coerceIn(0, page.segments.lastIndex) }
@@ -806,7 +807,12 @@ private fun ReaderContent(
         }
     }
     DisposableEffect(Unit) {
-        onDispose { if (ReaderTtsService.running) ReaderTtsService.stop(context) }
+        onDispose {
+            if (ReaderTtsService.running) ReaderTtsService.stop(context)
+            // The deadline is process-wide: forget it when the reader closes so reopening
+            // starts fresh instead of reusing a stale countdown.
+            SleepTimerClock.clear()
+        }
     }
     // The service broadcasts each narrated page; with auto-advance on, the reader follows along.
     val ttsAutoAdvance by rememberUpdatedState(a11y.ttsAutoAdvance)

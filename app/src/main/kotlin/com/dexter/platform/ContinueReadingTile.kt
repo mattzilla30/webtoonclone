@@ -25,7 +25,8 @@ import kotlinx.coroutines.launch
  * `<service android:name=".platform.ContinueReadingTile" ...><intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter></service>`
  */
 class ContinueReadingTile : TileService() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // Main: the tile hands its PendingIntent to the system from the main thread, as TileService calls expect.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onStartListening() {
         qsTile?.let {

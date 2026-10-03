@@ -16,10 +16,15 @@ import com.dexter.ui.friendlyError
 import com.dexter.ui.series.isChapterRead
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class UpdatesViewModel(
     private val repository: MangaDexRepository,
@@ -105,15 +110,24 @@ class UpdatesViewModel(
 
     /** Derives each followed series' usual update weekday from its recent chapter upload dates. */
     fun loadSchedule() {
-        if (_schedule.value != null) return
+        // A failed build can be retried; a loaded or loading one is kept.
+        if (_schedule.value != null && _schedule.value !is Load.Error) return
         _schedule.value = Load.Loading
         viewModelScope.launch(LogFailures) {
             _schedule.value = try {
                 val followed = libraryStore.current().subscribed
-                val schedules = followed.mapNotNull { series ->
-                    val chapters = catching { repository.allChapters(series.id) }.getOrNull().orEmpty()
-                    val weekday = typicalWeekday(chapters.take(12).map { it.publishedAt })
-                    weekday?.let { SeriesSchedule(series.id, series.title, series.coverUrl, it, chapters.size.coerceAtMost(12)) }
+                // A few series at a time, so a big library builds its schedule in parallel without flooding MangaDex.
+                val permits = Semaphore(4)
+                val schedules = coroutineScope {
+                    followed.map { series ->
+                        async {
+                            permits.withPermit {
+                                val chapters = catching { repository.allChapters(series.id) }.getOrNull().orEmpty()
+                                val weekday = typicalWeekday(chapters.take(12).map { it.publishedAt })
+                                weekday?.let { SeriesSchedule(series.id, series.title, series.coverUrl, it, chapters.size.coerceAtMost(12)) }
+                            }
+                        }
+                    }.awaitAll().filterNotNull()
                 }
                 Load.Ready(schedules.sortedWith(compareBy({ it.weekday }, { it.title })))
             } catch (e: CancellationException) {

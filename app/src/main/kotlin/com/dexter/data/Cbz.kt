@@ -35,7 +35,8 @@ fun cbzName(row: DownloadEntity): String =
 class CbzExport(private val context: Context) {
     /** Writes [row]'s page files from [dir] into a CBZ. Returns false when the files are missing. */
     suspend fun export(row: DownloadEntity, dir: File): Boolean = withContext(Dispatchers.IO) {
-        val pages = dir.listFiles()?.sortedBy { it.name }.orEmpty()
+        // Skip in-progress `.part` temp files from interrupted writes: they are not pages.
+        val pages = dir.listFiles()?.filter { it.isFile && !it.name.endsWith(".part") }?.sortedBy { it.name }.orEmpty()
         if (pages.isEmpty()) return@withContext false
         val resolver = context.contentResolver
         val values = ContentValues().apply {

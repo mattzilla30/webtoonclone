@@ -6,9 +6,11 @@ import com.dexter.data.db.DownloadEntity
 import com.dexter.data.db.QueuedDownloadEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +42,13 @@ fun pageFileName(index: Int, total: Int, url: String): String {
     val extension = url.substringBefore('?').substringAfterLast('.', "img").takeIf { it.length in 2..4 } ?: "img"
     return index.toString().padStart(width, '0') + "." + extension
 }
+
+/**
+ * The page files inside [dir], in reading order. In-progress `.part` temp files from an
+ * interrupted write are never pages: they must not be counted, verified, or exported.
+ */
+private fun pageFilesIn(dir: File): List<File> =
+    dir.listFiles()?.filter { it.isFile && !it.name.endsWith(".part") }?.sortedBy { it.name }.orEmpty()
 
 /**
  * The chapters to save for a "next N unread" request. [chapters] run newest first, as the series page
@@ -180,14 +189,18 @@ class DownloadStore(
     /** The page files of a saved chapter as file addresses, or null when the chapter is not saved. */
     suspend fun pagesOf(chapterId: String): List<String>? = withContext(Dispatchers.IO) {
         val row = dao.get(chapterId) ?: return@withContext null
-        val files = File(root, chapterId).listFiles()?.sortedBy { it.name }.orEmpty()
+        val files = pageFilesIn(File(root, chapterId))
         if (files.size != row.pageCount) null else files.map { it.toURI().toString() }
     }
 
     /** Drops rows whose page files are gone, such as after a restore from Android's cloud backup. */
     suspend fun prune() = withContext(Dispatchers.IO) {
         dao.observe().first().forEach { row ->
-            if (File(root, row.chapterId).listFiles()?.size != row.pageCount) dao.delete(row.chapterId)
+            val dir = File(root, row.chapterId)
+            // Interrupted writes leave `.part` files behind. They are never pages, so sweep them
+            // here instead of letting them fail the page count and drop a good chapter's row.
+            dir.listFiles()?.filter { it.isFile && it.name.endsWith(".part") }?.forEach { it.delete() }
+            if (pageFilesIn(dir).size != row.pageCount) dao.delete(row.chapterId)
         }
     }
 
@@ -211,7 +224,36 @@ class DownloadStore(
 
     /** The page files of [chapterId], in reading order, for the backup archive. */
     suspend fun pageFiles(chapterId: String): List<File> = withContext(Dispatchers.IO) {
-        dirFor(chapterId).listFiles()?.sortedBy { it.name }.orEmpty()
+        pageFilesIn(dirFor(chapterId))
+    }
+
+    /** The sidecar file holding [chapterId]'s recorded page hashes. A sibling of the chapter dir, never a page. */
+    private fun hashFile(chapterId: String): File = File(root, "$chapterId.sha256")
+
+    /**
+     * Records SHA-256 hashes of [chapterId]'s current page files, for later integrity checks
+     * (see [DownloadIntegrity.verifyChapter]). Called once a download finishes, while the files
+     * are known good; repair re-records after replacing pages.
+     */
+    suspend fun savePageHashes(chapterId: String) = withContext(Dispatchers.IO) {
+        val hashes = DownloadIntegrity.recordPageHashes(pageFilesIn(dirFor(chapterId)))
+        hashFile(chapterId).writeAtomically { out ->
+            out.write(hashes.entries.joinToString("\n") { (name, hash) -> "$name:$hash" }.toByteArray())
+        }
+        Unit
+    }
+
+    /** The page hashes recorded by [savePageHashes], or null when none were recorded. */
+    suspend fun loadPageHashes(chapterId: String): Map<String, String>? = withContext(Dispatchers.IO) {
+        val file = hashFile(chapterId)
+        if (!file.isFile) return@withContext null
+        runCatching {
+            file.readLines().mapNotNull { line ->
+                val name = line.substringBefore(':').takeIf { it.isNotEmpty() }
+                val hash = line.substringAfter(':', "").takeIf { it.isNotEmpty() }
+                if (name != null && hash != null) name to hash else null
+            }.toMap().takeIf { it.isNotEmpty() }
+        }.getOrNull()
     }
 
     /** Exports saved chapters as CBZ files in Downloads/Dexter. Returns how many were written. */
@@ -229,55 +271,71 @@ class DownloadStore(
         urls: List<String>,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ) {
-        withContext(Dispatchers.IO) {
-            running[chapter.id] = coroutineContext.job
-            val dir = File(root, chapter.id).also { it.deleteRecursively(); it.mkdirs() }
-            try {
-                // A few pages at a time. A page that fails cancels the rest, and the whole chapter fails with it.
-                val permits = Semaphore(PAGES_AT_ONCE)
-                val done = AtomicInteger()
-                val bytes = coroutineScope {
-                    urls.mapIndexed { index, url ->
-                        async {
-                            permits.withPermit {
-                                fetchTo(url, File(dir, pageFileName(index, urls.size, url))).also {
-                                    val count = done.incrementAndGet()
-                                    _active.update { it + (chapter.id to count.toFloat() / urls.size) }
-                                    onProgress(count, urls.size)
+        // The save runs under its own SupervisorJob, parented to the caller's job. Cancelling one
+        // chapter's job in cancel() then stops only the save: without this, structured concurrency
+        // propagates the cancellation to the caller (DownloadWorker), whose "a cancel moves the
+        // queue on" branch could never run and the whole queue would die with the chapter.
+        // Stopping the worker still stops the save, because the supervisor is its child.
+        val supervisor = SupervisorJob(currentCoroutineContext().job)
+        try {
+            withContext(Dispatchers.IO + supervisor) {
+                running[chapter.id] = coroutineContext.job
+                val dir = File(root, chapter.id).also { it.deleteRecursively(); it.mkdirs() }
+                // A re-download must not keep the previous download's hashes.
+                hashFile(chapter.id).delete()
+                try {
+                    // A few pages at a time. A page that fails cancels the rest, and the whole chapter fails with it.
+                    val permits = Semaphore(PAGES_AT_ONCE)
+                    val done = AtomicInteger()
+                    val bytes = coroutineScope {
+                        urls.mapIndexed { index, url ->
+                            async {
+                                permits.withPermit {
+                                    fetchTo(url, File(dir, pageFileName(index, urls.size, url))).also {
+                                        val count = done.incrementAndGet()
+                                        _active.update { it + (chapter.id to count.toFloat() / urls.size) }
+                                        onProgress(count, urls.size)
+                                    }
                                 }
                             }
-                        }
-                    }.awaitAll().sum()
+                        }.awaitAll().sum()
+                    }
+                    dao.insert(
+                        DownloadEntity(
+                            chapterId = chapter.id,
+                            seriesId = seriesId,
+                            seriesTitle = seriesTitle,
+                            coverUrl = coverUrl,
+                            number = chapter.number,
+                            title = chapter.title,
+                            volume = chapter.volume,
+                            groupName = chapter.group,
+                            publishedAt = chapter.publishedAt,
+                            pageCount = urls.size,
+                            bytes = bytes,
+                            savedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    // Record page hashes while the files are known good, for later integrity checks.
+                    // Best effort: a hashing failure must never fail an otherwise good download.
+                    runCatching { savePageHashes(chapter.id) }
+                } catch (e: Exception) {
+                    dir.deleteRecursively()
+                    throw e
+                } finally {
+                    running.remove(chapter.id)
+                    _active.update { it - chapter.id }
                 }
-                dao.insert(
-                    DownloadEntity(
-                        chapterId = chapter.id,
-                        seriesId = seriesId,
-                        seriesTitle = seriesTitle,
-                        coverUrl = coverUrl,
-                        number = chapter.number,
-                        title = chapter.title,
-                        volume = chapter.volume,
-                        groupName = chapter.group,
-                        publishedAt = chapter.publishedAt,
-                        pageCount = urls.size,
-                        bytes = bytes,
-                        savedAt = System.currentTimeMillis(),
-                    ),
-                )
-            } catch (e: Exception) {
-                dir.deleteRecursively()
-                throw e
-            } finally {
-                running.remove(chapter.id)
-                _active.update { it - chapter.id }
             }
+        } finally {
+            supervisor.cancel()
         }
     }
 
     suspend fun delete(chapterId: String) = withContext(Dispatchers.IO) {
         dao.delete(chapterId)
         File(root, chapterId).deleteRecursively()
+        hashFile(chapterId).delete()
         Unit
     }
 
@@ -291,7 +349,10 @@ class DownloadStore(
     }
 
     suspend fun deleteSeries(seriesId: String) = withContext(Dispatchers.IO) {
-        dao.forSeries(seriesId).forEach { File(root, it.chapterId).deleteRecursively() }
+        dao.forSeries(seriesId).forEach {
+            File(root, it.chapterId).deleteRecursively()
+            hashFile(it.chapterId).delete()
+        }
         dao.deleteSeries(seriesId)
     }
 

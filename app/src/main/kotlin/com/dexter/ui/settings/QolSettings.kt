@@ -52,7 +52,9 @@ import com.dexter.data.scanLocalRoot
 import com.dexter.data.toSavedSeries
 import com.dexter.ui.CardRow
 import com.dexter.ui.ChoiceChip
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
 import java.io.File
@@ -91,7 +93,10 @@ fun NasSharesSection(store: NasShareStore) {
         val share = pendingShare
         pendingShare = null
         if (uri != null && share != null) {
-            scope.launch { store.attachTreeUri(share.id, uri) }
+            scope.launch {
+                // Some providers refuse a lasting grant; drop the bookmark then instead of crashing.
+                runCatching { store.attachTreeUri(share.id, uri) }.onFailure { store.remove(share.id) }
+            }
         } else if (share != null) {
             scope.launch { store.remove(share.id) }
         }
@@ -212,7 +217,7 @@ fun LocalImportSection(qol: QolPrefs, libraryStore: LibraryStore) {
                         message = null
                         scanned = null
                         scope.launch {
-                            val found = runCatching { scanLocalRoot(File(folder)) }
+                            val found = withContext(Dispatchers.IO) { runCatching { scanLocalRoot(File(folder)) } }
                             scanned = found.getOrDefault(emptyList())
                             message = found.fold(
                                 { "${scanned.orEmpty().size} series found" },
@@ -338,10 +343,13 @@ private fun WebDavBrowser(
         scope.launch {
             message = null
             entries = null
-            val provider = WebDavProvider(
-                CloudAccount(account.name, CloudProviderType.WEBDAV, account.baseUrl, account.username, pw),
-                client,
-            )
+            // The provider rejects an address without http:// or https://; say so instead of crashing.
+            val provider = runCatching {
+                WebDavProvider(CloudAccount(account.name, CloudProviderType.WEBDAV, account.baseUrl, account.username, pw), client)
+            }.getOrElse {
+                message = "The server address must start with http:// or https://"
+                return@launch
+            }
             val listed = runCatching { provider.list("") }
             if (listed.isSuccess) {
                 connected = provider

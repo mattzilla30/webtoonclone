@@ -47,6 +47,7 @@ import com.dexter.ui.LogFailures
 import com.dexter.ui.catching
 import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -58,6 +59,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /** One chapter in the reader: its pages, and where it sits in the series. */
@@ -522,10 +524,11 @@ class ReaderViewModel(
         val local = (src as? PageSource.Local)?.localChapter ?: error("Chapter not found")
         val root = qol.localFolder.first()?.let(::File)?.takeIf { it.isDirectory }
             ?: return listOf(local.toReaderChapter())
-        val dir = runCatching { scanLocalRoot(root) }.getOrDefault(emptyList())
+        // Scanning walks the folder tree: off the main thread, or a big comics folder freezes the reader.
+        val dir = withContext(Dispatchers.IO) { runCatching { scanLocalRoot(root) }.getOrDefault(emptyList()) }
             .firstOrNull { it.id == local.seriesId }?.dir
             ?: return listOf(local.toReaderChapter())
-        val chapters = runCatching { localChapters(dir) }.getOrDefault(emptyList())
+        val chapters = withContext(Dispatchers.IO) { runCatching { localChapters(dir) }.getOrDefault(emptyList()) }
         localById = chapters.associateBy { it.id }
         return chapters.map { it.toReaderChapter() }.ifEmpty { listOf(local.toReaderChapter()) }
     }

@@ -49,6 +49,7 @@ import com.dexter.ui.friendlyError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -397,7 +398,9 @@ class ReaderViewModel(
 
     /** Saves where you are: [page] of [chapterId], [fraction] of the way down it, out of [total] pages. Incognito saves nothing. */
     fun saveProgress(chapterId: String, page: Int, fraction: Float, total: Int) {
-        viewModelScope.launch(LogFailures) {
+        // NonCancellable: the reader saves once more as it closes, while this ViewModel is being cleared.
+        // Tied to viewModelScope, that last write could be cancelled and the place lost.
+        viewModelScope.launch(LogFailures + NonCancellable) {
             if (settingsStore.current().incognito) return@launch
             progressStore.save(seriesId, chapterId, page, fraction, total)
         }
@@ -405,7 +408,9 @@ class ReaderViewModel(
 
     /** Adds time spent on a chapter to the reading stats. Incognito adds nothing. */
     fun addReadingTime(chapterId: String, ms: Long) {
-        viewModelScope.launch(LogFailures) {
+        // NonCancellable: the reader saves once more as it closes, while this ViewModel is being cleared.
+        // Tied to viewModelScope, that last write could be cancelled and the place lost.
+        viewModelScope.launch(LogFailures + NonCancellable) {
             if (settingsStore.current().incognito) return@launch
             stats.addReadingTime(chapterId, ms)
         }

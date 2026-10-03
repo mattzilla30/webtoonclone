@@ -1,13 +1,11 @@
 package com.dexter.platform
 
-import android.content.Context
-import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Phone-side glue for the Wear OS companion. [WearMessageReceiver] pushes page turns here and the
+ * Phone-side glue for the Wear OS companion. [WatchLink] pushes page turns here and the
  * reader publishes its progress through here; the reader screen collects [turns] and applies them
  * to the open chapter, and the watch answers through [publishProgress].
  *
@@ -27,7 +25,7 @@ object WearBridge {
     val turns: SharedFlow<PageTurn> = _turns.asSharedFlow()
 
     /**
-     * Called by [WearMessageReceiver] on [WearPaths.PAGE_PREVIOUS]/[WearPaths.PAGE_NEXT].
+     * Called by [WatchLink] on [WearPaths.PAGE_PREVIOUS]/[WearPaths.PAGE_NEXT].
      * Never blocks; the buffer holds a burst of taps while the reader catches up.
      */
     fun requestTurn(turn: PageTurn) {
@@ -35,20 +33,10 @@ object WearBridge {
     }
 
     /**
-     * Fire-and-forget [WearPaths.PROGRESS_REPLY] broadcast to every connected watch, so the
-     * watch's at-a-glance view follows the open chapter. Failures are swallowed; the watch can
-     * always ask again with [WearPaths.PROGRESS_REQUEST].
+     * Sends the open chapter's progress to the connected watch over [WatchLink], so its
+     * at-a-glance view follows the reader. Does nothing when no watch is connected.
      */
-    fun publishProgress(context: Context, title: String, chapterNumber: String, page: Int, total: Int) {
-        val payload = wearProgressPayload(title, chapterNumber, page, total).toByteArray()
-        runCatching {
-            val app = context.applicationContext
-            Wearable.getNodeClient(app).connectedNodes.addOnSuccessListener { nodes ->
-                val client = Wearable.getMessageClient(app)
-                nodes.forEach { node ->
-                    client.sendMessage(node.id, WearPaths.PROGRESS_REPLY, payload)
-                }
-            }
-        }
+    fun publishProgress(title: String, chapterNumber: String, page: Int, total: Int) {
+        WatchLink.broadcast(WearPaths.PROGRESS_REPLY, wearProgressPayload(title, chapterNumber, page, total))
     }
 }

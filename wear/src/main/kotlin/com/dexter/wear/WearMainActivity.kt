@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
+import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,13 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
-import com.google.android.gms.wearable.Wearable
 
 /**
  * Wear OS companion. Shows what the phone is reading at a glance and works as a page-turn
- * remote: the two buttons send [PAGE_NEXT]/[PAGE_PREVIOUS] messages to the phone, which answers
- * progress on [PROGRESS_REPLY]. That reply arrives through [WearProgressListener] into
- * [WatchState], which this screen renders.
+ * remote: the two buttons send [PAGE_NEXT]/[PAGE_PREVIOUS] to the phone over [PhoneLink], which
+ * answers progress on [PROGRESS_REPLY]. That reply lands in [WatchState], which this screen renders.
  *
  * Message paths must match the phone's `com.dexter.platform.WearPaths`; they are duplicated
  * here so the wear module builds standalone. Keep them in sync.
@@ -41,6 +40,8 @@ import com.google.android.gms.wearable.Wearable
 class WearMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The link to the phone runs over Bluetooth, which needs this permission once.
+        if (!PhoneLink.hasPermission(this)) requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 1)
         setContent { MaterialTheme { WatchScreen(::sendPageTurn, ::requestProgress) } }
     }
 
@@ -50,19 +51,9 @@ class WearMainActivity : ComponentActivity() {
         requestProgress()
     }
 
-    private fun sendPageTurn(path: String) {
-        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            val client = Wearable.getMessageClient(this)
-            nodes.forEach { client.sendMessage(it.id, path, null) }
-        }
-    }
+    private fun sendPageTurn(path: String) = PhoneLink.send(this, path)
 
-    private fun requestProgress() {
-        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            val client = Wearable.getMessageClient(this)
-            nodes.forEach { client.sendMessage(it.id, PROGRESS_REQUEST, null) }
-        }
-    }
+    private fun requestProgress() = PhoneLink.send(this, PROGRESS_REQUEST)
 
     companion object {
         const val PAGE_PREVIOUS = "/dexter/page/previous"
@@ -77,7 +68,7 @@ private fun WatchScreen(onTurn: (String) -> Unit, onRefresh: () -> Unit) {
     val progress by WatchState.progress.collectAsState()
 
     // Ask the phone what is being read when the screen first appears; the reply flows back
-    // through WearProgressListener into WatchState. onResume covers later visits.
+    // through PhoneLink into WatchState. onResume covers later visits.
     LaunchedEffect(Unit) { onRefresh() }
 
     Column(

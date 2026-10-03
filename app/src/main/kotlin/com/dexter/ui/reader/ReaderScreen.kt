@@ -381,6 +381,7 @@ private fun ReaderContent(
     var ocrUrl by remember { mutableStateOf<String?>(null) }
     var showThumbnails by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
+    var showCastPicker by remember { mutableStateOf(false) }
     val topActions = remember(readerUi.topActionsCsv) { toolbarActionsOrDefault(readerUi.topActionsCsv, defaultTopActions) }
     val bottomActions = remember(readerUi.bottomActionsCsv) { toolbarActionsOrDefault(readerUi.bottomActionsCsv, defaultBottomActions) }
     var container by remember { mutableStateOf(IntSize.Zero) }
@@ -573,7 +574,7 @@ private fun ReaderContent(
         viewModel.saveProgress(segment.chapter.id, at.page, fraction, segment.pages.size)
         // Keep the paired watch's at-a-glance view in step with the reader.
         page.seriesTitle?.let { title ->
-            WearBridge.publishProgress(context, title, segment.chapter.number, at.page, segment.pages.size)
+            WearBridge.publishProgress(title, segment.chapter.number, at.page, segment.pages.size)
         }
     }
 
@@ -830,6 +831,7 @@ private fun ReaderContent(
         when (action) {
             ToolbarAction.Thumbnails -> showThumbnails = true
             ToolbarAction.SleepTimer -> showSleepDialog = true
+            ToolbarAction.Cast -> showCastPicker = true
             ToolbarAction.Narration -> toggleNarration()
             ToolbarAction.Binge -> {
                 val on = !readerUi.bingeMode
@@ -1239,6 +1241,7 @@ private fun ReaderContent(
                 )
             }
 
+            if (showCastPicker) CastPicker(castManager, onDismiss = { showCastPicker = false })
             if (showSleepDialog) {
                 SleepTimerDialog(
                     currentMinutes = readerUi.sleepTimerMinutes,

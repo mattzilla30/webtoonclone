@@ -34,7 +34,7 @@ fun parseWatchProgress(payload: String): WatchProgress? {
 }
 
 /**
- * The watch's latest known reading state. [WearProgressListener] writes it when the phone's
+ * The watch's latest known reading state. [PhoneLink] writes it when the phone's
  * reply arrives; the activity reads it. Null means nothing is being read (the phone sent an
  * empty payload, or nothing has arrived yet).
  */

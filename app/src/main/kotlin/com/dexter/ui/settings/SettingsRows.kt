@@ -59,7 +59,7 @@ val SettingsPages: List<String> = listOf(
     "Colour vision", "Data saver", "Device class", "Downloads & sync", "Gamepad and remote", "Hearing and voice",
     "Library extras", "Library power tools", "Local comics", "MangaDex account", "NAS shares", "Narration",
     "Notifications", "Privacy", "Quality of life", "Reader extras", "Reader toolbar", "Reading", "Reading type",
-    "Sleep timer", "Storage", "Strip style", "Stylus", "Tall pages", "Titles", "Tracking", "Two-page spreads",
+    "Sleep timer", "Storage", "Strip style", "Stylus", "Tall pages", "Titles", "Tracking", "Two-page spreads", "Watch",
 ).sortedWith(String.CASE_INSENSITIVE_ORDER)
 
 /**

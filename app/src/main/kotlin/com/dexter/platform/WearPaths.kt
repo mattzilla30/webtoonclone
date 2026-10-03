@@ -1,7 +1,7 @@
 package com.dexter.platform
 
 /**
- * Wearable Data Layer message paths shared by the phone app and the wear module. Both sides use
+ * Watch-link message paths shared by the phone app and the wear module. Both sides use
  * these exact strings; keep them in sync with `wear/src/main/kotlin/com/dexter/wear/`.
  */
 object WearPaths {
@@ -47,4 +47,17 @@ data class WearProgress(
 ) {
     /** How far through the chapter the reader is, 0 to 1. */
     val share: Float get() = if (total > 0) (page + 1f) / total else 0f
+}
+
+/** The Bluetooth service the phone listens on and the watch connects to. Both sides use this exact id. */
+val WATCH_LINK_UUID: java.util.UUID = java.util.UUID.fromString("6f3c1a52-8d0e-4c8b-9a51-2f7d1e9b4c10")
+
+/** One message on the watch link: the path, a tab, the payload, and a newline. Tabs and newlines in the payload become spaces. */
+fun watchLine(path: String, payload: String = ""): String = path + "\t" + payload.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ') + "\n"
+
+/** The path and payload of one watch-link line, or null when it is not one. */
+fun parseWatchLine(line: String): Pair<String, String>? {
+    val tab = line.indexOf('\t')
+    if (tab <= 0) return null
+    return line.substring(0, tab) to line.substring(tab + 1).trimEnd('\n', '\r')
 }

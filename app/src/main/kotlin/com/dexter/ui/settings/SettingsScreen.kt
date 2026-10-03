@@ -1,5 +1,6 @@
 package com.dexter.ui.settings
 
+import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
@@ -60,6 +61,7 @@ import com.dexter.data.formatBytes
 import com.dexter.data.libraryText
 import com.dexter.data.resetReaderSettings
 import com.dexter.notify.CHANNEL_ID
+import com.dexter.platform.WatchLink
 import com.dexter.ui.AppLock
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
@@ -96,6 +98,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
     }
     val archiveExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) viewModel.exportArchive(uri)
+    }
+    // Turning the watch link on asks for Bluetooth permission first, and stays off without it.
+    val bluetoothLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            viewModel.update { it.copy(watchLink = true) }
+        } else {
+            viewModel.showMessage("The watch link needs Bluetooth permission to reach your watch.")
+        }
     }
     val archiveImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.readArchive(uri)
@@ -273,6 +283,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                     onExportArchive = { archiveExportLauncher.launch(archiveFileName()) },
                     onImportArchive = { archiveImportLauncher.launch(arrayOf("application/zip", "*/*")) },
                 )
+
+                SettingsBlock("Watch") {
+                    SwitchRow(
+                        "Connect to the watch app",
+                        "Turn pages and see your progress from Dexter on a paired Wear OS watch, over Bluetooth.",
+                        settings.watchLink,
+                    ) { on ->
+                        if (on && !WatchLink.hasPermission(context)) {
+                            bluetoothLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                        } else {
+                            viewModel.update { it.copy(watchLink = on) }
+                        }
+                    }
+                }
 
                 SettingsBlock("Privacy") {
                     SwitchRow("Incognito", "Read without saving history, reading positions, or stats.", settings.incognito) { on ->

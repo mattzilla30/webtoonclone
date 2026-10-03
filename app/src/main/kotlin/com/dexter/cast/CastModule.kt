@@ -1,6 +1,8 @@
 package com.dexter.cast
 
+import com.dexter.di.BASE_CLIENT
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 /**
@@ -8,5 +10,5 @@ import org.koin.dsl.module
  *     modules(appModule, castModule)
  */
 val castModule = module {
-    single { CastManager.create(androidContext()) }
+    single { CastManager.create(androidContext(), get(named(BASE_CLIENT))) }
 }

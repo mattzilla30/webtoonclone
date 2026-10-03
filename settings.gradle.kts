@@ -10,6 +10,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Tesseract, the open-source OCR engine, publishes its Android build only on JitPack.
+        maven("https://jitpack.io") {
+            content { includeGroupByRegex("com\\.github\\.adaptech-cz.*") }
+        }
     }
 }
 

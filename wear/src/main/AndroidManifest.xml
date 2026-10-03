@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SCAFFOLD: Wear OS companion manifest. Keep the applicationId distinct from the phone app. -->
+<!-- Wear OS companion. It reaches the phone over Bluetooth, so its package name may differ from the phone app's. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-feature android:name="android.hardware.type.watch" />
+
+    <!-- The watch talks to the phone over Bluetooth: the old permission on Android 11, CONNECT from 12. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <application
         android:label="Dexter Watch"
@@ -15,15 +19,5 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Receives the phone's reading-progress replies over the Data Layer. -->
-        <service
-            android:name=".WearProgressListener"
-            android:exported="true">
-            <intent-filter>
-                <!-- Only the progress replies wake this service, not every Data Layer event. -->
-                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data android:scheme="wear" android:host="*" android:pathPrefix="/dexter/progress" />
-            </intent-filter>
-        </service>
     </application>
 </manifest>

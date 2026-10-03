@@ -20,6 +20,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -54,12 +56,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.mediarouter.app.MediaRouteButton
 import com.dexter.R
 import com.dexter.cast.CastManager
 import com.dexter.platform.enterReaderPiP
 import com.dexter.ui.SyncedSlider
-import com.google.android.gms.cast.framework.CastButtonFactory
 import kotlin.math.roundToInt
 
 /**
@@ -131,15 +131,11 @@ internal fun ReaderTopBar(
                         Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
                     }
                     ToolbarAction.Cast -> if (castManager != null) {
-                        val castAvailable by castManager.isAvailable.collectAsStateWithLifecycle()
-                        if (castAvailable) {
-                            AndroidView(
-                                factory = { ctx ->
-                                    MediaRouteButton(ctx).apply {
-                                        CastButtonFactory.setUpMediaRouteButton(ctx, this)
-                                    }
-                                },
-                                modifier = Modifier.size(48.dp),
+                        val casting by castManager.isCasting.collectAsStateWithLifecycle()
+                        IconButton(onClick = { onToolbarAction(ToolbarAction.Cast) }, colors = barIcons) {
+                            Icon(
+                                if (casting) Icons.Default.CastConnected else Icons.Default.Cast,
+                                contentDescription = if (casting) "Casting. Tap to stop" else "Cast to a TV",
                             )
                         }
                     }

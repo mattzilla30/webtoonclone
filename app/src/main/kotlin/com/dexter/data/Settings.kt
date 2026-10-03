@@ -173,6 +173,8 @@ data class Settings(
     val haptics: Boolean = true,
     /** The hour of a daily reminder when the reading goal is not met yet, or -1 for none. */
     val goalReminderHour: Int = -1,
+    /** Let the Dexter watch app connect over Bluetooth, to turn pages and show progress. */
+    val watchLink: Boolean = false,
     /** True once the first-run setup is done. Installs from before it existed count as done. */
     val setupDone: Boolean = false,
     /** Which tap-zone layout the reader uses. */

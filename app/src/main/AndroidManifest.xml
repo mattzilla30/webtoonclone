@@ -3,6 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Casting finds TVs on your Wi-Fi: Chromecasts over mDNS, DLNA TVs over SSDP multicast. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- The Dexter watch app connects to the phone over Bluetooth. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Saving chapters runs in the foreground with a progress notification, so a long queue is not cut off. -->
@@ -92,10 +97,6 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
-        <!-- Chromecast: the Cast SDK reads the OptionsProvider class from this entry at startup. -->
-        <meta-data
-            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="com.dexter.cast.DexterCastOptionsProvider" />
         <receiver
             android:name=".notify.ContinueWidget"
             android:exported="false">
@@ -150,15 +151,6 @@
                 <action android:name="com.dexter.automation.OPEN_READER" />
             </intent-filter>
         </receiver>
-        <!-- Wear OS companion: answers progress requests from the watch. -->
-        <service
-            android:name=".platform.WearMessageReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data android:scheme="wear" android:host="*" />
-            </intent-filter>
-        </service>
         <!-- Android TV entry point. -->
         <activity
             android:name=".ui.tv.TvActivity"

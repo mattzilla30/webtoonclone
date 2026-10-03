@@ -19,8 +19,10 @@ import com.dexter.data.LibraryStore
 import com.dexter.data.MangaDexAccount
 import com.dexter.data.MangaDexRepository
 import com.dexter.data.MeteredDataSaver
+import com.dexter.data.ProgressStore
 import com.dexter.data.SettingsStore
 import com.dexter.data.Trackers
+import com.dexter.data.parseProgress
 import com.dexter.di.BASE_CLIENT
 import com.dexter.di.appModule
 import com.dexter.notify.AutoBackupWorker
@@ -30,6 +32,8 @@ import com.dexter.notify.NewChaptersWorker
 import com.dexter.notify.refreshUpdatesWidgets
 import com.dexter.notify.updateContinueReading
 import com.dexter.notify.widgetUpdates
+import com.dexter.platform.WatchLink
+import com.dexter.platform.wearProgressPayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,6 +44,7 @@ import kotlinx.coroutines.launch
 import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
+import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
@@ -89,6 +94,18 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
             modules(appModule, castModule)
         }
         // Scheduling opens WorkManager's database, so it stays off the main thread and out of the launch.
+        // The watch asks what is being read: the last series in Recent, at its saved page.
+        WatchLink.progress = {
+            val progress: ProgressStore = get()
+            val last = libraryStore.current().recent.firstOrNull()
+            val saved = last?.let { progress.export()[it.id] }
+            if (last == null || saved == null) {
+                ""
+            } else {
+                val parsed = parseProgress(saved)
+                wearProgressPayload(last.title, last.chapterNumber.orEmpty(), parsed.page, parsed.total)
+            }
+        }
         appScope.launch { NewChaptersWorker.schedule(this@DexterApp, settingsStore.current().checkIntervalMinutes) }
         appScope.launch { AutoBackupWorker.sync(this@DexterApp, settingsStore.current().autoBackupFolder) }
         appScope.launch { GoalReminderWorker.sync(this@DexterApp, settingsStore.current().goalReminderHour) }
@@ -116,6 +133,8 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
             settingsStore.settings.collect { settings ->
                 repository.applySettings(settings)
                 reportImageLoads = settings.reportImageLoads
+                // The watch link listens only while its setting is on.
+                if (settings.watchLink) WatchLink.start(this@DexterApp) else WatchLink.stop()
             }
         }
         // Auto data saver on metered connections (reader UI settings).

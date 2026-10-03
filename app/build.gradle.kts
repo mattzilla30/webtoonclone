@@ -52,6 +52,9 @@ android {
         includeInBundle = false
     }
 
+    // The OCR language files are stored uncompressed, so they copy out of the APK as plain files.
+    androidResources { noCompress += "traineddata" }
+
     lint {
         // The app ships arm64-v8a only, by design, so the missing x86_64 support is expected.
         disable += "ChromeOsAbiSupport"
@@ -101,14 +104,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Chromecast sender via the Default Media Receiver, so no receiver app registration is needed.
-    implementation("com.google.android.gms:play-services-cast-framework:22.3.1")
-    // On-device text recognition for the reader's Recognize text lookup (Latin and Japanese).
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
-
-    // Wear OS companion: answers progress requests and page-turn messages from the watch.
-    implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    // Tesseract (Apache 2.0) for the reader's Recognize text lookup. The language data ships in assets/tessdata.
+    implementation("com.github.adaptech-cz.Tesseract4Android:tesseract4android-openmp:4.9.0")
 
     testImplementation(libs.junit)
 }

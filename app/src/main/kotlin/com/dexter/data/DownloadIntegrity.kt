@@ -132,7 +132,7 @@ class DownloadIntegrity(
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Repair download failed: ${response.code}")
             val body = response.body ?: throw IOException("Empty repair response")
-            out.outputStream().use { body.byteStream().copyTo(it) }
+            out.writeAtomically { body.byteStream().copyTo(it) }
         }
         if (out.length() < MIN_IMAGE_BYTES) {
             out.delete()

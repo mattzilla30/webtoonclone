@@ -191,7 +191,7 @@ fun extractToCache(archive: File, entryName: String, cacheDir: File, name: Strin
         if (out.exists()) return out
         ZipFile(archive).use { zip ->
             val entry = zip.getEntry(entryName) ?: return null
-            zip.getInputStream(entry).use { input -> out.outputStream().use { input.copyTo(it) } }
+            zip.getInputStream(entry).use { input -> out.writeAtomically { input.copyTo(it) } }
         }
         out
     } catch (e: Exception) {

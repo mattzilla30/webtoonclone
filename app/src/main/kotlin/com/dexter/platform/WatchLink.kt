@@ -27,7 +27,8 @@ private const val TAG = "DexterWatch"
  */
 object WatchLink {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var server: BluetoothServerSocket? = null
+
+    @Volatile private var server: BluetoothServerSocket? = null
     private var job: Job? = null
     private val clients = CopyOnWriteArraySet<OutputStream>()
 
@@ -43,17 +44,22 @@ object WatchLink {
         if (job?.isActive == true || !hasPermission(context)) return
         val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter ?: return
         job = scope.launch {
+            var socket: BluetoothServerSocket? = null
             try {
                 @Suppress("MissingPermission")
-                val socket = adapter.listenUsingRfcommWithServiceRecord("Dexter", WATCH_LINK_UUID)
-                server = socket
+                val listening = adapter.listenUsingRfcommWithServiceRecord("Dexter", WATCH_LINK_UUID)
+                socket = listening
+                server = listening
                 while (isActive) {
-                    val client = socket.accept()
+                    val client = listening.accept()
                     launch { serve(client) }
                 }
             } catch (e: Exception) {
                 // Bluetooth off, or the server closed by stop(). Turning the setting on again restarts it.
                 Log.i(TAG, "Watch link stopped: ${e.message}")
+            } finally {
+                // Release the RFCOMM channel when Bluetooth turns off, so the next start can claim it.
+                runCatching { socket?.close() }
             }
         }
     }

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import com.dexter.data.A11yState
 import com.dexter.data.AppFont
+import com.dexter.data.writeAtomically
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -36,7 +37,7 @@ suspend fun installCustomFont(context: Context, uri: Uri): File? = withContext(D
         val dir = File(context.filesDir, "fonts").also { it.mkdirs() }
         val target = File(dir, "custom_font.ttf")
         context.contentResolver.openInputStream(uri)?.use { input ->
-            target.outputStream().use { input.copyTo(it) }
+            target.writeAtomically { input.copyTo(it) }
         } ?: return@withContext null
         target.takeIf { it.length() > 0 }
     } catch (e: Exception) {

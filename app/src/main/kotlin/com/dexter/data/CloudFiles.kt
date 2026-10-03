@@ -87,7 +87,7 @@ suspend fun CloudFileProvider.cachedArchive(entry: CloudEntry, cacheDir: File): 
         val ext = entry.name.substringAfterLast('.', "cbz")
         val out = dir.resolve("$key.$ext")
         if (!out.exists() || out.length() == 0L) {
-            open(entry).use { input -> out.outputStream().use { input.copyTo(it) } }
+            open(entry).use { input -> out.writeAtomically { input.copyTo(it) } }
         }
         out
     }

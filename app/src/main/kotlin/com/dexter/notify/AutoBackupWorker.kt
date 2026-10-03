@@ -25,6 +25,9 @@ class AutoBackupWorker(context: Context, params: WorkerParameters) : CoroutineWo
         return try {
             backups.writeToFolder(folder.toUri())
             Result.success()
+        } catch (e: SecurityException) {
+            // Access to the folder was revoked. Retrying cannot fix that; the next daily run tries again.
+            Result.failure()
         } catch (e: Exception) {
             Result.retry()
         }

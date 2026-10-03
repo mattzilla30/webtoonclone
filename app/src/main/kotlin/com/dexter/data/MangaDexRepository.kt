@@ -320,7 +320,10 @@ class MangaDexRepository(
                 .build()
             fetchJson<ChapterListDto>(url).data.forEach { byChapter[it.id] = it }
         }
-        val summaries = browse(ids = subscribed.map { it.id }.take(IDS_PAGE), limit = minOf(subscribed.size, IDS_PAGE)).associateBy { it.id }
+        // Looked up in pages of IDS_PAGE, so libraries larger than one page still get fresh covers.
+        val summaries = subscribed.map { it.id }.chunked(IDS_PAGE)
+            .flatMap { chunk -> browse(ids = chunk, limit = chunk.size) }
+            .associateBy { it.id }
         val permits = Semaphore(3)
         subscribed.map { saved ->
             async {

@@ -271,12 +271,17 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
             if (open.route in tabRoutes) {
                 nav.navigateTab(open.route!!)
             } else if (open.route == "downloads") {
-                nav.navigate("downloads")
+                nav.navigate("downloads") { launchSingleTop = true }
             } else {
                 // A chapter link names only the chapter, so ask MangaDex which series it belongs to.
                 val seriesId = open.seriesId ?: open.chapterId?.let { runCatching { app.repository.seriesIdForChapter(it) }.getOrNull() }
                 // Ids from other apps' intents are unchecked; one with a slash or query names no route and would crash navigate.
-                if (seriesId != null) runCatching { openRoutes(seriesId, open.chapterId).forEach { nav.navigate(it) } }
+                if (seriesId != null) {
+                    // Single-top, so tapping a notification for the open series does not stack it twice.
+                    runCatching { openRoutes(seriesId, open.chapterId).forEach { nav.navigate(it) { launchSingleTop = true } } }
+                } else if (open.chapterId != null) {
+                    Toast.makeText(app, "Couldn't open that chapter link.", Toast.LENGTH_LONG).show()
+                }
             }
             onOpened()
         }

@@ -6,7 +6,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 /** Where release builds of Dexter are published. */
-const val RELEASES_API = "https://api.github.com/repos/mattzilla30/webtoonclone/releases/latest"
+const val RELEASES_API = "https://api.github.com/repos/mattzilla30/Dexter/releases/latest"
 
 @Serializable
 data class ReleaseAsset(
@@ -29,7 +29,11 @@ data class Release(
 private fun versionParts(version: String): List<Int> =
     version.trim().removePrefix("v").removePrefix("V").substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
 
-/** True when [tag] names a later version than [current], comparing number by number. */
+/** The pre-release qualifier of a version such as "1.2.0-beta", or null when it has none. */
+private fun versionQualifier(version: String): String? =
+    version.trim().removePrefix("v").removePrefix("V").substringAfter('-', "").takeIf { it.isNotEmpty() }
+
+/** True when [tag] names a later version than [current], comparing number by number, then pre-release qualifiers. */
 fun isNewer(tag: String, current: String): Boolean {
     val a = versionParts(tag)
     val b = versionParts(current)
@@ -38,7 +42,13 @@ fun isNewer(tag: String, current: String): Boolean {
         val y = b.getOrElse(i) { 0 }
         if (x != y) return x > y
     }
-    return false
+    // Same numbers: a pre-release (2.0.0-beta) is older than the release (2.0.0).
+    val qa = versionQualifier(tag)
+    val qb = versionQualifier(current)
+    if (qa == null && qb == null) return false
+    if (qa == null) return true
+    if (qb == null) return false
+    return qa > qb
 }
 
 /** Asks GitHub for the latest release. Null when the repository has none, or does not let the app see it. */

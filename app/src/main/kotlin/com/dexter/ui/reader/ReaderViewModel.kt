@@ -206,6 +206,9 @@ class ReaderViewModel(
     /** The next chapter's first pages are preloaded once per reader session. */
     private var previewed = false
 
+    /** The scanned chapters of a local series by id, so a joined chapter reads its own files. */
+    private var localById: Map<String, LocalChapter> = emptyMap()
+
     private var loadJob: Job? = null
     private var appendJob: Job? = null
 
@@ -302,7 +305,7 @@ class ReaderViewModel(
      * the saved files when a MangaDex chapter is saved, the image server's addresses when not.
      */
     private suspend fun pagesFor(id: String, forceRefresh: Boolean = false): List<String> =
-        if (pageSource.isLocal()) resolvePages(pageSource, context.cacheDir).ifEmpty { error("Could not read the chapter's pages") }
+        if (pageSource.isLocal()) resolvePages(localSourceFor(id), context.cacheDir).ifEmpty { error("Could not read the chapter's pages") }
         else downloads.pagesOf(id) ?: repository.pages(id, forceRefresh)
 
     /**
@@ -492,6 +495,9 @@ class ReaderViewModel(
     private suspend fun readableChapters(preferredGroup: String?, fresh: Boolean): List<Chapter> =
         repository.allChapters(seriesId, preferredGroup, fresh).filter { it.externalUrl == null }
 
+    /** The page source for local chapter [id]: the opened one, or another chapter of the same series for continuous reading. */
+    private fun localSourceFor(id: String): PageSource = localById[id]?.let { PageSource.Local(it) } ?: pageSource
+
     /**
      * The chapter list for local content: every chapter of the series the opened chapter belongs
      * to, oldest first, so the chapter drawer and continuous reading work. A bare archive is one
@@ -506,8 +512,8 @@ class ReaderViewModel(
         val dir = runCatching { scanLocalRoot(root) }.getOrDefault(emptyList())
             .firstOrNull { it.id == local.seriesId }?.dir
             ?: return listOf(local.toReaderChapter())
-        return runCatching { localChapters(dir) }.getOrDefault(emptyList())
-            .map { it.toReaderChapter() }
-            .ifEmpty { listOf(local.toReaderChapter()) }
+        val chapters = runCatching { localChapters(dir) }.getOrDefault(emptyList())
+        localById = chapters.associateBy { it.id }
+        return chapters.map { it.toReaderChapter() }.ifEmpty { listOf(local.toReaderChapter()) }
     }
 }

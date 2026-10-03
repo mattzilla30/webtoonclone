@@ -30,6 +30,7 @@ import com.dexter.data.Order
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.data.Settings
+import com.dexter.data.HttpStatusException
 import com.dexter.data.UpdateCheckStore
 import com.dexter.data.isMuted
 import com.dexter.data.isWorthRetrying
@@ -47,6 +48,8 @@ private const val COVER_PX = 256
 private const val GROUP_KEY = "new_chapters_group"
 private const val DIGEST_ID = 1
 private const val FULL_CHECK_MS = 6L * 60 * 60 * 1000
+/** A series MangaDex no longer knows (404) is not looked up again for a week. */
+private const val GONE_SERIES_BACKOFF_MS = 7L * 24 * 60 * 60 * 1000
 const val EXTRA_SERIES_ID = "seriesId"
 const val EXTRA_ROUTE = "route"
 const val EXTRA_CHAPTER_ID = "chapterId"
@@ -106,6 +109,7 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         val fullCheck = now - library.fullCheckAt >= FULL_CHECK_MS
         val known = HashMap<String, Pair<String, String>>()
         val marks = HashMap<String, String>()
+        val gone = HashSet<String>()
         for (series in due) {
             val newestUpload = uploads?.get(series.id)
             val lastUpload = if (fullCheck) null else library.uploadMarks[series.id]
@@ -119,7 +123,12 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
                 throw e
             } catch (e: Exception) {
                 // A series MangaDex removed answers 404 on every run, so only a passing failure asks for a retry.
-                if (isWorthRetrying(e)) failed = true
+                if (e is HttpStatusException && e.code == 404) {
+                    // Remember the removal with a long backoff instead of re-fetching it every cycle.
+                    gone += series.id
+                } else if (isWorthRetrying(e)) {
+                    failed = true
+                }
                 continue
             }
             if (newestUpload != null) marks[series.id] = newestUpload
@@ -149,7 +158,10 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         val kept = library.uploadMarks.filterKeys { id -> id !in dueIds && id in subscribedIds }
         app.libraryStore.recordChecks(known, (kept + marks).takeIf { uploads != null }, fullCheckAt = now.takeIf { fullCheck && uploads != null })
         // On a failed run the retry re-checks everything, so timestamps are only kept when it passed.
-        if (!failed) for (series in due) updateChecks.markChecked(series.id, now)
+        // A removed series is stamped with a long backoff instead of the normal interval.
+        if (!failed) for (series in due) {
+            updateChecks.markChecked(series.id, if (series.id in gone) now + GONE_SERIES_BACKOFF_MS else now)
+        }
         val autoSaved = autoDownloadNew(downloadable, settings)
         if (library.notificationsEnabled) {
             for (author in library.followedAuthors) {

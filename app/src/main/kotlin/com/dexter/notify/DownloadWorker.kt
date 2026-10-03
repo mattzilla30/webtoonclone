@@ -65,6 +65,12 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
             val chapter = Chapter(item.chapterId, item.number, item.title, item.publishedAt, group = item.groupName, volume = item.volume)
             try {
                 val urls = repository.pages(chapter.id, forceRefresh = true)
+                // A cancel that landed while the page list was loading never reaches save()'s
+                // running job; skip the save instead of downloading a cancelled chapter.
+                if (store.consumeCancelled(item.chapterId)) {
+                    store.dequeue(item.chapterId)
+                    continue
+                }
                 var lastShown = 0L
                 store.save(item.seriesId, item.seriesTitle, item.coverUrl, chapter, urls) { done, total ->
                     // The notification updates a few times a second at most.
@@ -137,8 +143,10 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }
 
         /**
-         * Starts the worker that drains the queue. One that is already running picks up new chapters itself,
-         * and the one added here, behind it, finds the queue empty and ends.
+         * Starts the worker that drains the queue. KEEP means only one runs at a time: the running
+         * worker loops on nextQueued() until the queue is empty, so rapid enqueues don't chain a
+         * worker each that would find nothing left to do. A new enqueue just wakes the drainer
+         * through the queue table.
          */
         fun start(context: Context, wifiOnly: Boolean) {
             val request = OneTimeWorkRequestBuilder<DownloadWorker>()
@@ -149,7 +157,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 )
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(QUEUE, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(QUEUE, ExistingWorkPolicy.KEEP, request)
         }
     }
 }

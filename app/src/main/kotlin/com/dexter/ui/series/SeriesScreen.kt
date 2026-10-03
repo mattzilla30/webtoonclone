@@ -190,6 +190,11 @@ fun SeriesScreen(
                     }
                 }
             }
+            // The chapters the list actually shows: collapsed volumes contribute none.
+            // Shift-range selection uses this so it never picks hidden chapters.
+            val visibleChapters = remember(flatSlots) {
+                flatSlots.filterIsInstance<ChapterListItem.Entry>().map { it.chapter }
+            }
             val nextExpected = remember(page.chapters, page.detail.status) { nextChapterEstimate(page.chapters.map { it.publishedAt }, page.detail.status) }
             // Oldest first and the saved filter need the whole list, not only the newest pages.
             LaunchedEffect(oldestFirst, savedOnly, offlineOnly, page.hasMore) { if ((oldestFirst || savedOnly || offlineOnly) && page.hasMore) viewModel.loadAll() }
@@ -580,10 +585,14 @@ fun SeriesScreen(
                                 anchor = chapter.id
                             },
                             onRangeTo = {
-                                // Picks every chapter between the last one tapped and this one.
-                                val from = shown.indexOfFirst { it.id == anchor }.takeIf { it >= 0 } ?: shown.indexOfFirst { it.id == chapter.id }
-                                val to = shown.indexOfFirst { it.id == chapter.id }
-                                shown.subList(minOf(from, to), maxOf(from, to) + 1).filter { it.externalUrl == null }.forEach { picked.add(it.id) }
+                                // Picks every visible chapter between the last one tapped and this one.
+                                // Chapters hidden in collapsed volumes stay unpicked, like the list shows.
+                                val from = visibleChapters.indexOfFirst { it.id == anchor }.takeIf { it >= 0 }
+                                    ?: visibleChapters.indexOfFirst { it.id == chapter.id }
+                                val to = visibleChapters.indexOfFirst { it.id == chapter.id }
+                                visibleChapters.subList(minOf(from, to), maxOf(from, to) + 1)
+                                    .filter { it.externalUrl == null }
+                                    .forEach { picked.add(it.id) }
                                 anchor = chapter.id
                             },
                             onStartSelecting = {

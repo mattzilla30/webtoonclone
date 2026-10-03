@@ -20,10 +20,36 @@ data class WatchProgress(
     val share: Float get() = if (total > 0) (page + 1f) / total else 0f
 }
 
+/**
+ * Splits a payload on `|` that is not backslash-escaped, unescaping `\|` and `\\`.
+ * Mirrors the phone's `splitEscapedPayload`; keep the two in sync.
+ */
+private fun splitEscaped(payload: String): List<String> {
+    val parts = ArrayList<String>()
+    val current = StringBuilder()
+    var i = 0
+    while (i < payload.length) {
+        val c = payload[i]
+        if (c == '\\' && i + 1 < payload.length && (payload[i + 1] == '|' || payload[i + 1] == '\\')) {
+            current.append(payload[i + 1])
+            i += 2
+        } else if (c == '|') {
+            parts += current.toString()
+            current.clear()
+            i++
+        } else {
+            current.append(c)
+            i++
+        }
+    }
+    parts += current.toString()
+    return parts
+}
+
 /** Parses a `seriesTitle|chapterNumber|page|total` payload. Null when empty or malformed. */
 fun parseWatchProgress(payload: String): WatchProgress? {
     if (payload.isBlank()) return null
-    val parts = payload.split("|")
+    val parts = splitEscaped(payload)
     if (parts.size != 4) return null
     return WatchProgress(
         seriesTitle = parts[0],

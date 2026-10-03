@@ -41,6 +41,11 @@ class SmartListStore(private val context: Context) {
         }
     }
 
+    /** Replaces every saved smart list with the backup's, keeping names and queries as they were. */
+    suspend fun replaceAll(lists: List<SmartList>) {
+        write(lists)
+    }
+
     /** Saves a smart list, replacing one with the same name. Blank names and queries are rejected. */
     suspend fun save(name: String, queryText: String) {
         require(name.isNotBlank()) { "Smart list needs a name" }

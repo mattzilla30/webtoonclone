@@ -199,8 +199,14 @@ class SearchViewModel(
 
     val recentSearches: StateFlow<List<String>> = library.stateOf(viewModelScope) { it.searches }
 
-    var query = ""
-        private set
+    private val _query = MutableStateFlow("")
+
+    /** The current search text. The screen mirrors this into its field when the ViewModel starts a search. */
+    val queryFlow: StateFlow<String> = _query
+
+    var query: String
+        get() = _query.value
+        private set(value) { _query.value = value }
 
     init {
         // Start from the sort you chose last time.
@@ -353,6 +359,8 @@ class SearchViewModel(
                 endReached = true
                 Load.Ready(saved.series)
             } else {
+                // No cached copy: the previous search's offline banner must not linger over this error.
+                _offlineSavedAt.value = null
                 Load.Error(friendlyError(e, "Search failed"))
             }
         }

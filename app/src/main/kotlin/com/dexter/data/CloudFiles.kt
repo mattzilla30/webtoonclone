@@ -6,6 +6,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -83,10 +86,16 @@ interface CloudFileProvider {
 suspend fun CloudFileProvider.cachedArchive(entry: CloudEntry, cacheDir: File): File =
     withContext(Dispatchers.IO) {
         val dir = File(cacheDir, "cloud").also { it.mkdirs() }
-        val key = "${account.type.name}_${account.baseUrl}_${entry.path}".hashCode().toString(16)
+        val baseKey = "${account.type.name}_${account.baseUrl}_${entry.path}".hashCode().toString(16)
+        // Size and modification time join the key, so an updated remote file is re-fetched
+        // instead of serving the stale cached copy.
+        val key = "${baseKey}_${entry.size}_${entry.modifiedAt}"
         val ext = entry.name.substringAfterLast('.', "cbz")
         val out = dir.resolve("$key.$ext")
         if (!out.exists() || out.length() == 0L) {
+            // Drop cached copies of older revisions of the same file (including the pre-revision key format).
+            dir.listFiles { file -> file.name.startsWith(baseKey) && file.name != out.name }
+                ?.forEach { it.delete() }
             open(entry).use { input -> out.writeAtomically { input.copyTo(it) } }
         }
         out
@@ -118,6 +127,30 @@ internal suspend fun OkHttpClient.callWithBearer(
 internal fun parseCloudInstant(value: String?): Long = runCatching {
     java.time.Instant.parse(value).toEpochMilli()
 }.getOrDefault(0L)
+
+/**
+ * Parses an HTTP date ("Wed, 21 Oct 2015 07:28:00 GMT", as WebDAV's getlastmodified)
+ * to epoch millis, or 0 when unparseable.
+ */
+internal fun parseHttpDate(value: String?): Long = runCatching {
+    java.time.ZonedDateTime.parse(value, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
+        .toInstant().toEpochMilli()
+}.getOrDefault(0L)
+
+/**
+ * The string at [key], or null when missing or an explicit JSON null. (`?.jsonPrimitive`
+ * alone does not guard JsonNull: it is a JsonPrimitive whose content access throws.)
+ */
+internal fun JsonObject.stringOrNull(key: String): String? =
+    get(key)?.takeIf { it !is JsonNull }?.jsonPrimitive?.content
+
+/** The long at [key], or null when missing, null, or not a number. */
+internal fun JsonObject.longOrNull(key: String): Long? =
+    get(key)?.takeIf { it !is JsonNull }?.jsonPrimitive?.longOrNull
+
+/** The boolean at [key], or null when missing, null, or not a boolean. */
+internal fun JsonObject.booleanOrNull(key: String): Boolean? =
+    get(key)?.takeIf { it !is JsonNull }?.jsonPrimitive?.booleanOrNull
 
 /**
  * A WebDAV provider over plain OkHttp: PROPFIND for listings, GET for file bytes. Works against
@@ -182,6 +215,7 @@ class WebDavProvider(
         var href: String? = null
         var isDir = false
         var size = 0L
+        var modifiedAt = 0L
         var event = parser.eventType
         while (event != XmlPullParser.END_DOCUMENT) {
             when (event) {
@@ -190,10 +224,12 @@ class WebDavProvider(
                         href = null
                         isDir = false
                         size = 0L
+                        modifiedAt = 0L
                     }
                     "href" -> href = parser.nextText()
                     "collection" -> isDir = true
                     "getcontentlength" -> size = parser.nextText().toLongOrNull() ?: 0L
+                    "getlastmodified" -> modifiedAt = parseHttpDate(parser.nextText())
                 }
                 XmlPullParser.END_TAG -> if (parser.name.substringAfter(':') == "response") {
                     val decoded = try {
@@ -210,6 +246,7 @@ class WebDavProvider(
                             name = relative.substringAfterLast('/'),
                             isDirectory = isDir,
                             size = size,
+                            modifiedAt = modifiedAt,
                         )
                     }
                 }
@@ -269,18 +306,18 @@ class GoogleDriveProvider(
                 val json = Json.parseToJsonElement(it.body?.string().orEmpty()).jsonObject
                 for (file in json["files"]?.jsonArray.orEmpty()) {
                     val obj = file.jsonObject
-                    val id = obj["id"]?.jsonPrimitive?.content ?: continue
-                    val name = obj["name"]?.jsonPrimitive?.content ?: continue
-                    val mime = obj["mimeType"]?.jsonPrimitive?.content.orEmpty()
+                    val id = obj.stringOrNull("id") ?: continue
+                    val name = obj.stringOrNull("name") ?: continue
+                    val mime = obj.stringOrNull("mimeType").orEmpty()
                     entries += CloudEntry(
                         path = id,
                         name = name,
                         isDirectory = mime == "application/vnd.google-apps.folder",
-                        size = obj["size"]?.jsonPrimitive?.longOrNull ?: 0L,
-                        modifiedAt = parseCloudInstant(obj["modifiedTime"]?.jsonPrimitive?.content),
+                        size = obj.longOrNull("size") ?: 0L,
+                        modifiedAt = parseCloudInstant(obj.stringOrNull("modifiedTime")),
                     )
                 }
-                pageToken = json["nextPageToken"]?.jsonPrimitive?.content
+                pageToken = json.stringOrNull("nextPageToken")
             }
         } while (pageToken != null)
         entries
@@ -350,19 +387,19 @@ class DropboxProvider(
                 val json = Json.parseToJsonElement(it.body?.string().orEmpty()).jsonObject
                 for (item in json["entries"]?.jsonArray.orEmpty()) {
                     val obj = item.jsonObject
-                    val tag = obj[".tag"]?.jsonPrimitive?.content ?: continue
+                    val tag = obj.stringOrNull(".tag") ?: continue
                     if (tag == "deleted") continue
-                    val path = obj["path_lower"]?.jsonPrimitive?.content ?: continue
+                    val path = obj.stringOrNull("path_lower") ?: continue
                     entries += CloudEntry(
                         path = path,
-                        name = obj["name"]?.jsonPrimitive?.content ?: path.substringAfterLast('/'),
+                        name = obj.stringOrNull("name") ?: path.substringAfterLast('/'),
                         isDirectory = tag == "folder",
-                        size = obj["size"]?.jsonPrimitive?.longOrNull ?: 0L,
-                        modifiedAt = parseCloudInstant(obj["client_modified"]?.jsonPrimitive?.content),
+                        size = obj.longOrNull("size") ?: 0L,
+                        modifiedAt = parseCloudInstant(obj.stringOrNull("client_modified")),
                     )
                 }
-                cursor = json["cursor"]?.jsonPrimitive?.content
-                hasMore = json["has_more"]?.jsonPrimitive?.content?.toBoolean() ?: false
+                cursor = json.stringOrNull("cursor")
+                hasMore = json.booleanOrNull("has_more") ?: false
             }
         } while (hasMore)
         entries

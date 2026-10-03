@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -71,6 +73,13 @@ class CastManager private constructor(private val context: Context, private val 
     val connected: StateFlow<CastDevice?> = _connected.asStateFlow()
 
     @Volatile private var chromecast: ChromecastSession? = null
+    /** Serializes connect/disconnect so two rapid taps cannot interleave and leak a session. */
+    private val connectionMutex = Mutex()
+    /**
+     * Bumps on every connect(). A session's remote-close callback only clears state when its
+     * attempt is still the latest, so a stale session cannot wipe a newer connection.
+     */
+    @Volatile private var connectionAttempt = 0
     private var discovery: Job? = null
     private var nsdListener: NsdManager.DiscoveryListener? = null
 
@@ -169,28 +178,38 @@ class CastManager private constructor(private val context: Context, private val 
         }
         for (location in locations) {
             val xml = runCatching { http.newCall(Request.Builder().url(location).build()).execute().use { it.body.string() } }.getOrNull() ?: continue
-            parseDlnaDescription(xml, location)?.let { addDevice(CastDevice.Dlna("dlna:$location", it.name, it.controlUrl)) }
+            // One malformed description (bad URLBase, broken XML) must not kill discovery for the rest.
+            runCatching { parseDlnaDescription(xml, location) }.getOrNull()
+                ?.let { addDevice(CastDevice.Dlna("dlna:$location", it.name, it.controlUrl)) }
         }
     }
 
     /** Connects to [device], ending any session already running. */
     fun connect(device: CastDevice) {
         scope.launch {
-            disconnect()
-            val ok = runCatching {
-                when (device) {
-                    is CastDevice.Chromecast -> chromecast = ChromecastSession.open(device.host, device.port) { endedRemotely() }
-                    is CastDevice.Dlna -> Unit
+            // Serialized: a second tap waits for the first open to finish instead of
+            // disconnecting around it and leaking the session it was still opening.
+            connectionMutex.withLock {
+                disconnectLocked()
+                val attempt = ++connectionAttempt
+                val ok = runCatching {
+                    when (device) {
+                        is CastDevice.Chromecast -> chromecast =
+                            ChromecastSession.open(device.host, device.port) { endedRemotely(attempt) }
+                        is CastDevice.Dlna -> Unit
+                    }
+                }.onFailure { Log.w(TAG, "Could not connect to ${device.name}", it) }.isSuccess
+                if (ok) {
+                    _connected.value = device
+                    _isCasting.value = true
                 }
-            }.onFailure { Log.w(TAG, "Could not connect to ${device.name}", it) }.isSuccess
-            if (ok) {
-                _connected.value = device
-                _isCasting.value = true
             }
         }
     }
 
-    private fun endedRemotely() {
+    /** Clears the connection, unless a newer connect() has superseded this attempt. */
+    private fun endedRemotely(attempt: Int) {
+        if (attempt != connectionAttempt) return
         chromecast = null
         _connected.value = null
         _isCasting.value = false
@@ -230,10 +249,11 @@ class CastManager private constructor(private val context: Context, private val 
 
     /** Stops casting and disconnects. */
     fun endSession() {
-        scope.launch { disconnect() }
+        scope.launch { connectionMutex.withLock { disconnectLocked() } }
     }
 
-    private suspend fun disconnect() {
+    /** Ends the current session. Call with [connectionMutex] held. */
+    private suspend fun disconnectLocked() {
         val device = _connected.value
         runCatching { chromecast?.close() }
         chromecast = null

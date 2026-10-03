@@ -6,7 +6,7 @@ import com.dexter.data.db.ReadEventEntity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-const val BACKUP_VERSION = 2
+const val BACKUP_VERSION = 3
 
 /** One row of the reading history: when a chapter was opened and how long it was read. */
 @Serializable
@@ -85,6 +85,12 @@ data class Backup(
     val downloads: List<SavedDownload> = emptyList(),
     /** Chapters waiting in the download queue, in queue order. */
     val queue: List<QueuedDownload> = emptyList(),
+    /** Curated reading lists, with their entries in order. */
+    val readingLists: List<ReadingList> = emptyList(),
+    /** Saved smart-list queries. */
+    val smartLists: List<SmartList> = emptyList(),
+    /** Blacklisted chapter ids by series id. */
+    val blacklist: Map<String, Set<String>> = emptyMap(),
 )
 
 private val backupJson = Json {

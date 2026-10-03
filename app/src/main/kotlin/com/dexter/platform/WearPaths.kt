@@ -16,19 +16,46 @@ object WearPaths {
 
     /**
      * Phone -> wear: the current reading state, as `seriesTitle|chapterNumber|page|total`.
-     * Empty payload means nothing is being read.
+     * Empty payload means nothing is being read. `|` and `\` inside values are backslash-escaped.
      */
     const val PROGRESS_REPLY = "/dexter/progress"
 }
 
 /** Packs a progress reply payload for [WearPaths.PROGRESS_REPLY]. */
 fun wearProgressPayload(seriesTitle: String, chapterNumber: String, page: Int, total: Int): String =
-    listOf(seriesTitle, chapterNumber, page.toString(), total.toString()).joinToString("|")
+    listOf(seriesTitle, chapterNumber, page.toString(), total.toString())
+        .joinToString("|") { it.replace("\\", "\\\\").replace("|", "\\|") }
+
+/**
+ * Splits a payload on `|` that is not backslash-escaped, unescaping `\|` and `\\`.
+ * Duplicated as `splitEscaped` in the wear module's `parseWatchProgress`; keep the two in sync.
+ */
+fun splitEscapedPayload(payload: String): List<String> {
+    val parts = ArrayList<String>()
+    val current = StringBuilder()
+    var i = 0
+    while (i < payload.length) {
+        val c = payload[i]
+        if (c == '\\' && i + 1 < payload.length && (payload[i + 1] == '|' || payload[i + 1] == '\\')) {
+            current.append(payload[i + 1])
+            i += 2
+        } else if (c == '|') {
+            parts += current.toString()
+            current.clear()
+            i++
+        } else {
+            current.append(c)
+            i++
+        }
+    }
+    parts += current.toString()
+    return parts
+}
 
 /** Unpacks a [WearPaths.PROGRESS_REPLY] payload. Null when the payload is empty or malformed. */
 fun parseWearProgress(payload: String): WearProgress? {
     if (payload.isBlank()) return null
-    val parts = payload.split("|")
+    val parts = splitEscapedPayload(payload)
     if (parts.size != 4) return null
     return WearProgress(
         seriesTitle = parts[0],

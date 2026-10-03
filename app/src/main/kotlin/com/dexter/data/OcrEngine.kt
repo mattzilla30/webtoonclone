@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.LinkedHashMap
 import kotlin.math.roundToInt
 
 /** One chunk of recognized text, with its location in the page bitmap's pixels. */
@@ -52,7 +53,15 @@ object OcrEngine {
     private val LANGUAGE_FILES = listOf("eng", "jpn", "jpn_vert")
 
     private val lock = Any()
-    private val cache = mutableMapOf<String, OcrResult>()
+    /** How many recognized pages the result cache keeps; older entries are evicted. */
+    private const val MAX_CACHED_PAGES = 64
+
+    // Access-ordered, so every hit refreshes the entry: the 64 most recently used pages stay.
+    // Every access runs under [lock], which the map needs since even reads restructure it.
+    private val cache = object : LinkedHashMap<String, OcrResult>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, OcrResult>?): Boolean =
+            size > MAX_CACHED_PAGES
+    }
 
     /** One recognition at a time: Tesseract is heavy, and a second run only competes with the first. */
     private val running = Mutex()

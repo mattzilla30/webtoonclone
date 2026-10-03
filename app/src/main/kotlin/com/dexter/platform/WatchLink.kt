@@ -1,10 +1,14 @@
 package com.dexter.platform
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -38,11 +42,25 @@ object WatchLink {
     fun hasPermission(context: Context) =
         ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
+    /** Restarts listening when Bluetooth comes back on, since the listener ends when Bluetooth turns off. */
+    private var bluetoothWatcher: BroadcastReceiver? = null
+
     /** Starts listening for the watch. Does nothing without Bluetooth permission or when already listening. */
     @Synchronized
     fun start(context: Context) {
-        if (job?.isActive == true || !hasPermission(context)) return
-        val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter ?: return
+        val app = context.applicationContext
+        if (bluetoothWatcher == null) {
+            val watcher = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON) start(app)
+                }
+            }
+            // Not exported: the Bluetooth state broadcast comes from the system, which still reaches it.
+            ContextCompat.registerReceiver(app, watcher, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+            bluetoothWatcher = watcher
+        }
+        if (job?.isActive == true || !hasPermission(app)) return
+        val adapter = app.getSystemService(BluetoothManager::class.java)?.adapter ?: return
         job = scope.launch {
             var socket: BluetoothServerSocket? = null
             try {
@@ -66,7 +84,9 @@ object WatchLink {
 
     /** Stops listening and drops every connected watch. */
     @Synchronized
-    fun stop() {
+    fun stop(context: Context? = null) {
+        bluetoothWatcher?.let { watcher -> context?.applicationContext?.let { runCatching { it.unregisterReceiver(watcher) } } }
+        if (context != null) bluetoothWatcher = null
         runCatching { server?.close() }
         server = null
         job?.cancel()

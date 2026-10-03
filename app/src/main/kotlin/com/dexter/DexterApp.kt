@@ -134,7 +134,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
                 repository.applySettings(settings)
                 reportImageLoads = settings.reportImageLoads
                 // The watch link listens only while its setting is on.
-                if (settings.watchLink) WatchLink.start(this@DexterApp) else WatchLink.stop()
+                if (settings.watchLink) WatchLink.start(this@DexterApp) else WatchLink.stop(this@DexterApp)
             }
         }
         // Auto data saver on metered connections (reader UI settings).

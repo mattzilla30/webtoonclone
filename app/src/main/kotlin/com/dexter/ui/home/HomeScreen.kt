@@ -18,10 +18,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
@@ -57,7 +59,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -96,6 +100,7 @@ fun HomeScreen(
     onOpenSeries: (String) -> Unit,
     onOpenChapter: (seriesId: String, chapterId: String) -> Unit,
     onBrowse: (label: String) -> Unit,
+    onOpenSearch: () -> Unit,
     openCount: Int,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -145,109 +150,112 @@ fun HomeScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        // A pull keeps what is on screen and swaps in the new picks when they arrive.
-        PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
-            LoadView(state, onRetry = viewModel::retry) { home ->
-                // Sideways rows size their tiles to the screen, so the spacing stays even on any width.
-                val tileWidth = rowTileWidth(windowWidthDp()).dp
-                LazyColumn(Modifier.fillMaxSize()) {
-                    offlineSavedAt?.let { savedAt ->
-                        item {
-                            OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
-                        }
-                    }
-                    home.hero?.let { hero ->
-                        item {
-                            Hero(hero) { onOpenSeries(hero.id) }
-                        }
-                    }
-
-                    if (recent.isNotEmpty()) {
-                        item(contentType = "header") { SectionHeader("Continue Reading") }
-                        item {
-                            val carousel = rememberCarouselState { recent.size }
-                            HorizontalUncontainedCarousel(
-                                state = carousel,
-                                itemWidth = 140.dp,
-                                itemSpacing = 8.dp,
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                modifier = Modifier.fillMaxWidth().height(250.dp),
-                            ) { index ->
-                                val saved = recent[index]
-                                ContinueCard(
-                                    saved = saved,
-                                    progress = progress[saved.id]?.takeIf { it.chapterId == saved.chapterId },
-                                    newCount = newCounts[saved.id],
-                                    hasNew = saved.id in newCounts,
-                                    modifier = Modifier.maskClip(MaterialTheme.shapes.large),
-                                    onOpen = { onOpenChapter(saved.id, saved.chapterId!!) },
-                                    onOpenSeries = { onOpenSeries(saved.id) },
-                                    onMarkRead = { viewModel.markCaughtUp(saved.id) },
-                                    onRemove = { viewModel.removeFromHistory(saved.id) },
-                                )
+    Column(Modifier.fillMaxSize()) {
+        HomeSearchBar(onOpenSearch)
+        Box(Modifier.fillMaxSize()) {
+            // A pull keeps what is on screen and swaps in the new picks when they arrive.
+            PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
+                LoadView(state, onRetry = viewModel::retry) { home ->
+                    // Sideways rows size their tiles to the screen, so the spacing stays even on any width.
+                    val tileWidth = rowTileWidth(windowWidthDp()).dp
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        offlineSavedAt?.let { savedAt ->
+                            item {
+                                OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
                             }
                         }
-                    }
+                        home.hero?.let { hero ->
+                            item {
+                                Hero(hero) { onOpenSeries(hero.id) }
+                            }
+                        }
 
-                    if (fromSubscriptions.isNotEmpty()) {
-                        item(contentType = "header") { SectionHeader("From your subscriptions") }
-                        item {
-                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(fromSubscriptions, key = { it.series.id }) { unread ->
-                                    UnreadTile(unread, tileWidth) { onOpenChapter(unread.series.id, unread.series.knownChapterId!!) }
+                        if (recent.isNotEmpty()) {
+                            item(contentType = "header") { SectionHeader("Continue Reading") }
+                            item {
+                                val carousel = rememberCarouselState { recent.size }
+                                HorizontalUncontainedCarousel(
+                                    state = carousel,
+                                    itemWidth = 140.dp,
+                                    itemSpacing = 8.dp,
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth().height(250.dp),
+                                ) { index ->
+                                    val saved = recent[index]
+                                    ContinueCard(
+                                        saved = saved,
+                                        progress = progress[saved.id]?.takeIf { it.chapterId == saved.chapterId },
+                                        newCount = newCounts[saved.id],
+                                        hasNew = saved.id in newCounts,
+                                        modifier = Modifier.maskClip(MaterialTheme.shapes.large),
+                                        onOpen = { onOpenChapter(saved.id, saved.chapterId!!) },
+                                        onOpenSeries = { onOpenSeries(saved.id) },
+                                        onMarkRead = { viewModel.markCaughtUp(saved.id) },
+                                        onRemove = { viewModel.removeFromHistory(saved.id) },
+                                    )
                                 }
                             }
                         }
-                    }
 
-                    because?.let { (title, like) ->
-                        item(contentType = "header") { SectionHeader("Because you read $title") }
-                        item {
-                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(like, key = { it.id }) { series ->
-                                    PickTile(series, { onOpenSeries(series.id) }, Modifier.width(tileWidth), subscribed = series.id in subscribedIds, onLongClick = { toggleSubscribe(series) })
+                        if (fromSubscriptions.isNotEmpty()) {
+                            item(contentType = "header") { SectionHeader("From your subscriptions") }
+                            item {
+                                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(fromSubscriptions, key = { it.series.id }) { unread ->
+                                        UnreadTile(unread, tileWidth) { onOpenChapter(unread.series.id, unread.series.knownChapterId!!) }
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    item(contentType = "header") { SectionHeader("New Series", onClick = { onBrowse("Recently added") }) }
-                    items(home.newSeries, key = { it.id }, contentType = { "new-series" }) { series ->
-                        NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
-                    }
-
-                    item(contentType = "header") { SectionHeader("Today's Picks", onClick = { onBrowse("Popular") }) }
-                    if (showTip) {
-                        item(contentType = "tip") { LongPressTip(onDismiss = viewModel::dismissLongPressTip) }
-                    }
-                    val pickRows = home.picks.chunked(columns)
-                    items(pickRows, key = { it.first().id }, contentType = { "picks" }) { rowSeries ->
-                        Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            rowSeries.forEach { series ->
-                                PickTile(
-                                    series,
-                                    { onOpenSeries(series.id) },
-                                    Modifier.weight(1f),
-                                    subscribed = series.id in subscribedIds,
-                                    onLongClick = { toggleSubscribe(series) },
-                                )
+                        because?.let { (title, like) ->
+                            item(contentType = "header") { SectionHeader("Because you read $title") }
+                            item {
+                                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(like, key = { it.id }) { series ->
+                                        PickTile(series, { onOpenSeries(series.id) }, Modifier.width(tileWidth), subscribed = series.id in subscribedIds, onLongClick = { toggleSubscribe(series) })
+                                    }
+                                }
                             }
-                            repeat(columns - rowSeries.size) { Box(Modifier.weight(1f)) }
                         }
-                    }
 
-                    item { Box(Modifier.height(24.dp)) }
+                        item(contentType = "header") { SectionHeader("New Series", onClick = { onBrowse("Recently added") }) }
+                        items(home.newSeries, key = { it.id }, contentType = { "new-series" }) { series ->
+                            NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
+                        }
+
+                        item(contentType = "header") { SectionHeader("Today's Picks", onClick = { onBrowse("Popular") }) }
+                        if (showTip) {
+                            item(contentType = "tip") { LongPressTip(onDismiss = viewModel::dismissLongPressTip) }
+                        }
+                        val pickRows = home.picks.chunked(columns)
+                        items(pickRows, key = { it.first().id }, contentType = { "picks" }) { rowSeries ->
+                            Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                rowSeries.forEach { series ->
+                                    PickTile(
+                                        series,
+                                        { onOpenSeries(series.id) },
+                                        Modifier.weight(1f),
+                                        subscribed = series.id in subscribedIds,
+                                        onLongClick = { toggleSubscribe(series) },
+                                    )
+                                }
+                                repeat(columns - rowSeries.size) { Box(Modifier.weight(1f)) }
+                            }
+                        }
+
+                        item { Box(Modifier.height(24.dp)) }
+                    }
                 }
             }
-        }
 
-        toast?.let { message ->
-            LaunchedEffect(message) {
-                delay(3.seconds)
-                viewModel.clearToast()
+            toast?.let { message ->
+                LaunchedEffect(message) {
+                    delay(3.seconds)
+                    viewModel.clearToast()
+                }
+                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) { Text(message) }
             }
-            Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) { Text(message) }
         }
     }
 }
@@ -357,6 +365,24 @@ private fun LongPressTip(onDismiss: () -> Unit) {
         Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Tip: press and hold any cover to subscribe.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
             TextButton(onClick = onDismiss) { Text("Got it") }
+        }
+    }
+}
+
+/** The search box at the top of Home. Tapping it opens the search page with the keyboard up. */
+@Composable
+private fun HomeSearchBar(onClick: () -> Unit) {
+    val label = stringResource(R.string.search_series)
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min = 56.dp)
+            .semantics { role = Role.Button },
+    ) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp))
         }
     }
 }

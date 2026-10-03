@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -31,7 +30,6 @@ internal data class Tab(val route: String, val label: String, val icon: ImageVec
 
 internal val tabs = listOf(
     Tab("home", "Home", Icons.Default.Home),
-    Tab("search", "Search", Icons.Default.Search),
     Tab("updates", "Updates", Icons.Default.Refresh),
     Tab("library", "My Series", Icons.Default.Favorite),
     Tab("settings", "Settings", Icons.Default.Settings),

@@ -137,6 +137,9 @@ private const val SPLASH_MAX_MS = 1_000L
 /** Keeps an id from another app's intent only when it has the characters real ids use, so it cannot reach other routes or API paths. */
 private fun String.safeId(): String? = takeIf { it.isNotEmpty() && it.length <= 200 && it.all { c -> c.isLetterOrDigit() || c in ":_.-" } && ".." !in it }
 
+/** The search page with its box focused and the keyboard up, as the Home search bar opens it. */
+private const val SEARCH_FOCUSED = "search?focus=1"
+
 private data class PendingOpen(val seriesId: String?, val chapterId: String?, val route: String? = null)
 
 class MainActivity : ComponentActivity() {
@@ -270,6 +273,8 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
         if (open != null) {
             if (open.route in tabRoutes) {
                 nav.navigateTab(open.route!!)
+            } else if (open.route == "search") {
+                nav.navigate(SEARCH_FOCUSED)
             } else if (open.route == "downloads") {
                 nav.navigate("downloads")
             } else {
@@ -346,17 +351,20 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                         onOpenSeries = openSeries,
                                                         onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
                                                         onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
+                                                        onOpenSearch = { nav.navigate(SEARCH_FOCUSED) },
                                                         openCount = openCount,
                                                     )
                                                 }
                                             }
-                                            screen("search?genre={genre}&browse={browse}") { entry ->
+                                            screen("search?genre={genre}&browse={browse}&focus={focus}") { entry ->
                                                 val vm = koinViewModel<SearchViewModel>()
                                                 Box(Modifier.fillMaxSize()) {
                                                     SearchScreen(
                                                         vm,
                                                         entry.arguments?.getString("genre"),
                                                         initialBrowse = entry.arguments?.getString("browse"),
+                                                        focusOnOpen = entry.arguments?.getString("focus") != null,
+                                                        onBack = { nav.popBackStack() },
                                                         onOpenSeries = openSeries,
                                                         onOpenAuthor = { id, name -> nav.navigate("author/$id?name=${Uri.encode(name)}") },
                                                     )
@@ -378,7 +386,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                     LibraryScreen(
                                                         vm,
                                                         onOpenSeries = openSeries,
-                                                        onOpenSearch = { nav.navigateTab("search") },
+                                                        onOpenSearch = { nav.navigate(SEARCH_FOCUSED) },
                                                     )
                                                 }
                                             }

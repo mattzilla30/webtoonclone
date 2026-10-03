@@ -212,6 +212,14 @@ class ReaderViewModel(
     private var loadJob: Job? = null
     private var appendJob: Job? = null
 
+    private val _appendFailed = MutableStateFlow(false)
+
+    /**
+     * The next chapter failed to join the strip. The end card shows a retry instead of a stuck
+     * "Loading the next episode...".
+     */
+    val appendFailed: StateFlow<Boolean> = _appendFailed
+
     /** The series as the library knows it, and its saved copy, read once when the chapter loads. */
     private var known: SavedSeries? = null
     private var cachedDetail: SeriesDetail? = null
@@ -318,8 +326,13 @@ class ReaderViewModel(
         val last = page.segments.last()
         val nextIndex = nextIndex(page.chapters, last.index)
         val next = page.chapters.getOrNull(nextIndex) ?: return
+        _appendFailed.value = false
         appendJob = viewModelScope.launch(LogFailures) {
-            val pages = catching { pagesFor(next.id) }.getOrNull() ?: return@launch
+            val pages = catching { pagesFor(next.id) }.getOrNull()
+            if (pages == null) {
+                _appendFailed.value = true
+                return@launch
+            }
             val current = (_state.value as? Load.Ready)?.value ?: return@launch
             if (current.segments.last().index != last.index) return@launch
             _state.value = Load.Ready(current.copy(segments = current.segments + segment(current.chapters, nextIndex, next, pages)))

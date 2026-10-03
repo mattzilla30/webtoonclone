@@ -16,12 +16,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +42,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -66,6 +70,8 @@ fun SearchScreen(
     viewModel: SearchViewModel,
     initialGenre: String?,
     initialBrowse: String? = null,
+    focusOnOpen: Boolean = false,
+    onBack: () -> Unit = {},
     onOpenSeries: (String) -> Unit,
     onOpenAuthor: (id: String, name: String) -> Unit = { _, _ -> },
 ) {
@@ -87,6 +93,15 @@ fun SearchScreen(
     var saveNotify by rememberSaveable { mutableStateOf(false) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var text by rememberSaveable { mutableStateOf(viewModel.query) }
+    // Opened from the Home search bar, the box takes focus once so the keyboard comes up ready to type.
+    val focus = remember { FocusRequester() }
+    var focused by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (focusOnOpen && !focused) {
+            focused = true
+            focus.requestFocus()
+        }
+    }
     // The ViewModel can start a search on its own (saved search, filter change): mirror its query
     // into the field. Typing flows the other way, so this never fights the keyboard.
     val vmQuery by viewModel.queryFlow.collectAsStateWithLifecycle()
@@ -138,7 +153,10 @@ fun SearchScreen(
     }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                }
                 TextField(
                     value = text,
                     onValueChange = {
@@ -170,7 +188,7 @@ fun SearchScreen(
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { viewModel.search(text) }),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).focusRequester(focus),
                 )
                 TextButton(onClick = { showFilters = true }) {
                     Text(if (filters.isEmpty) "Filters" else "Filters (${filters.activeCount})", color = MaterialTheme.colorScheme.primary)

@@ -107,4 +107,3 @@ internal fun SleepTimerDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }
-

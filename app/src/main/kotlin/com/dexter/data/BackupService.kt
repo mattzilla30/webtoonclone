@@ -4,10 +4,10 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.dexter.data.db.AppDatabase
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import java.io.File
 
 const val AUTO_BACKUP_FILE = "dexter-backup.json"
 

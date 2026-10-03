@@ -53,6 +53,7 @@ object OcrEngine {
     private val LANGUAGE_FILES = listOf("eng", "jpn", "jpn_vert")
 
     private val lock = Any()
+
     /** How many recognized pages the result cache keeps; older entries are evicted. */
     private const val MAX_CACHED_PAGES = 64
 

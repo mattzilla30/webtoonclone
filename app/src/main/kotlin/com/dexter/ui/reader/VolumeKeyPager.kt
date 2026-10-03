@@ -1,7 +1,7 @@
 package com.dexter.ui.reader
 
 import android.view.KeyEvent
-import kotlinx.coroutines.flow.BufferOverflow
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**

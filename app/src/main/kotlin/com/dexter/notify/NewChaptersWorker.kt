@@ -26,11 +26,11 @@ import coil3.toBitmap
 import com.dexter.DexterApp
 import com.dexter.MainActivity
 import com.dexter.data.Chapter
+import com.dexter.data.HttpStatusException
 import com.dexter.data.Order
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.data.Settings
-import com.dexter.data.HttpStatusException
 import com.dexter.data.UpdateCheckStore
 import com.dexter.data.isMuted
 import com.dexter.data.isWorthRetrying
@@ -48,6 +48,7 @@ private const val COVER_PX = 256
 private const val GROUP_KEY = "new_chapters_group"
 private const val DIGEST_ID = 1
 private const val FULL_CHECK_MS = 6L * 60 * 60 * 1000
+
 /** A series MangaDex no longer knows (404) is not looked up again for a week. */
 private const val GONE_SERIES_BACKOFF_MS = 7L * 24 * 60 * 60 * 1000
 const val EXTRA_SERIES_ID = "seriesId"

@@ -99,19 +99,19 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
             ContextCompat.startForegroundService(context, Intent(context, ReaderTtsService::class.java).setAction(ACTION_STOP))
         }
 
-        private val _runningState = MutableStateFlow(false)
+        private val runningMutable = MutableStateFlow(false)
 
         /**
          * Emits while narration runs. The reader collects this for its narration toggle, so the icon
          * follows the service even when narration stops on its own (the last utterance ending).
          */
-        val runningFlow: StateFlow<Boolean> = _runningState.asStateFlow()
+        val runningFlow: StateFlow<Boolean> = runningMutable.asStateFlow()
 
         /** True while narration is running; the reader shows its narration toggle from this. */
         @Volatile var running = false
             private set(value) {
                 field = value
-                _runningState.value = value
+                runningMutable.value = value
             }
     }
 

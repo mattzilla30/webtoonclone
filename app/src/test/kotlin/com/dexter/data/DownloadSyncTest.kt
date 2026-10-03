@@ -72,7 +72,7 @@ class DownloadSyncTest {
         val decoded = decodeBackup(encodeBackup(backup))!!
         assertEquals(backup.history, decoded.history)
         assertEquals(backup.downloads, decoded.downloads)
-        assertEquals(2, decoded.version)
+        assertEquals(BACKUP_VERSION, decoded.version)
     }
 
     @Test

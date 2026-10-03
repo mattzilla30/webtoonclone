@@ -73,8 +73,10 @@ class CastManager private constructor(private val context: Context, private val 
     val connected: StateFlow<CastDevice?> = _connected.asStateFlow()
 
     @Volatile private var chromecast: ChromecastSession? = null
+
     /** Serializes connect/disconnect so two rapid taps cannot interleave and leak a session. */
     private val connectionMutex = Mutex()
+
     /**
      * Bumps on every connect(). A session's remote-close callback only clears state when its
      * attempt is still the latest, so a stale session cannot wipe a newer connection.
@@ -194,8 +196,9 @@ class CastManager private constructor(private val context: Context, private val 
                 val attempt = ++connectionAttempt
                 val ok = runCatching {
                     when (device) {
-                        is CastDevice.Chromecast -> chromecast =
-                            ChromecastSession.open(device.host, device.port) { endedRemotely(attempt) }
+                        is CastDevice.Chromecast ->
+                            chromecast =
+                                ChromecastSession.open(device.host, device.port) { endedRemotely(attempt) }
                         is CastDevice.Dlna -> Unit
                     }
                 }.onFailure { Log.w(TAG, "Could not connect to ${device.name}", it) }.isSuccess

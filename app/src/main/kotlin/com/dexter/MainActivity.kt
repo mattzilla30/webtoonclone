@@ -133,6 +133,9 @@ import android.graphics.Color as AndroidColor
 /** A notification tap: the series to open, and the chapter to open on top of it when there is one. */
 private const val SPLASH_MAX_MS = 1_000L
 
+/** Keeps an id from another app's intent only when it has the characters real ids use, so it cannot reach other routes or API paths. */
+private fun String.safeId(): String? = takeIf { it.isNotEmpty() && it.length <= 200 && it.all { c -> c.isLetterOrDigit() || c in ":_.-" } && ".." !in it }
+
 private data class PendingOpen(val seriesId: String?, val chapterId: String?, val route: String? = null)
 
 class MainActivity : ComponentActivity() {
@@ -147,12 +150,12 @@ class MainActivity : ComponentActivity() {
         return when {
             link is MangaDexLink.Title -> PendingOpen(link.id, null)
             link is MangaDexLink.Chapter -> PendingOpen(null, link.id)
-            intent.hasExtra(EXTRA_SERIES_ID) -> PendingOpen(intent.getStringExtra(EXTRA_SERIES_ID), intent.getStringExtra(EXTRA_CHAPTER_ID))
+            intent.hasExtra(EXTRA_SERIES_ID) -> PendingOpen(intent.getStringExtra(EXTRA_SERIES_ID)?.safeId(), intent.getStringExtra(EXTRA_CHAPTER_ID)?.safeId())
             intent.hasExtra(EXTRA_ROUTE) -> PendingOpen(null, null, intent.getStringExtra(EXTRA_ROUTE))
             // Tasker / automation intents arrive via AutomationReceiver with the launcher activity.
             intent.action == DexterAutomation.ACTION_OPEN_READER -> PendingOpen(
-                intent.getStringExtra(DexterAutomation.EXTRA_SERIES_ID),
-                intent.getStringExtra(DexterAutomation.EXTRA_CHAPTER_ID),
+                intent.getStringExtra(DexterAutomation.EXTRA_SERIES_ID)?.safeId(),
+                intent.getStringExtra(DexterAutomation.EXTRA_CHAPTER_ID)?.safeId(),
             )
             else -> null
         }
@@ -271,7 +274,8 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
             } else {
                 // A chapter link names only the chapter, so ask MangaDex which series it belongs to.
                 val seriesId = open.seriesId ?: open.chapterId?.let { runCatching { app.repository.seriesIdForChapter(it) }.getOrNull() }
-                if (seriesId != null) openRoutes(seriesId, open.chapterId).forEach { nav.navigate(it) }
+                // Ids from other apps' intents are unchecked; one with a slash or query names no route and would crash navigate.
+                if (seriesId != null) runCatching { openRoutes(seriesId, open.chapterId).forEach { nav.navigate(it) } }
             }
             onOpened()
         }

@@ -33,11 +33,17 @@ object PhoneLink {
     fun send(context: Context, path: String) {
         val app = context.applicationContext
         worker.execute {
-            runCatching {
-                val out = output ?: connect(app) ?: return@execute
-                out.write("$path\t\n".toByteArray(Charsets.UTF_8))
-                out.flush()
-            }.onFailure { disconnect() }
+            // A link the phone dropped only fails on the next write, so a failed send reconnects and
+            // tries once more instead of losing the press.
+            repeat(2) {
+                val sent = runCatching {
+                    val out = output ?: connect(app) ?: return@execute
+                    out.write("$path\t\n".toByteArray(Charsets.UTF_8))
+                    out.flush()
+                }
+                if (sent.isSuccess) return@execute
+                disconnect()
+            }
         }
     }
 
@@ -48,7 +54,12 @@ object PhoneLink {
         val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter ?: return null
         val candidates = adapter.bondedDevices.sortedByDescending { it.bluetoothClass?.majorDeviceClass == BluetoothClass.Device.Major.PHONE }
         for (device in candidates) {
-            val attempt = runCatching { device.createRfcommSocketToServiceRecord(SERVICE_UUID).also { it.connect() } }.getOrNull() ?: continue
+            val candidate = runCatching { device.createRfcommSocketToServiceRecord(SERVICE_UUID) }.getOrNull() ?: continue
+            // A device that does not answer must have its socket closed, or each send leaks one per paired device.
+            val attempt = runCatching { candidate.also { it.connect() } }.getOrElse {
+                runCatching { candidate.close() }
+                null
+            } ?: continue
             socket = attempt
             output = attempt.outputStream
             Thread({ read(attempt) }, "phone-link").apply { isDaemon = true }.start()

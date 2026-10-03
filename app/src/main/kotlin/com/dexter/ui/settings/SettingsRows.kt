@@ -195,9 +195,9 @@ internal fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, select
 
 /** An hour of the day (0 to 23) with minus and plus buttons that wrap around midnight. */
 @Composable
-internal fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
+internal fun HourStepper(label: String, hour: Int, sortKey: String = label, onChange: (Int) -> Unit) {
     if (!matchesQuery(LocalSettingsQuery.current, label, "quiet hours")) return
-    Keyed(label) {
+    Keyed(sortKey) {
         CardRow {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -234,6 +234,8 @@ internal fun InfoRow(
     title: String,
     subtitle: String? = null,
     onClick: (() -> Unit)? = null,
+    /** The name this row sorts under in the settings list, when [title] only makes sense beside its group. */
+    sortKey: String = title,
     action: @Composable RowScope.() -> Unit = {},
 ) {
     if (!matchesQuery(LocalSettingsQuery.current, title, subtitle)) return
@@ -249,5 +251,5 @@ internal fun InfoRow(
             if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
         }
     }
-    Keyed(title) { CardRow(onClick) { content() } }
+    Keyed(sortKey) { CardRow(onClick) { content() } }
 }

@@ -405,7 +405,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                             settings.checkIntervalMinutes,
                         ) { minutes -> viewModel.setCheckInterval(minutes) }
                         InfoRow(
-                            title = "Check now",
+                            title = "Check for new chapters now",
                             subtitle = if (library.lastCheckAt == 0L) "No check has finished yet." else "Last check: ${timeAgo(Instant.ofEpochMilli(library.lastCheckAt))}",
                             action = { TextButton(onClick = viewModel::checkNow) { Text("Check") } },
                         )
@@ -448,8 +448,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                             viewModel.update { it.copy(quietHours = on) }
                         }
                         if (settings.quietHours) {
-                            HourStepper("From", settings.quietStartHour) { hour -> viewModel.update { it.copy(quietStartHour = hour) } }
-                            HourStepper("Until", settings.quietEndHour) { hour -> viewModel.update { it.copy(quietEndHour = hour) } }
+                            HourStepper("From", settings.quietStartHour, sortKey = "Quiet hours") { hour -> viewModel.update { it.copy(quietStartHour = hour) } }
+                            HourStepper("Until", settings.quietEndHour, sortKey = "Quiet hours") { hour -> viewModel.update { it.copy(quietEndHour = hour) } }
                         }
                     }
 

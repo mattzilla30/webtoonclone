@@ -41,13 +41,14 @@ internal fun MangaDexAccountSection(
         if (login != null) {
             InfoRow(
                 title = "Signed in as ${login.username}",
+                sortKey = "MangaDex account",
                 subtitle = "Follows and subscriptions merge both ways. Nothing is removed on either side.",
                 action = {
                     OutlinedButton(onClick = onSync, enabled = !busy) { Text("Sync") }
                 },
             )
             SwitchRow("Send read markers", "Mark each chapter you open as read on MangaDex.", login.readMarkers, onReadMarkers)
-            InfoRow(title = "Sign out", subtitle = "Forgets the sign-in on this phone.", action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } })
+            InfoRow(title = "Sign out", subtitle = "Forgets the sign-in on this phone.", sortKey = "MangaDex account", action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } })
             return@SettingsBlock
         }
         Searchable("MangaDex account", "sign in", "sync", "follows", "client", key = "MangaDex account") {

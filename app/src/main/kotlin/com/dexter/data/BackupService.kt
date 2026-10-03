@@ -119,9 +119,19 @@ class BackupService(
     private suspend fun applyBackup(backup: Backup) {
         library.replaceAll(backup.library)
         // A backup comes from a phone that was already set up, so setup does not ask again.
-        // The app lock stays as this device has it: a backup carries the lock switch but never the PIN,
-        // which lives only on the phone that set it, so a restored PIN lock would lock you out.
-        settings.update { current -> backup.settings.copy(setupDone = true, appLock = current.appLock, lockMode = current.lockMode) }
+        // Settings tied to this phone stay as this phone has them. The app lock: a backup carries the
+        // lock switch but never the PIN, so a restored PIN lock would lock you out. The daily backup
+        // folder: its access grant belongs to the phone that picked it. The watch link: it needs this
+        // phone's Bluetooth permission and paired watch.
+        settings.update { current ->
+            backup.settings.copy(
+                setupDone = true,
+                appLock = current.appLock,
+                lockMode = current.lockMode,
+                autoBackupFolder = current.autoBackupFolder,
+                watchLink = current.watchLink,
+            )
+        }
         progress.replaceAll(backup.progress)
         // Reading history and time, replacing what is here.
         db.stats().clear()

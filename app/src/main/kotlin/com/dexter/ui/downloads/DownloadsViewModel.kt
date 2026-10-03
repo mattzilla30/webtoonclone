@@ -2,8 +2,8 @@ package com.dexter.ui.downloads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.dexter.data.ComicInfo
 import com.dexter.data.ChapterIntegrity
+import com.dexter.data.ComicInfo
 import com.dexter.data.DownloadIntegrity
 import com.dexter.data.DownloadStore
 import com.dexter.data.MangaDexRepository
@@ -42,7 +42,7 @@ fun groupDownloads(rows: List<DownloadEntity>): List<SavedSeriesGroup> = rows
 class DownloadsViewModel(
     private val store: DownloadStore,
     private val settingsStore: SettingsStore,
-    private val integrity: DownloadIntegrity,
+    private val checker: DownloadIntegrity,
     private val repository: MangaDexRepository,
 ) : ViewModel() {
     /** Chapters waiting to be saved, in order. */
@@ -140,7 +140,7 @@ class DownloadsViewModel(
     fun verifySeries(seriesId: String) {
         viewModelScope.launch(LogFailures) {
             _integrity.value = null
-            val bad = catching { integrity.verifySeries(seriesId) }.getOrDefault(emptyList())
+            val bad = catching { checker.verifySeries(seriesId) }.getOrDefault(emptyList())
             _integrity.value = (_integrity.value ?: emptyMap()) + (seriesId to bad)
             _toast.value = if (bad.isEmpty()) "All chapters verified" else "${bad.size} ${if (bad.size == 1) "chapter" else "chapters"} need repair"
         }
@@ -155,7 +155,7 @@ class DownloadsViewModel(
                 _toast.value = "Could not fetch fresh page addresses"
                 return@launch
             }
-            val fresh = catching { integrity.repairChapter(report.chapterId, report, urls) }.getOrNull()
+            val fresh = catching { checker.repairChapter(report.chapterId, report, urls) }.getOrNull()
             if (fresh == null) {
                 _toast.value = "Repair failed"
                 return@launch

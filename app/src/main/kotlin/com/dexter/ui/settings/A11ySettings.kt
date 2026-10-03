@@ -28,6 +28,7 @@ import com.dexter.data.A11yPrefs
 import com.dexter.data.A11yState
 import com.dexter.data.AppFont
 import com.dexter.data.CvdTheme
+import com.dexter.ui.CardRow
 import com.dexter.ui.theme.cvdColorScheme
 import com.dexter.ui.theme.installCustomFont
 import com.dexter.ui.theme.simulateCvd

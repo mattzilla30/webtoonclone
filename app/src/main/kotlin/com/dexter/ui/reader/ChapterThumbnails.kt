@@ -113,7 +113,7 @@ internal fun PageScrubber(
         // The popup tracks the thumb: fraction along the slider, mirrored for right-to-left.
         val fraction = if (count > 1) previewIndex / (count - 1).toFloat() else 0f
         val directed = if (isRtl) 1f - fraction else fraction
-        val popupOffset = (directed * (maxWidth - previewWidth)).coerceAtLeast(0.dp)
+        val popupOffset = ((maxWidth - previewWidth) * directed).coerceAtLeast(0.dp)
         if (dragging) {
             Surface(
                 tonalElevation = 6.dp,

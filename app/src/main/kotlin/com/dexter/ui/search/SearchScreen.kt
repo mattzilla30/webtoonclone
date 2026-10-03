@@ -79,7 +79,8 @@ fun SearchScreen(
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
     val gems by viewModel.gems.collectAsStateWithLifecycle()
     // The hidden-gems feed on the idle screen is gated by its own toggle.
-    val qolPrefs = remember { QolPrefs(LocalContext.current) }
+    val qolContext = LocalContext.current
+    val qolPrefs = remember(qolContext) { QolPrefs(qolContext) }
     val gemsOn by qolPrefs.hiddenGemsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val savedSearches by viewModel.savedSearches.collectAsStateWithLifecycle()

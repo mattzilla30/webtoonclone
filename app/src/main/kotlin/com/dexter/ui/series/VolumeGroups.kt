@@ -65,9 +65,8 @@ fun toVolumeGroups(items: List<ChapterListItem>): List<VolumeGroup> {
  */
 @Composable
 fun rememberCollapsedVolumes(): MutableVolumeCollapse {
-    var collapsed by rememberSaveable(saver = Saver({ it.joinToString("\u0001") }, { it.split("\u0001").toSet() })) {
-        mutableStateOf(emptySet<String>())
-    }
+    val saver = Saver<Set<String>, String>({ it.joinToString("\u0001") }, { text -> if (text.isEmpty()) emptySet() else text.split("\u0001").toSet() })
+    var collapsed by rememberSaveable(stateSaver = saver) { mutableStateOf(emptySet<String>()) }
     return MutableVolumeCollapse(collapsed) { collapsed = it }
 }
 

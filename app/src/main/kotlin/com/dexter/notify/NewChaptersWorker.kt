@@ -29,6 +29,7 @@ import com.dexter.data.Chapter
 import com.dexter.data.Order
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
+import com.dexter.data.Settings
 import com.dexter.data.UpdateCheckStore
 import com.dexter.data.isMuted
 import com.dexter.data.isWorthRetrying

@@ -31,11 +31,13 @@ fun gamepadDirection(keyCode: Int): Int? = when (keyCode) {
     KeyEvent.KEYCODE_DPAD_RIGHT,
     KeyEvent.KEYCODE_DPAD_DOWN,
     KeyEvent.KEYCODE_MEDIA_NEXT,
-    KeyEvent.KEYCODE_PAGE_DOWN -> 1
+    KeyEvent.KEYCODE_PAGE_DOWN,
+    -> 1
     KeyEvent.KEYCODE_BUTTON_B,
     KeyEvent.KEYCODE_DPAD_LEFT,
     KeyEvent.KEYCODE_DPAD_UP,
     KeyEvent.KEYCODE_MEDIA_PREVIOUS,
-    KeyEvent.KEYCODE_PAGE_UP -> -1
+    KeyEvent.KEYCODE_PAGE_UP,
+    -> -1
     else -> null
 }

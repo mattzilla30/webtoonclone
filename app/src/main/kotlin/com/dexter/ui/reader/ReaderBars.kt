@@ -59,7 +59,7 @@ import com.dexter.R
 import com.dexter.cast.CastManager
 import com.dexter.platform.enterReaderPiP
 import com.dexter.ui.SyncedSlider
-import com.google.android.gms.cast.framework.media.widget.CastButtonFactory
+import com.google.android.gms.cast.framework.CastButtonFactory
 import kotlin.math.roundToInt
 
 /**
@@ -165,7 +165,8 @@ internal fun ReaderTopBar(
                     }
                     // The slider, the counter, and the chapter buttons live in the bottom bar.
                     ToolbarAction.PageSlider, ToolbarAction.PageCounter, ToolbarAction.ChapterList,
-                    ToolbarAction.PrevChapter, ToolbarAction.NextChapter -> Unit
+                    ToolbarAction.PrevChapter, ToolbarAction.NextChapter,
+                    -> Unit
                 }
             }
             // The read-aloud toggle is always within reach when TTS is on, even when the
@@ -311,9 +312,11 @@ internal fun ReaderBottomBar(
                             ToolbarAction.ReaderOptions -> IconButton(onClick = onOpenOptions, colors = barIcons) {
                                 Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.reader_options))
                             }
-                            // The slider, the counter, and the top-only buttons have no place in this row.
+                            // The slider, the counter, and the top-only buttons have no place in this row. The top bar
+                            // always carries the read-aloud toggle when it is on.
                             ToolbarAction.PageSlider, ToolbarAction.PageCounter, ToolbarAction.Back, ToolbarAction.Title,
-                            ToolbarAction.Share, ToolbarAction.Cast, ToolbarAction.Pip -> Unit
+                            ToolbarAction.Share, ToolbarAction.Cast, ToolbarAction.Pip, ToolbarAction.Narration,
+                            -> Unit
                         }
                     }
                 }

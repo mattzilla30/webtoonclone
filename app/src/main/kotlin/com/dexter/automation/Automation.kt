@@ -60,7 +60,8 @@ class AutomationReceiver : BroadcastReceiver() {
                 NewChaptersWorker.checkNow(context)
             }
             DexterAutomation.ACTION_OPEN_CONTINUE_READING,
-            DexterAutomation.ACTION_OPEN_READER -> {
+            DexterAutomation.ACTION_OPEN_READER,
+            -> {
                 val seriesId = intent.getStringExtra(DexterAutomation.EXTRA_SERIES_ID)
                 val chapterId = intent.getStringExtra(DexterAutomation.EXTRA_CHAPTER_ID)
                 val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return

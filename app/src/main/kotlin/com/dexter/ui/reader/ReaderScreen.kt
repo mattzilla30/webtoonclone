@@ -36,6 +36,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -64,7 +65,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -112,16 +112,15 @@ import com.dexter.data.ReadingMode
 import com.dexter.data.Settings
 import com.dexter.data.TapAction
 import com.dexter.data.firstPageOfPair
-import com.dexter.data.splitTallPage
-import com.dexter.tts.ReaderTtsService
-import com.dexter.tts.TtsPageEvents
 import com.dexter.data.isColorful
-import com.dexter.platform.WearBridge
 import com.dexter.data.isSpreadAspect
 import com.dexter.data.pairIndexOf
 import com.dexter.data.pairPages
+import com.dexter.data.splitTallPage
 import com.dexter.data.tabletReadingMode
+import com.dexter.platform.WearBridge
 import com.dexter.tts.ReaderTtsService
+import com.dexter.tts.TtsPageEvents
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.windowWidthDp
@@ -392,6 +391,7 @@ private fun ReaderContent(
     val colorPages = remember { mutableStateMapOf<String, Boolean>() }
     val reportPageColor: ((String, Boolean) -> Unit)? =
         if (readerUi.colorPageExempt) { key, colorful -> colorPages[key] = colorful } else null
+
     /** The filter for one page: color pages are exempt when the setting is on. */
     fun filterFor(key: String?): ColorFilter? =
         if (readerUi.colorPageExempt && key != null && colorPages[key] == true) null else colorFilter
@@ -464,8 +464,10 @@ private fun ReaderContent(
             )
         }
     }
+
     /** The pager page that shows [page], with spread-aware pairing. */
     fun pagerIndexOfPage(page: Int): Int = if (spreads) pairIndexOf(pairs, page).takeIf { it >= 0 } ?: 0 else page
+
     /** The first page the pager page at [index] shows, with spread-aware pairing. */
     fun firstPageOfPairIndex(index: Int): Int = if (spreads) firstPageOfPair(pairs, index, pagedCount) else index
     // The pager has one extra page after the last image, for the end-of-chapter card.
@@ -778,7 +780,7 @@ private fun ReaderContent(
                 context,
                 page.seriesTitle ?: "Dexter",
                 texts,
-                total.indices.toList().toIntArray(),
+                IntArray(total) { it },
                 a11y.ttsAutoAdvance,
             )
         }
@@ -863,394 +865,398 @@ private fun ReaderContent(
 
     // The predictive-back animation shrinks this whole box away on Android 14+ instead of popping.
     PredictiveBack(enabled = readerUi.predictiveBack, onBack = onBack) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(background)
-            .onSizeChanged { container = it }
-            .pointerInput(paged, rtl, settings, zen) {
-                detectTapGestures(
-                    // Zen mode shields taps: they do nothing, and a long press is the way out.
-                    onTap = if (zen) {
-                        null
-                    } else { offset ->
-                        if (!paged) {
-                            if (settings.tapZonesInWebtoon || settings.tapToScroll) {
-                                when (webtoonTapAction(offset.y, size.height.toFloat(), settings.oneHandedMode)) {
-                                    TapAction.Previous -> scope.launch { scrollStripBy(-1) }
-                                    TapAction.Next -> scope.launch { scrollStripBy(1) }
-                                    TapAction.ToggleBars -> barsVisible = !barsVisible
-                                }
-                            } else {
-                                barsVisible = !barsVisible
-                            }
-                        } else {
-                            // Guided stepping stays off the end-of-chapter card, where taps turn pages as usual.
-                            val contentPage = pagerState.currentPage < pagerCount - 1
-                            when (
-                                tapZoneAction(
-                                    offset,
-                                    size,
-                                    settings.tapZoneLayout,
-                                    rtl,
-                                    invert = settings.invertTapZones,
-                                    oneHanded = settings.oneHandedMode,
-                                )
-                            ) {
-                                TapAction.ToggleBars -> barsVisible = !barsVisible
-                                TapAction.Next -> scope.launch { turnPage(1, contentPage) }
-                                TapAction.Previous -> scope.launch { turnPage(-1, contentPage) }
-                            }
-                        }
-                    },
-                    onDoubleTap = if (zen) {
-                        null
-                    } else { offset ->
-                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                        zoom.toggle(offset, container)
-                        guided.reset()
-                    },
-                    onLongPress = { offset ->
-                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        if (zen) viewModel.setZen(false) else menuFor = pageAt(offset.y)
-                    },
-                )
-            }
-            .zoomGestures(zoom) { container }
-            // The S-Pen barrel button turns pages: primary forward, secondary back.
-            .stylusPenButton(
-                enabled = readerUi.stylusPenButton,
-                onNext = { scope.launch { if (paged) turnPage(1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(1) } },
-                onPrevious = { scope.launch { if (paged) turnPage(-1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(-1) } },
-            )
-            // Taps and swipes turn pages by sight. TalkBack gets the same moves as actions.
-            .semantics {
-                customActions = listOf(
-                    CustomAccessibilityAction("Next page") {
-                        scope.launch {
-                            if (paged) turnPage(1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(1)
-                        }
-                        true
-                    },
-                    CustomAccessibilityAction("Previous page") {
-                        scope.launch {
-                            if (paged) turnPage(-1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(-1)
-                        }
-                        true
-                    },
-                    CustomAccessibilityAction(if (barsVisible) "Hide controls" else "Show controls") {
-                        barsVisible = !barsVisible
-                        true
-                    },
-                    CustomAccessibilityAction("Page options") {
-                        menuFor = cursor
-                        true
-                    },
-                )
-            },
-    ) {
-        // The pages and only the pages are zoomed. The bars and dimming stay put.
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    transformOrigin = TransformOrigin(0f, 0f)
-                    scaleX = zoom.scale
-                    scaleY = zoom.scale
-                    translationX = zoom.offsetX
-                    translationY = zoom.offsetY
+                .background(background)
+                .onSizeChanged { container = it }
+                .pointerInput(paged, rtl, settings, zen) {
+                    detectTapGestures(
+                        // Zen mode shields taps: they do nothing, and a long press is the way out.
+                        onTap = if (zen) {
+                            null
+                        } else {
+                            { offset ->
+                                if (!paged) {
+                                    if (settings.tapZonesInWebtoon || settings.tapToScroll) {
+                                        when (webtoonTapAction(offset.y, size.height.toFloat(), settings.oneHandedMode)) {
+                                            TapAction.Previous -> scope.launch { scrollStripBy(-1) }
+                                            TapAction.Next -> scope.launch { scrollStripBy(1) }
+                                            TapAction.ToggleBars -> barsVisible = !barsVisible
+                                        }
+                                    } else {
+                                        barsVisible = !barsVisible
+                                    }
+                                } else {
+                                    // Guided stepping stays off the end-of-chapter card, where taps turn pages as usual.
+                                    val contentPage = pagerState.currentPage < pagerCount - 1
+                                    when (
+                                        tapZoneAction(
+                                            offset,
+                                            size,
+                                            settings.tapZoneLayout,
+                                            rtl,
+                                            invert = settings.invertTapZones,
+                                            oneHanded = settings.oneHandedMode,
+                                        )
+                                    ) {
+                                        TapAction.ToggleBars -> barsVisible = !barsVisible
+                                        TapAction.Next -> scope.launch { turnPage(1, contentPage) }
+                                        TapAction.Previous -> scope.launch { turnPage(-1, contentPage) }
+                                    }
+                                }
+                            }
+                        },
+                        onDoubleTap = if (zen) {
+                            null
+                        } else {
+                            { offset ->
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                zoom.toggle(offset, container)
+                                guided.reset()
+                            }
+                        },
+                        onLongPress = { offset ->
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            if (zen) viewModel.setZen(false) else menuFor = pageAt(offset.y)
+                        },
+                    )
+                }
+                .zoomGestures(zoom) { container }
+                // The S-Pen barrel button turns pages: primary forward, secondary back.
+                .stylusPenButton(
+                    enabled = readerUi.stylusPenButton,
+                    onNext = { scope.launch { if (paged) turnPage(1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(1) } },
+                    onPrevious = { scope.launch { if (paged) turnPage(-1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(-1) } },
+                )
+                // Taps and swipes turn pages by sight. TalkBack gets the same moves as actions.
+                .semantics {
+                    customActions = listOf(
+                        CustomAccessibilityAction("Next page") {
+                            scope.launch {
+                                if (paged) turnPage(1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(1)
+                            }
+                            true
+                        },
+                        CustomAccessibilityAction("Previous page") {
+                            scope.launch {
+                                if (paged) turnPage(-1, pagerState.currentPage < pagerCount - 1) else scrollStripBy(-1)
+                            }
+                            true
+                        },
+                        CustomAccessibilityAction(if (barsVisible) "Hide controls" else "Show controls") {
+                            barsVisible = !barsVisible
+                            true
+                        },
+                        CustomAccessibilityAction("Page options") {
+                            menuFor = cursor
+                            true
+                        },
+                    )
                 },
         ) {
-            if (paged) {
-                HorizontalPager(
-                    state = pagerState,
-                    reverseLayout = rtl,
-                    userScrollEnabled = !zoom.isZoomed,
-                    beyondViewportPageCount = 1,
-                    modifier = Modifier.fillMaxSize(),
-                ) { index ->
-                    // Reduce motion turns the fade into an instant cut.
-                    val fade = settings.pageTransition == PageTransition.Fade && !reduceMotion
-                    val layer = if (fade) {
-                        Modifier.graphicsLayer {
-                            // Each page stays in place and fades, instead of sliding.
-                            val offset = (pagerState.currentPage - index) + pagerState.currentPageOffsetFraction
-                            translationX = offset * size.width * (if (rtl) -1 else 1)
-                            alpha = 1f - offset.absoluteValue.coerceIn(0f, 1f)
-                        }
-                    } else {
-                        Modifier
-                    }
-                    Box(Modifier.fillMaxSize().then(layer)) {
-                        if (index < pagerCount - 1) {
-                            val shown = if (spreads) pairs.getOrNull(index).orEmpty() else listOf(index)
-                            PagedPage(
-                                pagedChapter,
-                                shown,
-                                rtl,
-                                settings,
-                                ::filterFor,
-                                viewModel::renewPages,
-                                sampleKey = "spread:$index",
-                                onSampled = reportColor,
-                                onColorSampled = reportPageColor,
-                                onAspectSampled = reportAspect,
-                            )
+            // The pages and only the pages are zoomed. The bars and dimming stay put.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        transformOrigin = TransformOrigin(0f, 0f)
+                        scaleX = zoom.scale
+                        scaleY = zoom.scale
+                        translationX = zoom.offsetX
+                        translationY = zoom.offsetY
+                    },
+            ) {
+                if (paged) {
+                    HorizontalPager(
+                        state = pagerState,
+                        reverseLayout = rtl,
+                        userScrollEnabled = !zoom.isZoomed,
+                        beyondViewportPageCount = 1,
+                        modifier = Modifier.fillMaxSize(),
+                    ) { index ->
+                        // Reduce motion turns the fade into an instant cut.
+                        val fade = settings.pageTransition == PageTransition.Fade && !reduceMotion
+                        val layer = if (fade) {
+                            Modifier.graphicsLayer {
+                                // Each page stays in place and fades, instead of sliding.
+                                val offset = (pagerState.currentPage - index) + pagerState.currentPageOffsetFraction
+                                translationX = offset * size.width * (if (rtl) -1 else 1)
+                                alpha = 1f - offset.absoluteValue.coerceIn(0f, 1f)
+                            }
                         } else {
-                            EndOfChapter(
-                                segment = pagedChapter,
-                                textColor = onPage,
-                                continuing = false,
-                                onOpenChapter = onOpenChapter,
-                                onComments = { openComments(viewModel, context, pagedChapter) },
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                            Modifier
                         }
-                    }
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.align(Alignment.TopCenter).widthIn(max = MAX_STRIP_WIDTH).fillMaxHeight(),
-                    verticalArrangement = Arrangement.spacedBy(stripGap.dp),
-                ) {
-                    // Keyed by chapter and page, so new page addresses and joined chapters keep your place.
-                    items(strip, key = { it.key }, contentType = { it::class }) { item ->
-                        when (item) {
-                            is StripItem.Page -> {
-                                val segment = segments[item.segment]
-                                val url = segment.pages[item.page]
-                                PageImage(
-                                    url = url,
-                                    index = item.page,
-                                    layout = PageLayout.Strip,
-                                    crop = settings.cropBorders,
-                                    segment = splits[item.segment to item.page]?.getOrNull(item.part),
-                                    colorFilter = filterFor(item.key),
-                                    onGaveUp = { viewModel.renewPages(segment.chapter.id) },
-                                    colorKey = item.key,
+                        Box(Modifier.fillMaxSize().then(layer)) {
+                            if (index < pagerCount - 1) {
+                                val shown = if (spreads) pairs.getOrNull(index).orEmpty() else listOf(index)
+                                PagedPage(
+                                    pagedChapter,
+                                    shown,
+                                    rtl,
+                                    settings,
+                                    ::filterFor,
+                                    viewModel::renewPages,
+                                    sampleKey = "spread:$index",
                                     onSampled = reportColor,
                                     onColorSampled = reportPageColor,
-                                    onHeightSampled = if (a11y.tallPageSplit) { _, height -> pageHeights[url] = height } else null,
-                                    corner = readerUi.stripCornerDp.dp,
+                                    onAspectSampled = reportAspect,
+                                )
+                            } else {
+                                EndOfChapter(
+                                    segment = pagedChapter,
+                                    textColor = onPage,
+                                    continuing = false,
+                                    onOpenChapter = onOpenChapter,
+                                    onComments = { openComments(viewModel, context, pagedChapter) },
+                                    modifier = Modifier.fillMaxSize(),
                                 )
                             }
-                            is StripItem.Divider -> ChapterDivider(segments[item.segment], onPage)
-                            is StripItem.End -> {
-                                val segment = segments[item.segment]
-                                EndOfChapter(
-                                    segment = segment,
-                                    textColor = onPage,
-                                    continuing = continuous && segment.nextId != null && segments.size < MAX_SEGMENTS,
-                                    onOpenChapter = onOpenChapter,
-                                    onComments = { openComments(viewModel, context, segment) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.align(Alignment.TopCenter).widthIn(max = MAX_STRIP_WIDTH).fillMaxHeight(),
+                        verticalArrangement = Arrangement.spacedBy(stripGap.dp),
+                    ) {
+                        // Keyed by chapter and page, so new page addresses and joined chapters keep your place.
+                        items(strip, key = { it.key }, contentType = { it::class }) { item ->
+                            when (item) {
+                                is StripItem.Page -> {
+                                    val segment = segments[item.segment]
+                                    val url = segment.pages[item.page]
+                                    PageImage(
+                                        url = url,
+                                        index = item.page,
+                                        layout = PageLayout.Strip,
+                                        crop = settings.cropBorders,
+                                        segment = splits[item.segment to item.page]?.getOrNull(item.part),
+                                        colorFilter = filterFor(item.key),
+                                        onGaveUp = { viewModel.renewPages(segment.chapter.id) },
+                                        colorKey = item.key,
+                                        onSampled = reportColor,
+                                        onColorSampled = reportPageColor,
+                                        onHeightSampled = if (a11y.tallPageSplit) { _, height -> pageHeights[url] = height } else null,
+                                        corner = readerUi.stripCornerDp.dp,
+                                    )
+                                }
+                                is StripItem.Divider -> ChapterDivider(segments[item.segment], onPage)
+                                is StripItem.End -> {
+                                    val segment = segments[item.segment]
+                                    EndOfChapter(
+                                        segment = segment,
+                                        textColor = onPage,
+                                        continuing = continuous && segment.nextId != null && segments.size < MAX_SEGMENTS,
+                                        onOpenChapter = onOpenChapter,
+                                        onComments = { openComments(viewModel, context, segment) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // A patterned strip background draws behind the pages; plain colors replaced the background above.
-        StripPattern(stripBgChoice, Modifier.fillMaxSize())
+            // A patterned strip background draws behind the pages; plain colors replaced the background above.
+            StripPattern(stripBgChoice, Modifier.fillMaxSize())
 
-        // A hovering stylus gets a 2x magnifier under its tip.
-        val peekUrl = if (paged) pagedChapter.pages.getOrNull(position) else current.pages.getOrNull(position)
-        StylusHoverPeek(enabled = readerUi.stylusHoverPeek, pageUrl = peekUrl, containerSize = container)
+            // A hovering stylus gets a 2x magnifier under its tip.
+            val peekUrl = if (paged) pagedChapter.pages.getOrNull(position) else current.pages.getOrNull(position)
+            StylusHoverPeek(enabled = readerUi.stylusHoverPeek, pageUrl = peekUrl, containerSize = container)
 
-        // Dimming sits over the pages and under the bars. It does not take touches. E-ink mode skips it.
-        if (settings.readerDim > 0 && !eInk) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.readerDim.coerceIn(0, 70) / 100f)))
-        }
+            // Dimming sits over the pages and under the bars. It does not take touches. E-ink mode skips it.
+            if (settings.readerDim > 0 && !eInk) {
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.readerDim.coerceIn(0, 70) / 100f)))
+            }
 
-        // Zen mode adds its own hard dim over everything but the bars, which are already hidden.
-        if (zen) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
-        }
+            // Zen mode adds its own hard dim over everything but the bars, which are already hidden.
+            if (zen) {
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+            }
 
-        // The sleep timer stops auto-scroll and narration, and dims the screen, when it fires. A tap clears the dim.
-        var sleepDimmed by remember { mutableStateOf(false) }
-        SleepTimer(minutes = readerUi.sleepTimerMinutes) {
-            viewModel.updateSettings { it.copy(autoScrollLevel = 0) }
-            ReaderTtsService.stop(context)
-            sleepDimmed = true
-            viewModel.toast("Sleep timer: auto-scroll stopped, screen dimmed")
-        }
-        if (sleepDimmed) {
-            Box(
-                Modifier.fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable { sleepDimmed = false },
-            )
-        }
-
-        // Zen mode hides every last bit of chrome, counter included.
-        if (!barsVisible && !zen) {
-            // A small counter stays visible when the bars are hidden, with the time and battery when that is on.
-            val status by clockAndBattery(context, settings.showClock)
-            Surface(
-                shape = CircleShape,
-                color = barColor(),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(12.dp),
-            ) {
-                Text(
-                    listOfNotNull("${position + 1} / $count", status).joinToString("  ·  "),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            // The sleep timer stops auto-scroll and narration, and dims the screen, when it fires. A tap clears the dim.
+            var sleepDimmed by remember { mutableStateOf(false) }
+            SleepTimer(minutes = readerUi.sleepTimerMinutes) {
+                viewModel.updateSettings { it.copy(autoScrollLevel = 0) }
+                ReaderTtsService.stop(context)
+                sleepDimmed = true
+                viewModel.toast("Sleep timer: auto-scroll stopped, screen dimmed")
+            }
+            if (sleepDimmed) {
+                Box(
+                    Modifier.fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .clickable { sleepDimmed = false },
                 )
             }
-        }
 
-        if (barsVisible) {
-            val bookmarked = bookmarks.any { it.chapterId == current.chapter.id && it.page == position }
-            // One-handed mode drops the top bar: its actions move into the bottom bar, near the thumb.
-            if (!settings.oneHandedMode) {
-                ReaderTopBar(
+            // Zen mode hides every last bit of chrome, counter included.
+            if (!barsVisible && !zen) {
+                // A small counter stays visible when the bars are hidden, with the time and battery when that is on.
+                val status by clockAndBattery(context, settings.showClock)
+                Surface(
+                    shape = CircleShape,
+                    color = barColor(),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(12.dp),
+                ) {
+                    Text(
+                        listOfNotNull("${position + 1} / $count", status).joinToString("  ·  "),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
+            }
+
+            if (barsVisible) {
+                val bookmarked = bookmarks.any { it.chapterId == current.chapter.id && it.page == position }
+                // One-handed mode drops the top bar: its actions move into the bottom bar, near the thumb.
+                if (!settings.oneHandedMode) {
+                    ReaderTopBar(
+                        segment = current,
+                        seriesTitle = page.seriesTitle,
+                        bookmarked = bookmarked,
+                        incognito = settings.incognito,
+                        castManager = castManager,
+                        onBookmark = {
+                            barTouch++
+                            viewModel.toggleBookmark(current.chapter, position)
+                        },
+                        onBack = onBack,
+                        onOpenOptions = onOpenOptions,
+                        actions = topActions,
+                        onToolbarAction = ::onToolbarAction,
+                        showNarration = a11y.ttsEnabled,
+                        narrationRunning = narrationRunning,
+                        voiceButton = if (a11y.voiceControl) {
+                            { VoiceControlButton(voiceRecognizer) }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
+                ReaderBottomBar(
                     segment = current,
-                    seriesTitle = page.seriesTitle,
+                    position = position,
+                    count = count,
+                    rtl = rtl,
+                    onSeek = {
+                        barTouch++
+                        scope.launch { goToPage(it) }
+                    },
+                    onJump = { jumpTo = (position + 1).toString() },
+                    onChapters = { showChapters = true },
+                    onOpenChapter = onOpenChapter,
+                    oneHanded = settings.oneHandedMode,
+                    onBack = onBack,
                     bookmarked = bookmarked,
-                    incognito = settings.incognito,
-                    castManager = castManager,
                     onBookmark = {
                         barTouch++
                         viewModel.toggleBookmark(current.chapter, position)
                     },
-                    onBack = onBack,
                     onOpenOptions = onOpenOptions,
-                    actions = topActions,
+                    actions = bottomActions,
+                    topActions = topActions,
+                    pageUrls = current.pages,
+                    scrubberPreview = readerUi.scrubberPreview,
+                    onPageCounter = { if (readerUi.thumbnailsEnabled) showThumbnails = true else jumpTo = (position + 1).toString() },
                     onToolbarAction = ::onToolbarAction,
-                    showNarration = a11y.ttsEnabled,
-                    narrationRunning = narrationRunning,
-                    voiceButton = if (a11y.voiceControl) {
-                        { VoiceControlButton(voiceRecognizer) }
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.align(Alignment.TopCenter),
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
-            ReaderBottomBar(
-                segment = current,
-                position = position,
-                count = count,
-                rtl = rtl,
-                onSeek = {
-                    barTouch++
-                    scope.launch { goToPage(it) }
-                },
-                onJump = { jumpTo = (position + 1).toString() },
-                onChapters = { showChapters = true },
-                onOpenChapter = onOpenChapter,
-                oneHanded = settings.oneHandedMode,
-                onBack = onBack,
-                bookmarked = bookmarked,
-                onBookmark = {
-                    barTouch++
-                    viewModel.toggleBookmark(current.chapter, position)
-                },
-                onOpenOptions = onOpenOptions,
-                actions = bottomActions,
-                topActions = topActions,
-                pageUrls = current.pages,
-                scrubberPreview = readerUi.scrubberPreview,
-                onPageCounter = { if (readerUi.thumbnailsEnabled) showThumbnails = true else jumpTo = (position + 1).toString() },
-                onToolbarAction = ::onToolbarAction,
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        }
 
-        jumpTo?.let { typed ->
-            GoToPageDialog(
-                typed = typed,
-                count = count,
-                onChange = { jumpTo = it },
-                onGo = { index -> scope.launch { goToPage(index) } },
-                onDismiss = { jumpTo = null },
-            )
-        }
+            jumpTo?.let { typed ->
+                GoToPageDialog(
+                    typed = typed,
+                    count = count,
+                    onChange = { jumpTo = it },
+                    onGo = { index -> scope.launch { goToPage(index) } },
+                    onDismiss = { jumpTo = null },
+                )
+            }
 
-        menuFor?.let { at ->
-            val segment = page.segments.getOrNull(at.segment)
-            val url = segment?.pages?.getOrNull(at.page)
-            if (segment == null || url == null) {
-                menuFor = null
+            menuFor?.let { at ->
+                val segment = page.segments.getOrNull(at.segment)
+                val url = segment?.pages?.getOrNull(at.page)
+                if (segment == null || url == null) {
+                    menuFor = null
+                } else {
+                    PageMenu(
+                        pageNumber = at.page + 1,
+                        bookmarked = bookmarks.any { it.chapterId == segment.chapter.id && it.page == at.page },
+                        onSave = { viewModel.savePage(url, segment.chapter, at.page) },
+                        onShare = { viewModel.sharePage(url, segment.chapter, at.page) { context.startActivity(it) } },
+                        onCopy = { viewModel.copyPage(url, segment.chapter, at.page) },
+                        onBookmark = { viewModel.toggleBookmark(segment.chapter, at.page) },
+                        onOcr = { menuFor = null; ocrUrl = url },
+                        onDismiss = { menuFor = null },
+                    )
+                }
+            }
+
+            // On-demand OCR: recognize the page's text and let the reader tap blocks to copy, share, or translate.
+            ocrUrl?.let { OcrLookupSheet(imageUrl = it, onDismiss = { ocrUrl = null }) }
+
+            // Binge mode: at the end of a chapter, count down and open the next one automatically.
+            var bingeDismissed by remember { mutableStateOf<String?>(null) }
+            val bingeNext = page.chapters.firstOrNull { it.id == current.nextId }
+            val atChapterEnd = if (paged) {
+                pagerState.currentPage >= pagerCount - 1
             } else {
-                PageMenu(
-                    pageNumber = at.page + 1,
-                    bookmarked = bookmarks.any { it.chapterId == segment.chapter.id && it.page == at.page },
-                    onSave = { viewModel.savePage(url, segment.chapter, at.page) },
-                    onShare = { viewModel.sharePage(url, segment.chapter, at.page) { context.startActivity(it) } },
-                    onCopy = { viewModel.copyPage(url, segment.chapter, at.page) },
-                    onBookmark = { viewModel.toggleBookmark(segment.chapter, at.page) },
-                    onOcr = { menuFor = null; ocrUrl = url },
-                    onDismiss = { menuFor = null },
+                val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                lastVisible != null && strip.isNotEmpty() && lastVisible.index >= strip.lastIndex
+            }
+            // In the continuous strip the next chapter joins on its own, so there is nothing to binge to.
+            val bingeContinuing = !paged && continuous && current.nextId != null && segments.size < MAX_SEGMENTS
+            if (readerUi.bingeMode && atChapterEnd && current.nextId != null && !bingeContinuing && bingeDismissed != current.chapter.id) {
+                BingeCountdown(
+                    seconds = readerUi.bingeSeconds,
+                    nextLabel = bingeNext?.let { "Ep. ${it.number}" } ?: "the next episode",
+                    onAdvance = { current.nextId?.let(onOpenChapter) },
+                    onCancel = { bingeDismissed = current.chapter.id },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 128.dp),
+                )
+            }
+
+            if (showThumbnails) {
+                ChapterThumbnailSheet(
+                    pages = current.pages,
+                    position = position,
+                    onSelect = { index ->
+                        showThumbnails = false
+                        scope.launch { goToPage(index) }
+                    },
+                    onGoToPage = {
+                        showThumbnails = false
+                        jumpTo = (position + 1).toString()
+                    },
+                    onDismiss = { showThumbnails = false },
+                )
+            }
+
+            if (showSleepDialog) {
+                SleepTimerDialog(
+                    currentMinutes = readerUi.sleepTimerMinutes,
+                    onSelect = { minutes -> scope.launch { uiPrefs.setSleepTimerMinutes(minutes) } },
+                    onDismiss = { showSleepDialog = false },
+                )
+            }
+
+            if (showChapters) {
+                ChapterPicker(
+                    chapters = page.chapters,
+                    currentId = current.chapter.id,
+                    onSelect = {
+                        showChapters = false
+                        if (it != current.chapter.id) onOpenChapter(it)
+                    },
+                    onDismiss = { showChapters = false },
                 )
             }
         }
-
-        // On-demand OCR: recognize the page's text and let the reader tap blocks to copy, share, or translate.
-        ocrUrl?.let { OcrLookupSheet(imageUrl = it, onDismiss = { ocrUrl = null }) }
-
-        // Binge mode: at the end of a chapter, count down and open the next one automatically.
-        var bingeDismissed by remember { mutableStateOf<String?>(null) }
-        val bingeNext = page.chapters.firstOrNull { it.id == current.nextId }
-        val atChapterEnd = if (paged) {
-            pagerState.currentPage >= pagerCount - 1
-        } else {
-            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisible != null && strip.isNotEmpty() && lastVisible.index >= strip.lastIndex
-        }
-        // In the continuous strip the next chapter joins on its own, so there is nothing to binge to.
-        val bingeContinuing = !paged && continuous && current.nextId != null && segments.size < MAX_SEGMENTS
-        if (readerUi.bingeMode && atChapterEnd && current.nextId != null && !bingeContinuing && bingeDismissed != current.chapter.id) {
-            BingeCountdown(
-                seconds = readerUi.bingeSeconds,
-                nextLabel = bingeNext?.let { "Ep. ${it.number}" } ?: "the next episode",
-                onAdvance = { current.nextId?.let(onOpenChapter) },
-                onCancel = { bingeDismissed = current.chapter.id },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 128.dp),
-            )
-        }
-
-        if (showThumbnails) {
-            ChapterThumbnailSheet(
-                pages = current.pages,
-                position = position,
-                onSelect = { index ->
-                    showThumbnails = false
-                    scope.launch { goToPage(index) }
-                },
-                onGoToPage = {
-                    showThumbnails = false
-                    jumpTo = (position + 1).toString()
-                },
-                onDismiss = { showThumbnails = false },
-            )
-        }
-
-        if (showSleepDialog) {
-            SleepTimerDialog(
-                currentMinutes = readerUi.sleepTimerMinutes,
-                onSelect = { minutes -> scope.launch { uiPrefs.setSleepTimerMinutes(minutes) } },
-                onDismiss = { showSleepDialog = false },
-            )
-        }
-
-        if (showChapters) {
-            ChapterPicker(
-                chapters = page.chapters,
-                currentId = current.chapter.id,
-                onSelect = {
-                    showChapters = false
-                    if (it != current.chapter.id) onOpenChapter(it)
-                },
-                onDismiss = { showChapters = false },
-            )
-        }
-    }
     }
 }
 
@@ -1351,7 +1357,6 @@ private fun PageImage(
     onHeightSampled: ((String, Int) -> Unit)? = null,
     /** When set, only this chunk of a split tall page is decoded. */
     segment: PageSegment? = null,
-    onHeightSampled: ((String, Int) -> Unit)? = null,
     /** Rounded page corners in the strip; 0 is square. */
     corner: Dp = 0.dp,
 ) {

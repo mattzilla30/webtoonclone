@@ -39,7 +39,6 @@ object TtsPageEvents {
  * FOREGROUND_SERVICE_MEDIA_PLAYBACK and a foregroundServiceType of mediaPlayback.
  */
 class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
-
     companion object {
         private const val CHANNEL_ID = "tts_narration"
         private const val NOTIFICATION_ID = 41
@@ -110,10 +109,11 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
             setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String) = Unit
                 override fun onDone(utteranceId: String) = onUtteranceDone(utteranceId.toIntOrNull())
-                override fun onError(utteranceId: String?, errorCode: Int) {
-                    super.onError(utteranceId, errorCode)
-                    onUtteranceDone(utteranceId?.toIntOrNull())
-                }
+                override fun onError(utteranceId: String?, errorCode: Int) = onUtteranceDone(utteranceId?.toIntOrNull())
+
+                // The older callback is still abstract, so it must be overridden even though the one above replaces it.
+                @Deprecated("Replaced by onError(String, Int)")
+                override fun onError(utteranceId: String?) = onUtteranceDone(utteranceId?.toIntOrNull())
             })
         }
         session = MediaSession(this, "DexterTts").apply {
@@ -168,7 +168,8 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
                 val event = if (Build.VERSION.SDK_INT >= 33) {
                     intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
                 } else {
-                    @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT) as? KeyEvent
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT) as? KeyEvent
                 }
                 if (event?.action == KeyEvent.ACTION_DOWN) handleMediaKey(event.keyCode)
             }
@@ -299,7 +300,8 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
             val event = if (Build.VERSION.SDK_INT >= 33) {
                 mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
             } else {
-                @Suppress("DEPRECATION") mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT) as? KeyEvent
+                @Suppress("DEPRECATION")
+                mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT) as? KeyEvent
             }
             if (event?.action == KeyEvent.ACTION_DOWN) handleMediaKey(event.keyCode)
             return true

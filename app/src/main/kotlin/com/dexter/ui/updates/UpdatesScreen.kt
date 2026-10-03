@@ -124,74 +124,74 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit, o
                         ScheduleList(schedules, onOpenSeries)
                     }
                 } else {
-                LoadView(state, onRetry = viewModel::refresh) { entries ->
-                    val rows = remember(entries) { withDayHeadings(entries) }
-                    val listState = rememberLazyListState()
+                    LoadView(state, onRetry = viewModel::refresh) { entries ->
+                        val rows = remember(entries) { withDayHeadings(entries) }
+                        val listState = rememberLazyListState()
 
-                    // Load the next page once the last few rows are on screen. The subscriptions list is complete as loaded.
-                    if (!subscribedOnly) {
-                        LaunchedEffect(listState, rows.size) {
-                            snapshotFlow {
-                                val info = listState.layoutInfo
-                                (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
-                            }.collect { nearEnd -> if (nearEnd) viewModel.loadMore() }
+                        // Load the next page once the last few rows are on screen. The subscriptions list is complete as loaded.
+                        if (!subscribedOnly) {
+                            LaunchedEffect(listState, rows.size) {
+                                snapshotFlow {
+                                    val info = listState.layoutInfo
+                                    (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
+                                }.collect { nearEnd -> if (nearEnd) viewModel.loadMore() }
+                            }
                         }
-                    }
 
-                    Box(Modifier.fillMaxSize()) {
-                        LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                            if (!subscribedOnly) {
-                                offlineSavedAt?.let { savedAt ->
-                                    item { OfflineBanner(savedAt, "updates", onRetry = viewModel::load) }
+                        Box(Modifier.fillMaxSize()) {
+                            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                                if (!subscribedOnly) {
+                                    offlineSavedAt?.let { savedAt ->
+                                        item { OfflineBanner(savedAt, "updates", onRetry = viewModel::load) }
+                                    }
                                 }
-                            }
-                            if (entries.isEmpty()) {
-                                item {
-                                    Text(
-                                        if (subscribedOnly) "None of your subscriptions has a chapter in your language yet." else "No updates right now.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(16.dp),
-                                    )
-                                }
-                            }
-                            items(
-                                rows,
-                                key = { row -> if (row is UpdateRow.Entry) row.entry.series.id else "day-${(row as UpdateRow.Heading).label}" },
-                                contentType = { row -> if (row is UpdateRow.Entry) 0 else 1 },
-                            ) { row ->
-                                when (row) {
-                                    is UpdateRow.Heading -> Text(
-                                        row.label,
-                                        style = MaterialTheme.typography.titleSmallEmphasized,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp).semantics { heading() },
-                                    )
-                                    is UpdateRow.Entry -> {
-                                        val entry = row.entry
-                                        val subscribed = entry.series.id in subscribedIds
-                                        UpdateRowItem(
-                                            entry = entry,
-                                            subscribed = subscribed,
-                                            unread = isUnreadUpdate(entry, subscribed, lastRead[entry.series.id]),
-                                            onOpenSeries = { onOpenSeries(entry.series.id) },
-                                            onOpenChapter = if (entry.chapterId.isNotEmpty()) ({ onOpenChapter(entry.series.id, entry.chapterId) }) else null,
-                                            onMarkRead = if (entry.chapterId.isNotEmpty()) ({ viewModel.markRead(entry) }) else null,
+                                if (entries.isEmpty()) {
+                                    item {
+                                        Text(
+                                            if (subscribedOnly) "None of your subscriptions has a chapter in your language yet." else "No updates right now.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(16.dp),
                                         )
                                     }
                                 }
-                            }
-                            if (loadingMore && !subscribedOnly) {
-                                item {
-                                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                        LoadingIndicator(Modifier.size(40.dp))
+                                items(
+                                    rows,
+                                    key = { row -> if (row is UpdateRow.Entry) row.entry.series.id else "day-${(row as UpdateRow.Heading).label}" },
+                                    contentType = { row -> if (row is UpdateRow.Entry) 0 else 1 },
+                                ) { row ->
+                                    when (row) {
+                                        is UpdateRow.Heading -> Text(
+                                            row.label,
+                                            style = MaterialTheme.typography.titleSmallEmphasized,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp).semantics { heading() },
+                                        )
+                                        is UpdateRow.Entry -> {
+                                            val entry = row.entry
+                                            val subscribed = entry.series.id in subscribedIds
+                                            UpdateRowItem(
+                                                entry = entry,
+                                                subscribed = subscribed,
+                                                unread = isUnreadUpdate(entry, subscribed, lastRead[entry.series.id]),
+                                                onOpenSeries = { onOpenSeries(entry.series.id) },
+                                                onOpenChapter = if (entry.chapterId.isNotEmpty()) ({ onOpenChapter(entry.series.id, entry.chapterId) }) else null,
+                                                onMarkRead = if (entry.chapterId.isNotEmpty()) ({ viewModel.markRead(entry) }) else null,
+                                            )
+                                        }
+                                    }
+                                }
+                                if (loadingMore && !subscribedOnly) {
+                                    item {
+                                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                            LoadingIndicator(Modifier.size(40.dp))
+                                        }
                                     }
                                 }
                             }
+                            BackToTopButton(listState, Modifier.align(Alignment.BottomEnd))
                         }
-                        BackToTopButton(listState, Modifier.align(Alignment.BottomEnd))
                     }
-                }
                 }
             }
         }

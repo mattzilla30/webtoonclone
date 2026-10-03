@@ -6,6 +6,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.dexter.cast.castModule
 import com.dexter.data.AccountStore
 import com.dexter.data.BackupArchive
 import com.dexter.data.BackupService
@@ -20,7 +21,6 @@ import com.dexter.data.MangaDexRepository
 import com.dexter.data.MeteredDataSaver
 import com.dexter.data.SettingsStore
 import com.dexter.data.Trackers
-import com.dexter.cast.castModule
 import com.dexter.di.BASE_CLIENT
 import com.dexter.di.appModule
 import com.dexter.notify.AutoBackupWorker
@@ -72,6 +72,7 @@ class DexterApp : Application(), SingletonImageLoader.Factory {
     val trackers: Trackers by inject()
     val cloudTokenStore: CloudTokenStore by inject()
     private val baseClient: OkHttpClient by inject(named(BASE_CLIENT))
+
     /** Plain OkHttp client, shared for OAuth token exchanges. */
     val oauthClient: OkHttpClient get() = baseClient
     private val meteredDataSaver: MeteredDataSaver by inject()

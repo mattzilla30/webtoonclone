@@ -86,16 +86,10 @@ object AppLock {
     }
 
     /**
-     * Asks for a fingerprint, a face, or the phone's PIN, pattern, or password, and calls [onResult]
-     * with whether it passed. With nothing set up on the phone, it fails at once. This is the
-     * strong-factor path: settings use it directly so flipping the lock switch always proves the
-     * phone's own credential, whatever [lockMode] is set.
+     * The platform prompt itself: fingerprint, face, or the phone's PIN, pattern, or password. With
+     * nothing set up on the phone, it fails at once. Settings call it directly, so flipping the lock
+     * switch always proves the phone's own credential, whatever [lockMode] is set.
      */
-    fun authenticate(context: Context, title: String, onResult: (Boolean) -> Unit) {
-        authenticateBiometric(context, title, onResult)
-    }
-
-    /** The platform prompt itself: fingerprint, face, or the phone's PIN, pattern, or password. */
     fun authenticateBiometric(context: Context, title: String, onResult: (Boolean) -> Unit) {
         val prompt = BiometricPrompt.Builder(context)
             .setTitle(title)

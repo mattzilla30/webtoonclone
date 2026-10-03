@@ -13,11 +13,9 @@ import androidx.compose.ui.unit.dp
 import com.dexter.data.ReadingProgress
 import com.dexter.ui.series.isChapterRead
 
-/**
- * Spoiler-safe blur: when the setting is on, covers stay blurred until the series is started, and
- * chapter rows ahead of the current position blur their thumbnails until read past. Nothing is
- * hidden forever; reading past a point unblurs it.
- */
+// Spoiler-safe blur: when the setting is on, covers stay blurred until the series is started, and
+// chapter rows ahead of the current position blur their thumbnails until read past. Nothing is
+// hidden forever; reading past a point unblurs it.
 
 /** Blurs the content when [enabled]; a no-op otherwise, so call sites stay branch-free. */
 fun Modifier.spoilerBlur(enabled: Boolean, radius: Dp = 18.dp): Modifier =

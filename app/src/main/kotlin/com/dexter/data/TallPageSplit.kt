@@ -5,13 +5,11 @@ import android.graphics.BitmapFactory
 import coil3.size.Size
 import coil3.transform.Transformation
 
-/**
- * Tall-page splitting for vertical webtoons. A single 800x20000 strip is unreadable when scaled to
- * fit the screen width; splitting it into screen-height segments keeps text legible. The math here
- * is pure image logic: [splitTallPage] turns a pixel height into segment fractions, and
- * [SplitSegment] is a Coil transformation that crops the decoded bitmap to one segment, so the
- * reader's existing AsyncImage pipeline shows each segment as its own item.
- */
+// Tall-page splitting for vertical webtoons. A single 800x20000 strip is unreadable when scaled to
+// fit the screen width; splitting it into screen-height segments keeps text legible. The math here
+// is pure image logic: [splitTallPage] turns a pixel height into segment fractions, and
+// [SplitSegment] is a Coil transformation that crops the decoded bitmap to one segment, so the
+// reader's existing AsyncImage pipeline shows each segment as its own item.
 
 /** One vertical slice of a page, as fractions of the page height. */
 data class PageSegment(val topFraction: Float, val bottomFraction: Float, val index: Int, val count: Int)
@@ -35,14 +33,12 @@ fun splitTallPage(heightPx: Int, maxSegmentHeightPx: Int): List<PageSegment> {
  * The pixel height of the image at [path], decoded from its bounds only. Null when the file is not
  * a readable image. Used to decide splits before the full bitmap is ever loaded.
  */
-fun imageHeightPx(path: String): Int? {
-    return try {
-        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(path, options)
-        options.outHeight.takeIf { it > 0 }
-    } catch (e: Exception) {
-        null
-    }
+fun imageHeightPx(path: String): Int? = try {
+    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, options)
+    options.outHeight.takeIf { it > 0 }
+} catch (e: Exception) {
+    null
 }
 
 /**

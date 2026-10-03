@@ -47,49 +47,47 @@ private val ComicInfoTags = setOf("Series", "Number", "Title", "Volume", "Transl
  * Parses a ComicInfo.xml document. Unknown tags are ignored, so files written by other apps still
  * read. Returns null when the document is not a ComicInfo at all.
  */
-fun parseComicInfo(xmlText: String): ComicInfo? {
-    return try {
-        val parser = Xml.newPullParser()
-        parser.setInput(xmlText.reader())
-        var series = ""
-        var number = ""
-        var title = ""
-        var volume: String? = null
-        var translator: String? = null
-        var pageCount = 0
-        var web: String? = null
-        var event = parser.eventType
-        var inComicInfo = false
-        while (event != XmlPullParser.END_DOCUMENT) {
-            when (event) {
-                XmlPullParser.START_TAG -> {
-                    val name = parser.name
-                    if (name == "ComicInfo") {
-                        inComicInfo = true
-                    } else if (inComicInfo && name in ComicInfoTags) {
-                        val text = parser.nextText()
-                        when (name) {
-                            "Series" -> series = text
-                            "Number" -> number = text
-                            "Title" -> title = text
-                            "Volume" -> volume = text.ifBlank { null }
-                            "Translator" -> translator = text.ifBlank { null }
-                            "PageCount" -> pageCount = text.toIntOrNull() ?: 0
-                            "Web" -> web = text.ifBlank { null }
-                        }
-                        event = parser.eventType
-                        continue
+fun parseComicInfo(xmlText: String): ComicInfo? = try {
+    val parser = Xml.newPullParser()
+    parser.setInput(xmlText.reader())
+    var series = ""
+    var number = ""
+    var title = ""
+    var volume: String? = null
+    var translator: String? = null
+    var pageCount = 0
+    var web: String? = null
+    var event = parser.eventType
+    var inComicInfo = false
+    while (event != XmlPullParser.END_DOCUMENT) {
+        when (event) {
+            XmlPullParser.START_TAG -> {
+                val name = parser.name
+                if (name == "ComicInfo") {
+                    inComicInfo = true
+                } else if (inComicInfo && name in ComicInfoTags) {
+                    val text = parser.nextText()
+                    when (name) {
+                        "Series" -> series = text
+                        "Number" -> number = text
+                        "Title" -> title = text
+                        "Volume" -> volume = text.ifBlank { null }
+                        "Translator" -> translator = text.ifBlank { null }
+                        "PageCount" -> pageCount = text.toIntOrNull() ?: 0
+                        "Web" -> web = text.ifBlank { null }
                     }
+                    event = parser.eventType
+                    continue
                 }
-                XmlPullParser.END_TAG -> if (parser.name == "ComicInfo") inComicInfo = false
             }
-            event = parser.next()
+            XmlPullParser.END_TAG -> if (parser.name == "ComicInfo") inComicInfo = false
         }
-        if (!inComicInfo && series.isBlank() && number.isBlank()) null
-        else ComicInfo(series, number, title, volume, translator, pageCount, web)
-    } catch (e: Exception) {
-        null
+        event = parser.next()
     }
+    if (!inComicInfo && series.isBlank() && number.isBlank()) null
+    else ComicInfo(series, number, title, volume, translator, pageCount, web)
+} catch (e: Exception) {
+    null
 }
 
 /**

@@ -1,11 +1,10 @@
 package com.dexter.data
 
+import com.dexter.data.db.DownloadEntity
 import java.io.File
 
-/**
- * Storage analysis for the downloads directory. Sizes come from the chapter folders on disk, so the
- * numbers match what the system storage screen shows; the database rows only supply titles.
- */
+// Storage analysis for the downloads directory. Sizes come from the chapter folders on disk, so the
+// numbers match what the system storage screen shows; the database rows only supply titles.
 
 /** One downloaded chapter's footprint. */
 data class ChapterStorage(val chapterId: String, val number: String, val bytes: Long)

@@ -188,6 +188,6 @@ fun parseLibraryQuery(text: String): LibraryQuery {
  * words keep the old contains-the-title behavior.
  */
 fun isAdvancedQuery(query: String): Boolean =
-    ADVANCED_QUERY.matcher(query.trim()).find()
+    ADVANCED_QUERY.containsMatchIn(query.trim())
 
 private val ADVANCED_QUERY = Regex("""&&|\|\||[()]|(^|\s)-(?=\S)|(?i)\b(title|author|genre|status|source):""")

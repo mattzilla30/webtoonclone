@@ -2,6 +2,7 @@ package com.dexter.ui.reader
 
 import coil3.PlatformContext
 import coil3.request.ImageRequest
+import coil3.request.transformations
 import com.dexter.data.PageSegment
 import com.dexter.data.SplitSegment
 

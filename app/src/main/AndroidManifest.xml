@@ -15,6 +15,9 @@
 
     <!-- Android TV: leanback launcher entry for TvActivity. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
+    <!-- TVs and Chromebooks have no touchscreen or microphone, and the app still runs there. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
         android:name=".DexterApp"
@@ -23,6 +26,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         android:label="@string/app_name"
         android:theme="@style/Theme.Dexter"
         android:usesCleartextTraffic="false"

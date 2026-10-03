@@ -21,6 +21,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -33,11 +34,9 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -52,12 +51,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
@@ -65,12 +66,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.dexter.automation.DexterAutomation
 import com.dexter.data.CloudOAuth
 import com.dexter.data.LocalChapter
 import com.dexter.data.PageSource
 import com.dexter.data.QolPrefs
 import com.dexter.data.ReaderBackground
+import com.dexter.data.ReadingStatus
 import com.dexter.data.Settings
+import com.dexter.data.StorageReport
+import com.dexter.data.analyzeStorage
 import com.dexter.data.localChapterById
 import com.dexter.notify.EXTRA_CHAPTER_ID
 import com.dexter.notify.EXTRA_ROUTE
@@ -89,16 +94,12 @@ import com.dexter.ui.author.AuthorScreen
 import com.dexter.ui.author.AuthorViewModel
 import com.dexter.ui.downloads.DownloadsScreen
 import com.dexter.ui.downloads.DownloadsViewModel
+import com.dexter.ui.downloads.StorageAnalyzerScreen
 import com.dexter.ui.home.HomeScreen
 import com.dexter.ui.home.HomeViewModel
 import com.dexter.ui.library.LibraryScreen
 import com.dexter.ui.library.LibraryViewModel
 import com.dexter.ui.library.unreadSeriesCount
-import com.dexter.automation.DexterAutomation
-import com.dexter.data.ReadingStatus
-import com.dexter.data.StorageReport
-import com.dexter.data.analyzeStorage
-import com.dexter.ui.downloads.StorageAnalyzerScreen
 import com.dexter.ui.reader.GamepadKeys
 import com.dexter.ui.reader.ReaderScreen
 import com.dexter.ui.reader.ReaderViewModel
@@ -123,10 +124,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
+import java.io.File
 import android.graphics.Color as AndroidColor
 
 /** A notification tap: the series to open, and the chapter to open on top of it when there is one. */

@@ -76,7 +76,7 @@ object OcrEngine {
             val bitmap = loadBitmap(context.applicationContext, imageUrl)
                 ?: return@withContext OcrResult(emptyList(), 0, 0, "Could not load the page image")
             val (scaled, scale) = downscale(bitmap)
-            val options = if (japanese) JapaneseTextRecognizerOptions.Builder().build() else TextRecognizerOptions.DEFAULT
+            val options = if (japanese) JapaneseTextRecognizerOptions.Builder().build() else TextRecognizerOptions.DEFAULT_OPTIONS
             val recognizer = TextRecognition.getClient(options)
             try {
                 val text = recognizer.recognizeSuspend(InputImage.fromBitmap(scaled, 0))

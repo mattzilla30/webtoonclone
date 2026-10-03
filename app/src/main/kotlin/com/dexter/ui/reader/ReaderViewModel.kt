@@ -41,7 +41,6 @@ import com.dexter.data.scanLocalRoot
 import com.dexter.data.toLocalChapter
 import com.dexter.data.toReaderChapter
 import com.dexter.data.withSeriesLook
-import java.io.File
 import com.dexter.notify.DownloadWorker
 import com.dexter.ui.Load
 import com.dexter.ui.LogFailures
@@ -59,6 +58,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 /** One chapter in the reader: its pages, and where it sits in the series. */
 data class ChapterSegment(

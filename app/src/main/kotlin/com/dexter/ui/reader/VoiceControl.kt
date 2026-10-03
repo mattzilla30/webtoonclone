@@ -56,7 +56,7 @@ object VoiceCommands {
 fun parseVoiceCommand(text: String): VoiceCommand? {
     val words = text.lowercase()
     return when {
-        "previous" in words || "go back" in words || "back" in words && "page" in words -> VoiceCommand.PreviousPage
+        "previous" in words || "go back" in words || ("back" in words && "page" in words) -> VoiceCommand.PreviousPage
         "next" in words -> VoiceCommand.NextPage
         "scroll down" in words || "down" in words -> VoiceCommand.ScrollDown
         "scroll up" in words || "up" in words -> VoiceCommand.ScrollUp

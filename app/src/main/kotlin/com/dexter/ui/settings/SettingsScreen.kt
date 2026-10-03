@@ -43,15 +43,15 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
+import com.dexter.data.A11yPrefs
+import com.dexter.data.ChapterBlacklist
 import com.dexter.data.ContentRatings
 import com.dexter.data.Languages
+import com.dexter.data.LibraryStore
 import com.dexter.data.LockMode
 import com.dexter.data.NasShareStore
 import com.dexter.data.PowerPrefs
-import com.dexter.data.ChapterBlacklist
-import com.dexter.data.A11yPrefs
 import com.dexter.data.QolPrefs
-import com.dexter.data.LibraryStore
 import com.dexter.data.ReadingStatus
 import com.dexter.data.archiveFileName
 import com.dexter.data.findDuplicateSeries
@@ -65,8 +65,8 @@ import com.dexter.ui.ChoiceChip
 import com.dexter.ui.ConfirmDialog
 import com.dexter.ui.PinSetupScreen
 import com.dexter.ui.timeAgo
-import java.time.Instant
 import org.koin.compose.koinInject
+import java.time.Instant
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit, onOpenErrors: () -> Unit, onOpenStorage: () -> Unit) {
@@ -229,7 +229,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                 SectionTitle("App lock")
                 SwitchRow("App lock", "Ask for your fingerprint, face, or PIN when Dexter opens or returns to the foreground.", settings.appLock) { on ->
                     // Turning the lock on or off asks first, so it only changes in your hands.
-                    AppLock.authenticate(context, if (on) "Turn on app lock" else "Turn off app lock") { passed ->
+                    AppLock.authenticateBiometric(context, if (on) "Turn on app lock" else "Turn off app lock") { passed ->
                         if (passed) {
                             AppLock.locked = false
                             viewModel.update { it.copy(appLock = on) }

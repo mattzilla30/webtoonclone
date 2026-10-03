@@ -1,5 +1,11 @@
 package com.dexter.wear
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,7 +25,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.Button
-import androidx.wear.compose.material.LinearProgressIndicator
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import com.google.android.gms.wearable.Wearable
@@ -103,10 +108,14 @@ private fun WatchScreen(onTurn: (String) -> Unit, onRefresh: () -> Unit) {
                 style = MaterialTheme.typography.caption1,
                 modifier = Modifier.padding(top = 2.dp),
             )
-            LinearProgressIndicator(
-                progress = current.share,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            )
+            // Wear's Material library has no linear bar, so this draws one: a track and the part read.
+            Box(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp).height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colors.onSurface.copy(alpha = 0.2f)),
+            ) {
+                Box(Modifier.fillMaxWidth(current.share.coerceIn(0f, 1f)).fillMaxHeight().background(MaterialTheme.colors.primary))
+            }
             Text(
                 "Page ${current.page + 1} of ${current.total}",
                 style = MaterialTheme.typography.caption2,

@@ -24,7 +24,7 @@ class SortingTest {
 
     @Test
     fun unreadFirstKeepsTheSavedOrderWithinGroups() {
-        val sorted = sortSaved(items, LibrarySort.UnreadFirst) { it.id == "3" || it.id == "1" }
+        val sorted = sortSaved(items, LibrarySort.UnreadFirst, hasUnread = { it.id == "3" || it.id == "1" })
         assertEquals(listOf("1", "3", "2"), sorted.map { it.id })
     }
 
@@ -34,7 +34,11 @@ class SortingTest {
         assertEquals(LibrarySort.UnreadFirst, LibrarySort.Alphabetical.next())
         assertEquals(LibrarySort.Updated, LibrarySort.UnreadFirst.next())
         assertEquals(LibrarySort.Status, LibrarySort.Updated.next())
-        assertEquals(LibrarySort.Recent, LibrarySort.Status.next())
+        assertEquals(LibrarySort.LatestRead, LibrarySort.Status.next())
+        assertEquals(LibrarySort.UnreadCount, LibrarySort.LatestRead.next())
+        assertEquals(LibrarySort.DateAdded, LibrarySort.UnreadCount.next())
+        assertEquals(LibrarySort.ChapterCount, LibrarySort.DateAdded.next())
+        assertEquals(LibrarySort.Recent, LibrarySort.ChapterCount.next())
     }
 
     @Test

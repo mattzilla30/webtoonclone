@@ -27,7 +27,7 @@ fun applyLookChange(settings: Settings, seriesId: String, change: (Settings) -> 
         cropBorders = settings.cropBorders,
         seriesLooks = after.seriesLooks + (
             seriesId to SeriesLook(after.readerDim, after.readerBackground, after.readerBrightness, after.cropBorders)
-            ),
+        ),
     )
 }
 
@@ -43,7 +43,7 @@ fun withSeriesLook(settings: Settings, seriesId: String, enabled: Boolean): Sett
                     brightness = -1,
                     cropBorders = settings.cropBorders,
                 )
-                ),
+            ),
         )
     } else {
         settings.copy(seriesLooks = settings.seriesLooks - seriesId)

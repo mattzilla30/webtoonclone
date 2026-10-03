@@ -4,12 +4,10 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import com.dexter.data.CvdTheme
 
-/**
- * Colour-blind-safe palettes. Deuteranopia and protanopia both confuse red and green, so these
- * themes never encode meaning in a red/green pair: primaries are blue, secondaries are orange or
- * yellow, and errors are a warm orange always paired with an icon or label. Charts and progress in
- * the app should follow the same pairs when a CVD theme is active.
- */
+// Colour-blind-safe palettes. Deuteranopia and protanopia both confuse red and green, so these
+// themes never encode meaning in a red/green pair: primaries are blue, secondaries are orange or
+// yellow, and errors are a warm orange always paired with an icon or label. Charts and progress in
+// the app should follow the same pairs when a CVD theme is active.
 
 /** The scheme for [theme] in light or dark, or null when [CvdTheme.None] keeps the regular theme. */
 fun cvdColorScheme(theme: CvdTheme, dark: Boolean): ColorScheme? = when (theme) {

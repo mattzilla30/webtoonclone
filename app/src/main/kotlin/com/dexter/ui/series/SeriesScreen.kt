@@ -76,12 +76,12 @@ import com.dexter.R
 import com.dexter.data.Chapter
 import com.dexter.data.ChapterBlacklist
 import com.dexter.data.ChapterListItem
+import com.dexter.data.ReadingListStore
+import com.dexter.data.WANT_TO_READ_LIST_ID
 import com.dexter.data.factsLine
 import com.dexter.data.groupByVolume
 import com.dexter.data.languageName
 import com.dexter.data.nextChapterEstimate
-import com.dexter.data.ReadingListStore
-import com.dexter.data.WANT_TO_READ_LIST_ID
 import com.dexter.data.tropesForSeries
 import com.dexter.data.withoutBlacklisted
 import com.dexter.ui.Cover
@@ -552,49 +552,49 @@ fun SeriesScreen(
                         val readable = chapter.externalUrl == null
                         val previous = previousOf[chapter.id]
                         EpisodeRow(
-                                chapter,
-                                summary.coverUrl,
-                                read = isChapterRead(chapter.number, lastRead?.chapterNumber),
-                                preferredGroup = preferredGroup,
-                                saved = chapter.id in downloaded,
-                                saving = downloading[chapter.id],
-                                onDownload = { viewModel.download(page.detail, chapter) },
-                                onRemoveDownload = { viewModel.removeDownload(chapter.id) },
-                                onCancelDownload = { viewModel.cancelDownload(chapter.id) },
-                                onClick = { open(chapter) },
-                                // Read marks apply to chapters that open in the reader.
-                                onMarkRead = if (readable) ({ viewModel.markReadUpTo(chapter, page.detail) }) else null,
-                                // Marking unread needs an earlier chapter to fall back to, or the full list.
-                                onMarkUnread = if (readable && (previous != null || !page.hasMore)) ({ viewModel.markUnreadFrom(previous, page.detail) }) else null,
-                                onPreferGroup = viewModel::setPreferredGroup,
-                                onBlockGroup = viewModel::blockGroup,
-                                onOpenUpload = { upload -> open(upload) },
-                                selecting = selecting,
-                                picked = chapter.id in picked,
-                                onToggle = {
-                                    if (chapter.id in picked) picked.remove(chapter.id) else picked.add(chapter.id)
-                                    anchor = chapter.id
-                                },
-                                onRangeTo = {
-                                    // Picks every chapter between the last one tapped and this one.
-                                    val from = shown.indexOfFirst { it.id == anchor }.takeIf { it >= 0 } ?: shown.indexOfFirst { it.id == chapter.id }
-                                    val to = shown.indexOfFirst { it.id == chapter.id }
-                                    shown.subList(minOf(from, to), maxOf(from, to) + 1).filter { it.externalUrl == null }.forEach { picked.add(it.id) }
-                                    anchor = chapter.id
-                                },
-                                onStartSelecting = {
-                                    selecting = true
-                                    picked.add(chapter.id)
-                                    anchor = chapter.id
-                                },
-                                onComments = { viewModel.openComments(chapter) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
-                                onBlacklist = {
-                                    scope.launch {
-                                        blacklist.add(summary.id, chapter.id)
-                                        viewModel.notifyBlacklisted(chapter)
-                                    }
-                                },
-                            )
+                            chapter,
+                            summary.coverUrl,
+                            read = isChapterRead(chapter.number, lastRead?.chapterNumber),
+                            preferredGroup = preferredGroup,
+                            saved = chapter.id in downloaded,
+                            saving = downloading[chapter.id],
+                            onDownload = { viewModel.download(page.detail, chapter) },
+                            onRemoveDownload = { viewModel.removeDownload(chapter.id) },
+                            onCancelDownload = { viewModel.cancelDownload(chapter.id) },
+                            onClick = { open(chapter) },
+                            // Read marks apply to chapters that open in the reader.
+                            onMarkRead = if (readable) ({ viewModel.markReadUpTo(chapter, page.detail) }) else null,
+                            // Marking unread needs an earlier chapter to fall back to, or the full list.
+                            onMarkUnread = if (readable && (previous != null || !page.hasMore)) ({ viewModel.markUnreadFrom(previous, page.detail) }) else null,
+                            onPreferGroup = viewModel::setPreferredGroup,
+                            onBlockGroup = viewModel::blockGroup,
+                            onOpenUpload = { upload -> open(upload) },
+                            selecting = selecting,
+                            picked = chapter.id in picked,
+                            onToggle = {
+                                if (chapter.id in picked) picked.remove(chapter.id) else picked.add(chapter.id)
+                                anchor = chapter.id
+                            },
+                            onRangeTo = {
+                                // Picks every chapter between the last one tapped and this one.
+                                val from = shown.indexOfFirst { it.id == anchor }.takeIf { it >= 0 } ?: shown.indexOfFirst { it.id == chapter.id }
+                                val to = shown.indexOfFirst { it.id == chapter.id }
+                                shown.subList(minOf(from, to), maxOf(from, to) + 1).filter { it.externalUrl == null }.forEach { picked.add(it.id) }
+                                anchor = chapter.id
+                            },
+                            onStartSelecting = {
+                                selecting = true
+                                picked.add(chapter.id)
+                                anchor = chapter.id
+                            },
+                            onComments = { viewModel.openComments(chapter) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+                            onBlacklist = {
+                                scope.launch {
+                                    blacklist.add(summary.id, chapter.id)
+                                    viewModel.notifyBlacklisted(chapter)
+                                }
+                            },
+                        )
                     }
                 }
                 if (loadingMore) {

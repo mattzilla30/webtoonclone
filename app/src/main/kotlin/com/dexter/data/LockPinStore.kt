@@ -16,6 +16,7 @@ private val Context.lockPinDataStore by preferencesDataStore(name = "lock_pin")
 enum class LockMode {
     /** The platform prompt: a fingerprint, a face, or the phone's PIN, pattern, or password. */
     BiometricOrDeviceCredential,
+
     /** A short PIN the app stores itself. */
     AppPin,
 }

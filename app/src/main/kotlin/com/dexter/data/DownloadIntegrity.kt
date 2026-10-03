@@ -15,8 +15,10 @@ import java.security.MessageDigest
 enum class PageProblem {
     /** The page file is missing from the chapter folder. */
     MISSING,
+
     /** The page file exists but is empty or too small to be an image. */
     EMPTY,
+
     /** The page bytes do not match the hash recorded when it downloaded. */
     HASH_MISMATCH,
 }

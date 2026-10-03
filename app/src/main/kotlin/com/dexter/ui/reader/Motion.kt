@@ -1,8 +1,8 @@
 package com.dexter.ui.reader
 
 import android.content.Context
-import android.provider.Settings as SystemSettings
 import com.dexter.data.Settings
+import android.provider.Settings as SystemSettings
 
 /**
  * True when page-turn animations and camera eases should be instant cuts instead: the reader's own

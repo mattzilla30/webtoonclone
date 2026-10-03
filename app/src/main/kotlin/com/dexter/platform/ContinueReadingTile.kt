@@ -1,5 +1,6 @@
 package com.dexter.platform
 
+import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -49,7 +50,9 @@ class ContinueReadingTile : TileService() {
                             it.chapterId?.let { chapter -> putExtra(EXTRA_CHAPTER_ID, chapter) }
                         }
                     }
-                    startActivityAndCollapse(intent)
+                    // The tile hands the system a PendingIntent, the form Android 14 and later require.
+                    val pending = PendingIntent.getActivity(applicationContext, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                    startActivityAndCollapse(pending)
                 }
             }
         }

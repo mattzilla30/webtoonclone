@@ -23,6 +23,7 @@ import com.dexter.data.DuplicateGroup
 import com.dexter.data.PowerPrefs
 import com.dexter.data.PowerState
 import com.dexter.data.suggestedKeep
+import com.dexter.ui.CardRow
 import com.dexter.ui.ConfirmDialog
 import kotlinx.coroutines.launch
 

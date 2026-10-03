@@ -175,7 +175,6 @@ data class Settings(
     val goalReminderHour: Int = -1,
     /** True once the first-run setup is done. Installs from before it existed count as done. */
     val setupDone: Boolean = false,
-    // ---- Reader features added 2026-10-02 ----
     /** Which tap-zone layout the reader uses. */
     val tapZoneLayout: TapZoneLayout = TapZoneLayout.Default,
     /** Mirror the tap zones left to right. */
@@ -196,7 +195,6 @@ data class Settings(
     val oneHandedMode: Boolean = false,
     /** Orientation overrides per series id. A series with no entry uses the global setting. */
     val seriesOrientations: Map<String, ReaderOrientation> = emptyMap(),
-    // ---- Download / update features added 2026-10-02 ----
     /** Download new chapters of followed series automatically. */
     val autoDownloadNew: Boolean = false,
     /** Skip chapters already marked read when advancing to the next chapter. */
@@ -205,7 +203,6 @@ data class Settings(
     val seriesUpdateIntervals: Map<String, Int> = emptyMap(),
     /** Show only downloaded series and chapters. */
     val offlineOnly: Boolean = false,
-    // ---- Discovery features added 2026-10-02 ----
     /** Show on-device recommendations on Home. */
     val recommendations: Boolean = true,
 )

@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,7 +70,8 @@ fun schedulesByWeekday(schedules: List<SeriesSchedule>): Map<DayOfWeek, List<Ser
 @Composable
 fun ScheduleList(schedules: List<SeriesSchedule>, onOpenSeries: (String) -> Unit, modifier: Modifier = Modifier) {
     val byDay = remember(schedules) { schedulesByWeekday(schedules) }
-    val locale = Locale.getDefault()
+    // Read from the configuration, so a language change redraws the day names.
+    val locale = LocalConfiguration.current.locales[0]
     if (byDay.isEmpty()) {
         Text(
             "No clear weekly pattern yet. Series need a few chapters before their usual day shows.",

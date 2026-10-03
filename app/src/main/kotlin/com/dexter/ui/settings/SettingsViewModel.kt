@@ -263,8 +263,9 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
     fun readArchive(uri: Uri) {
         viewModelScope.launch(LogFailures) {
             val backup = runCatching { app.backupArchive.readArchive(uri) }.getOrNull()
-            if (backup == null) _message.value = "That file is not a backup archive from this app"
-            else {
+            if (backup == null) {
+                _message.value = "That file is not a backup archive from this app"
+            } else {
                 _pendingArchive.value = uri
                 _pending.value = backup
             }

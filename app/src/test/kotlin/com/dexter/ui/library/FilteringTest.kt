@@ -9,16 +9,16 @@ class FilteringTest {
 
     @Test
     fun blankQueryKeepsEverything() {
-        assertEquals(3, filterSaved(items, "  ", false) { true }.size)
+        assertEquals(3, filterSaved(items, "  ", false, hasUnread = { true }).size)
     }
 
     @Test
     fun queryMatchesAnywhereIgnoringCase() {
-        assertEquals(listOf("1", "3"), filterSaved(items, "PIECE", false) { true }.map { it.id })
+        assertEquals(listOf("1", "3"), filterSaved(items, "PIECE", false, hasUnread = { true }).map { it.id })
     }
 
     @Test
     fun unreadOnlyUsesThePredicate() {
-        assertEquals(listOf("2"), filterSaved(items, "", true) { it.id == "2" }.map { it.id })
+        assertEquals(listOf("2"), filterSaved(items, "", true, hasUnread = { it.id == "2" }).map { it.id })
     }
 }

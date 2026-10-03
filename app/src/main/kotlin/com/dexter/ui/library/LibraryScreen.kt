@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.minimumInteractiveComponentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -30,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,8 +53,8 @@ import com.dexter.data.LibraryList
 import com.dexter.data.QolPrefs
 import com.dexter.data.ReadingListStore
 import com.dexter.data.ReadingStatus
-import com.dexter.data.SmartListStore
 import com.dexter.data.SavedSeries
+import com.dexter.data.SmartListStore
 import com.dexter.data.newChapterEstimate
 import com.dexter.data.offlineSeries
 import com.dexter.ui.AppTopBar
@@ -122,7 +122,8 @@ fun LibraryScreen(
     val lastReadById = remember(library.recent) { HashMap<String, String?>().also { map -> library.recent.forEach { map.putIfAbsent(it.id, it.chapterNumber) } } }
     val recentById = remember(library.recent) { library.recent.associateBy { it.id } }
     // Spoiler-safe blur: covers stay blurred until the series is started.
-    val qolPrefs = remember { QolPrefs(LocalContext.current) }
+    val context = LocalContext.current
+    val qolPrefs = remember(context) { QolPrefs(context) }
     val spoilerBlur by qolPrefs.spoilerBlur.collectAsStateWithLifecycle(initialValue = false)
     val subscribedById = remember(library.subscribed) { library.subscribed.associateBy { it.id } }
     // Warm the query metadata for what is on screen, so author:/genre:/status:/source: keep working offline.

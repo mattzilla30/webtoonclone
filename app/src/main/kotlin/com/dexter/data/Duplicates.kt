@@ -1,12 +1,11 @@
 package com.dexter.data
 
+import com.dexter.data.db.DownloadEntity
 import java.text.Normalizer
 
-/**
- * Cross-source duplicate detection. Titles are normalised aggressively (case, punctuation, leading
- * articles, diacritics) so "Solo Leveling", "solo-leveling", and "The Solo Leveling" all match, and
- * downloads are matched on series plus chapter number.
- */
+// Cross-source duplicate detection. Titles are normalised aggressively (case, punctuation, leading
+// articles, diacritics) so "Solo Leveling", "solo-leveling", and "The Solo Leveling" all match, and
+// downloads are matched on series plus chapter number.
 
 /** "The Solo-Leveling!" becomes "solo leveling". Letters and digits survive; scripts are kept. */
 fun normalizeTitle(title: String): String {

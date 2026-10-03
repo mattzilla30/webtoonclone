@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dexter.data.LockPinStore
+import com.dexter.data.PinAttempt
 import kotlinx.coroutines.launch
 
 /** Shortest app PIN the setup screen accepts. */
@@ -166,14 +167,21 @@ fun PinEntryScreen(onUnlocked: () -> Unit) {
         if (checking || pin.length !in MIN_PIN_LENGTH..MAX_PIN_LENGTH) return
         checking = true
         scope.launch {
-            val passed = LockPinStore(context).verifyPin(pin)
+            val result = LockPinStore(context).attempt(pin)
             checking = false
-            if (passed) {
-                onUnlocked()
-            } else {
-                error = "Wrong PIN. Try again."
-                shakeTrigger++
-                pin = ""
+            when (result) {
+                PinAttempt.Passed -> onUnlocked()
+                is PinAttempt.Wrong -> {
+                    error = if (result.triesLeft <= 2) "Wrong PIN. ${result.triesLeft} more before a pause." else "Wrong PIN. Try again."
+                    shakeTrigger++
+                    pin = ""
+                }
+                is PinAttempt.LockedOut -> {
+                    val seconds = (result.waitMs + 999) / 1000
+                    error = if (seconds < 120) "Too many tries. Try again in $seconds seconds." else "Too many tries. Try again in ${(seconds + 59) / 60} minutes."
+                    shakeTrigger++
+                    pin = ""
+                }
             }
         }
     }

@@ -2,6 +2,8 @@ package com.dexter.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
@@ -34,6 +36,8 @@ enum class LockMode {
 class LockPinStore(private val context: Context) {
     private val saltKey = stringPreferencesKey("pin_salt")
     private val hashKey = stringPreferencesKey("pin_hash")
+    private val failuresKey = intPreferencesKey("pin_failures")
+    private val lockedUntilKey = longPreferencesKey("pin_locked_until")
 
     /** Whether an app PIN is set. */
     suspend fun hasPin(): Boolean {
@@ -59,11 +63,38 @@ class LockPinStore(private val context: Context) {
         return MessageDigest.isEqual(hashPin(pin, salt), expected)
     }
 
+    /**
+     * Checks [pin], counting wrong tries. After [FREE_TRIES] wrong tries in a row each further one
+     * locks entry for a while, doubling up to an hour, so a short PIN can't be guessed by trying them
+     * all. The count is stored, so restarting the app does not reset it.
+     */
+    suspend fun attempt(pin: String, now: Long = System.currentTimeMillis()): PinAttempt {
+        val prefs = context.lockPinDataStore.data.first()
+        val lockedUntil = prefs[lockedUntilKey] ?: 0L
+        if (lockedUntil > now) return PinAttempt.LockedOut(lockedUntil - now)
+        if (verifyPin(pin)) {
+            context.lockPinDataStore.edit {
+                it.remove(failuresKey)
+                it.remove(lockedUntilKey)
+            }
+            return PinAttempt.Passed
+        }
+        val failures = (prefs[failuresKey] ?: 0) + 1
+        val wait = pinLockoutMs(failures)
+        context.lockPinDataStore.edit {
+            it[failuresKey] = failures
+            if (wait > 0) it[lockedUntilKey] = now + wait
+        }
+        return if (wait > 0) PinAttempt.LockedOut(wait) else PinAttempt.Wrong(FREE_TRIES - failures)
+    }
+
     /** Forgets the app PIN entirely. */
     suspend fun clearPin() {
         context.lockPinDataStore.edit { prefs ->
             prefs.remove(saltKey)
             prefs.remove(hashKey)
+            prefs.remove(failuresKey)
+            prefs.remove(lockedUntilKey)
         }
     }
 
@@ -76,6 +107,27 @@ class LockPinStore(private val context: Context) {
     private companion object {
         const val SALT_BYTES = 16
     }
+}
+
+/** What one PIN try did. */
+sealed interface PinAttempt {
+    data object Passed : PinAttempt
+
+    /** Wrong, with [triesLeft] more before entry locks. */
+    data class Wrong(val triesLeft: Int) : PinAttempt
+
+    /** Entry is locked for [waitMs] more milliseconds. */
+    data class LockedOut(val waitMs: Long) : PinAttempt
+}
+
+/** Wrong tries allowed before entry starts locking. */
+const val FREE_TRIES = 5
+
+/** How long entry locks after the [failures]th wrong try in a row: none at first, then 30 seconds doubling to an hour. */
+fun pinLockoutMs(failures: Int): Long {
+    if (failures < FREE_TRIES) return 0L
+    val steps = (failures - FREE_TRIES).coerceAtMost(7)
+    return (30_000L shl steps).coerceAtMost(60 * 60_000L)
 }
 
 private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

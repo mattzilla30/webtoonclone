@@ -214,6 +214,25 @@ private val CursorStateSaver: Saver<MutableState<Cursor>, ArrayList<Int>> = Save
     restore = { saved -> mutableStateOf(Cursor(saved[0], saved[1])) },
 )
 
+/**
+ * The reader on screen now. Opening the next chapter composes its reader before the old one is
+ * disposed, so the old one's cleanup would switch off the orientation lock, brightness, screen-on,
+ * key paging, and sleep timer the new one had just set. Each reader claims ownership when it applies
+ * them, and only the owner resets them when it closes.
+ */
+internal object ReaderOwner {
+    // Weak, so a closed reader's ViewModel is not kept alive by this record.
+    @Volatile private var owner: java.lang.ref.WeakReference<Any>? = null
+
+    var current: Any?
+        get() = owner?.get()
+        set(value) {
+            owner = value?.let { java.lang.ref.WeakReference(it) }
+        }
+
+    fun isCurrent(reader: Any): Boolean = current === reader
+}
+
 /** Pixels scrolled per 60 Hz frame at each auto-scroll level. Level 0 is off. */
 private val AUTO_SCROLL_PX = floatArrayOf(0f, 1.5f, 3f, 5f, 8f, 12f)
 
@@ -253,17 +272,19 @@ fun ReaderScreen(
     // A series with its own orientation wins over the global one.
     val activity = LocalActivity.current
     DisposableEffect(activity, settings.readerOrientation, settings.seriesOrientations) {
+        ReaderOwner.current = viewModel
         val orientation = settings.seriesOrientations[viewModel.seriesId] ?: settings.readerOrientation
         activity?.requestedOrientation = when (orientation) {
             ReaderOrientation.Auto -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             ReaderOrientation.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             ReaderOrientation.Landscape -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         }
-        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+        onDispose { if (ReaderOwner.isCurrent(viewModel)) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
     }
 
     // The reader's own brightness, or the phone's when it follows the system. The phone's comes back when the reader closes.
     DisposableEffect(activity, settings.readerBrightness) {
+        ReaderOwner.current = viewModel
         val window = activity?.window
         window?.attributes = window.attributes.apply {
             screenBrightness = if (settings.readerBrightness in 1..100) {
@@ -273,22 +294,26 @@ fun ReaderScreen(
             }
         }
         onDispose {
-            window?.attributes = window.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+            if (ReaderOwner.isCurrent(viewModel)) {
+                window?.attributes = window.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
+            }
         }
     }
 
     // Keep the screen on while reading, and release it when the reader closes.
     val view = LocalView.current
     DisposableEffect(view, settings.keepScreenOn) {
+        ReaderOwner.current = viewModel
         view.keepScreenOn = settings.keepScreenOn
-        onDispose { view.keepScreenOn = false }
+        onDispose { if (ReaderOwner.isCurrent(viewModel)) view.keepScreenOn = false }
     }
 
     // With the setting on, the volume keys turn pages or scroll instead of changing the volume.
     // Zen mode always routes navigation to the volume keys, even with the setting off.
     DisposableEffect(settings.volumeKeys, zen) {
+        ReaderOwner.current = viewModel
         VolumeKeyPager.active = settings.volumeKeys || zen
-        onDispose { VolumeKeyPager.active = false }
+        onDispose { if (ReaderOwner.isCurrent(viewModel)) VolumeKeyPager.active = false }
     }
 
     Box(
@@ -812,7 +837,7 @@ private fun ReaderContent(
             if (ReaderTtsService.running) ReaderTtsService.stop(context)
             // The deadline is process-wide: forget it when the reader closes so reopening
             // starts fresh instead of reusing a stale countdown.
-            SleepTimerClock.clear()
+            if (ReaderOwner.isCurrent(viewModel)) SleepTimerClock.clear()
         }
     }
     // The service broadcasts each narrated page; with auto-advance on, the reader follows along.
@@ -823,8 +848,9 @@ private fun ReaderContent(
 
     // A Bluetooth clicker or gamepad turns pages while the reader is open, when the setting is on.
     DisposableEffect(power.gamepadReader) {
+        ReaderOwner.current = viewModel
         GamepadKeys.active = power.gamepadReader
-        onDispose { GamepadKeys.active = false }
+        onDispose { if (ReaderOwner.isCurrent(viewModel)) GamepadKeys.active = false }
     }
     LaunchedEffect(power.gamepadReader, paged) {
         if (!power.gamepadReader) return@LaunchedEffect

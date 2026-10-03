@@ -73,8 +73,8 @@ internal fun Idle(
     onBrowse: (String) -> Unit,
     onTag: (String) -> Unit,
 ) {
-    // Which tag sections are open. Browse and Genres start open, the long lists start closed.
-    var open by rememberSaveable { mutableStateOf(setOf("Browse", "Genres")) }
+    // Which tag sections are open. Every section starts closed.
+    var open by rememberSaveable { mutableStateOf(emptySet<String>()) }
     val toggle: (String) -> Unit = { title -> open = if (title in open) open - title else open + title }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         if (message != null) {

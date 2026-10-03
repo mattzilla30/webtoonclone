@@ -1,6 +1,7 @@
 package com.dexter.ui
 
 import android.content.Context
+import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricManager.Authenticators
 import android.hardware.biometrics.BiometricPrompt
 import android.os.CancellationSignal
@@ -24,12 +25,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dexter.data.LockMode
+import com.dexter.data.LockPinStore
 
 /** How long the app may sit in the background before it locks again, unless settings say otherwise. */
 const val DEFAULT_RELOCK_MS = 30_000L
@@ -113,10 +116,18 @@ object AppLock {
  */
 @Composable
 fun LockScreen() {
-    if (AppLock.lockMode == LockMode.AppPin) {
-        PinEntryScreen(onUnlocked = { AppLock.locked = false })
-    } else {
-        BiometricLockScreen()
+    val context = LocalContext.current
+    // A PIN lock with no stored PIN (damaged data, or one cleared elsewhere) could never be opened,
+    // so it falls back to the phone's own screen lock.
+    val hasPin by produceState<Boolean?>(null, AppLock.lockMode) {
+        value = AppLock.lockMode != LockMode.AppPin || LockPinStore(context).hasPin()
+    }
+    when {
+        hasPin == null -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+        AppLock.lockMode == LockMode.AppPin && hasPin == true -> PinEntryScreen(onUnlocked = { AppLock.locked = false })
+        // No PIN and no screen lock on the phone either: nothing could ever open it, so it opens.
+        AppLock.lockMode == LockMode.AppPin && !phoneCanAuthenticate(context) -> LaunchedEffect(Unit) { AppLock.locked = false }
+        else -> BiometricLockScreen()
     }
 }
 
@@ -148,4 +159,10 @@ private fun BiometricLockScreen() {
             Button(onClick = unlock, modifier = Modifier.padding(top = 8.dp)) { Text("Unlock") }
         }
     }
+}
+
+/** True when the phone has a fingerprint, face, or screen lock that its own prompt can check. */
+private fun phoneCanAuthenticate(context: Context): Boolean {
+    val manager = context.getSystemService(BiometricManager::class.java) ?: return false
+    return manager.canAuthenticate(Authenticators.BIOMETRIC_WEAK or Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS
 }

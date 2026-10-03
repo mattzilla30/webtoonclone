@@ -119,7 +119,9 @@ class BackupService(
     private suspend fun applyBackup(backup: Backup) {
         library.replaceAll(backup.library)
         // A backup comes from a phone that was already set up, so setup does not ask again.
-        settings.update { backup.settings.copy(setupDone = true) }
+        // The app lock stays as this device has it: a backup carries the lock switch but never the PIN,
+        // which lives only on the phone that set it, so a restored PIN lock would lock you out.
+        settings.update { current -> backup.settings.copy(setupDone = true, appLock = current.appLock, lockMode = current.lockMode) }
         progress.replaceAll(backup.progress)
         // Reading history and time, replacing what is here.
         db.stats().clear()

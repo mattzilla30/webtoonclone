@@ -1,7 +1,11 @@
 package com.dexter.ui.reader
 
+import android.graphics.Bitmap
+import coil3.BitmapImage
 import coil3.PlatformContext
+import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import coil3.request.transformations
 import com.dexter.data.PageSegment
 import com.dexter.data.SplitSegment
@@ -16,6 +20,22 @@ fun pageCacheKey(url: String): String {
     val start = listOf("/data/", "/data-saver/").map { url.indexOf(it) }.filter { it >= 0 }.minOrNull() ?: return url
     return url.substring(start)
 }
+
+/**
+ * A small software copy of a page, for reading its colours. Shown pages are hardware bitmaps, whose
+ * pixels cannot be read, so the samplers decode their own 64 px copy from the disk cache instead.
+ */
+suspend fun pageSample(context: PlatformContext, url: String): Bitmap? {
+    val request = ImageRequest.Builder(context).data(url)
+        .memoryCacheKey(pageCacheKey(url) + "#sample")
+        .diskCacheKey(pageCacheKey(url))
+        .size(SAMPLE_PX)
+        .allowHardware(false)
+        .build()
+    return (SingletonImageLoader.get(context).execute(request).image as? BitmapImage)?.bitmap
+}
+
+private const val SAMPLE_PX = 64
 
 /**
  * A request for one page, cached under [pageCacheKey]. Showing a page and loading it ahead use the same keys.

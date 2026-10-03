@@ -22,6 +22,8 @@ private const val STRONG_SATURATION = 0.35f
  * threshold. Cheap enough to run for every page as it loads.
  */
 fun isColorful(bitmap: Bitmap): Boolean {
+    // A hardware bitmap's pixels cannot be read. Pass a software copy, such as the reader's page sample.
+    if (bitmap.config == Bitmap.Config.HARDWARE) return false
     val w = bitmap.width.coerceAtLeast(1)
     val h = bitmap.height.coerceAtLeast(1)
     val scale = COLOR_SAMPLE_SIZE / max(w, h).toFloat()

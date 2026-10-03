@@ -153,6 +153,8 @@ fun readerBackgroundColor(background: ReaderBackground): Color = when (backgroun
  * Feeds the smart background tint.
  */
 private fun averageColor(bitmap: Bitmap): Color {
+    // A hardware bitmap's pixels cannot be read; callers pass the page sample, which is software.
+    if (bitmap.config == Bitmap.Config.HARDWARE) return Color.Transparent
     val w = bitmap.width.coerceAtLeast(1)
     val h = bitmap.height.coerceAtLeast(1)
     val scale = 24f / max(w, h)
@@ -1412,13 +1414,14 @@ private fun PageImage(
                         val key = colorKey
                         val report = onSampled
                         if (key != null && report != null) {
-                            scope.launch(Dispatchers.Default) { report(key, averageColor(bitmap)) }
+                            // A sampling failure costs the tint, never the app.
+                            scope.launch(Dispatchers.Default) { runCatching { pageSample(context, url)?.let { report(key, averageColor(it)) } } }
                         }
                         // Color pages are exempt from the night filters; wide pages feed spread detection.
                         val colorKey2 = colorKey
                         val colorReport = onColorSampled
                         if (colorKey2 != null && colorReport != null) {
-                            scope.launch(Dispatchers.Default) { colorReport(colorKey2, isColorful(bitmap)) }
+                            scope.launch(Dispatchers.Default) { runCatching { pageSample(context, url)?.let { colorReport(colorKey2, isColorful(it)) } } }
                         }
                         val aspectReport = onAspectSampled
                         if (aspectReport != null) {

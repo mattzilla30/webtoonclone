@@ -6,6 +6,7 @@ import android.graphics.Rect
 import coil3.BitmapImage
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
@@ -91,7 +92,8 @@ object OcrEngine {
         }
 
     private suspend fun loadBitmap(context: Context, imageUrl: String): Bitmap? {
-        val request = ImageRequest.Builder(context).data(imageUrl).build()
+        // A software bitmap: recognition and the downscale below read its pixels, which a hardware bitmap forbids.
+        val request = ImageRequest.Builder(context).data(imageUrl).allowHardware(false).build()
         val result = runCatching { SingletonImageLoader.get(context).execute(request) }.getOrNull()
         return (result?.image as? BitmapImage)?.bitmap
     }

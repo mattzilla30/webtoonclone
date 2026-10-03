@@ -460,7 +460,7 @@ private fun ReaderContent(
     // The place on screen. When the mode changes, the newly shown layout is moved to it first, and then follows it.
     val startPage = page.startPage.coerceIn(0, (page.first.pages.size - 1).coerceAtLeast(0))
     // Saved across recreation, so rotating keeps your page instead of jumping to the chapter's start page.
-    var cursor by rememberSaveable(saver = CursorStateSaver) { mutableStateOf(Cursor(0, startPage)) }
+    var cursor by rememberSaveable(stateSaver = CursorStateSaver) { mutableStateOf(Cursor(0, startPage)) }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = stripIndexOf(strip, 0, startPage))
 
     // Paged mode shows one chapter at a time: the one you were in when it opened.

@@ -10,14 +10,16 @@ class SettingsPagesTest {
         assertEquals(SettingsPages.sortedWith(String.CASE_INSENSITIVE_ORDER), SettingsPages)
     }
 
-    /** Every block in the settings code has a page, and every page has a block, so nothing is unreachable. */
+    /** Every block in the settings code sits on one page, and every listed section has a block, so nothing is unreachable. */
     @Test
     fun everyBlockHasAPage() {
         val block = Regex("""SettingsBlock\("([^"]+)"\)""")
         val titles = File("src/main/kotlin/com/dexter/ui/settings").listFiles()!!
             .filter { it.extension == "kt" }
             .flatMap { file -> block.findAll(file.readText()).map { it.groupValues[1] }.toList() }
-        assertEquals(SettingsPages.toSet(), titles.toSet())
+        val grouped = SettingsPageGroups.values.flatten()
+        assertEquals("every section on exactly one page", grouped.size, grouped.toSet().size)
+        assertEquals(grouped.toSet(), titles.toSet())
         assertEquals("each title once", titles.size, titles.toSet().size)
     }
 }

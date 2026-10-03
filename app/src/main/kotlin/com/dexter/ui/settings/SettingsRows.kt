@@ -52,26 +52,54 @@ fun matchesQuery(query: String, vararg text: String?): Boolean =
 /** The settings page open now, or null while a search shows rows from every page. */
 internal val LocalSettingsPage = compositionLocalOf<String?> { null }
 
-/** Every settings category, A to Z. Each is the title of one [SettingsBlock] and opens as its own page. */
-val SettingsPages: List<String> = listOf(
-    "App lock", "Appearance", "Automation", "Back gesture", "Backup", "Backup & sync", "Binge mode", "Blocking",
-    "Chapter blacklist", "Chapter navigation", "Cloud (Drive / Dropbox)", "Cloud (WebDAV)", "Color pages",
-    "Colour vision", "Data saver", "Device class", "Downloads & sync", "Gamepad and remote", "Hearing and voice",
-    "Library extras", "Library power tools", "Local comics", "MangaDex account", "NAS shares", "Narration",
-    "Notifications", "Open-source licenses", "Privacy", "Quality of life", "Reader extras", "Reader toolbar", "Reading", "Reading type",
-    "Sleep timer", "Storage", "Strip style", "Stylus", "Tall pages", "Titles", "Tracking", "Two-page spreads", "Watch",
-).sortedWith(String.CASE_INSENSITIVE_ORDER)
+/**
+ * The settings pages, each with the sections it holds. On a page, sections show in the order the
+ * Settings screen draws them. Every [SettingsBlock] title belongs to exactly one page.
+ */
+val SettingsPageGroups: Map<String, List<String>> = mapOf(
+    "Accessibility" to listOf("Narration", "Hearing and voice", "Reading type", "Colour vision"),
+    "Accounts and tracking" to listOf("MangaDex account", "Tracking"),
+    "Appearance" to listOf("Appearance"),
+    "Backup and restore" to listOf("Backup", "Backup & sync"),
+    "Content filters" to listOf("Titles", "Blocking", "Chapter blacklist"),
+    "Devices and automation" to listOf("Watch", "Gamepad and remote", "Stylus", "Device class", "Automation"),
+    "Downloads and storage" to listOf("Storage", "Downloads & sync", "Data saver", "Library power tools"),
+    "Library and discovery" to listOf("Library extras", "Quality of life"),
+    "Local and cloud sources" to listOf("Local comics", "NAS shares", "Cloud (WebDAV)", "Cloud (Drive / Dropbox)"),
+    "Notifications" to listOf("Notifications"),
+    "Open-source licenses" to listOf("Open-source licenses"),
+    "Privacy and security" to listOf("Privacy", "App lock"),
+    "Reader" to listOf("Reading", "Reader extras", "Strip style", "Two-page spreads", "Color pages", "Tall pages"),
+    "Reader controls" to listOf("Reader toolbar", "Chapter navigation", "Back gesture", "Binge mode", "Sleep timer"),
+)
+
+/** Every settings page, A to Z. */
+val SettingsPages: List<String> = SettingsPageGroups.keys.sortedWith(String.CASE_INSENSITIVE_ORDER)
 
 /**
- * The rows of one settings category. They show on the page named [title], and in search results. A
- * search for the category's own name shows all of its rows.
+ * The rows of one settings section. They show on the page that holds [title], under a small heading
+ * when that page holds more than one section, and in search results. A search for the section's
+ * own name shows all of its rows.
  */
 @Composable
 internal fun SettingsBlock(title: String, content: @Composable () -> Unit) {
     val page = LocalSettingsPage.current
-    if (page != null && page != title) return
+    if (page != null) {
+        val sections = SettingsPageGroups[page].orEmpty()
+        if (title !in sections) return
+        if (sections.size > 1) {
+            Text(
+                title,
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleSmallEmphasized,
+                modifier = Modifier.padding(top = 20.dp, bottom = 6.dp).semantics { heading() },
+            )
+        }
+        content()
+        return
+    }
     val query = LocalSettingsQuery.current
-    if (page == null && query.isNotBlank() && title.contains(query.trim(), ignoreCase = true)) {
+    if (query.isNotBlank() && title.contains(query.trim(), ignoreCase = true)) {
         CompositionLocalProvider(LocalSettingsQuery provides "") { content() }
     } else {
         content()

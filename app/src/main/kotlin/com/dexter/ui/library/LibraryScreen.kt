@@ -373,7 +373,7 @@ fun LibraryScreen(
                             }
                         }
                         TextButton(onClick = { viewModel.setGrid(!library.libraryGrid) }, modifier = touch) { Text(if (library.libraryGrid) "Rows" else "Grid") }
-                        TextButton(enabled = items.isNotEmpty(), onClick = { remove(tabItems) }, modifier = touch) { Text("Delete all") }
+                        TextButton(enabled = items.isNotEmpty(), onClick = { remove(items) }, modifier = touch) { Text("Delete all") }
                     }
                 }
             }

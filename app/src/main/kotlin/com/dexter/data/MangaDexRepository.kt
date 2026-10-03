@@ -204,7 +204,7 @@ class MangaDexRepository(
         // Two chains run together, so at most three requests are in flight. MangaDex allows about five a second.
         val newSeries = async { newSeries() }
         val pool = async { readablePicks(7) }
-        // One random series leads the screen as the hero. The other six fill Today's Picks.
+        // One random series leads the screen as the hero. The other six fill Random Picks.
         val picked = pool.await()
         HomeContent(picked.firstOrNull(), newSeries.await(), picked.drop(1))
     }

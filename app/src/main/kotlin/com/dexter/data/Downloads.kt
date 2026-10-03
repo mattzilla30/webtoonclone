@@ -37,11 +37,11 @@ private const val PAGE_TRIES = 3
 
 private const val PAGES_AT_ONCE = 3
 
-/** Pages are usually a few hundred KB; assume this much each so the free-space check stays safe. */
-private const val EXPECTED_BYTES_PER_PAGE = 2L * 1024 * 1024
+/** Pages are usually a few hundred KB; 1 MB each leaves room for tall webtoon strips without refusing chapters that fit. */
+private const val EXPECTED_BYTES_PER_PAGE = 1L * 1024 * 1024
 
 /** Refuse to download below this much free space, even for a tiny chapter. */
-private const val MIN_FREE_BYTES = 100L * 1024 * 1024
+private const val MIN_FREE_BYTES = 50L * 1024 * 1024
 
 /** The file name for page [index] of [total], padded so a directory listing sorts in reading order. */
 fun pageFileName(index: Int, total: Int, url: String): String {
@@ -131,6 +131,8 @@ class DownloadStore(
     /** Puts [chapter] at the end of the queue. A chapter already waiting keeps its place. Blacklisted chapters are refused. */
     suspend fun enqueue(seriesId: String, seriesTitle: String, coverUrl: String?, chapter: Chapter) {
         if (blacklist.isBlacklisted(seriesId, chapter.id)) return
+        // A cancel from earlier no longer applies: queuing the chapter again means you want it.
+        cancelled -= chapter.id
         queueDao.insert(
             QueuedDownloadEntity(
                 chapterId = chapter.id,

@@ -131,9 +131,12 @@ class BackupService(
         // The queue, replacing what is waiting here.
         db.queue().deleteAll()
         backup.queue.forEach { db.queue().insert(it.toEntity()) }
-        // Reading lists, smart lists, and the chapter blacklist, replacing what is here.
-        readingLists.replaceAll(backup.readingLists)
-        smartLists.replaceAll(backup.smartLists)
-        blacklist.replaceAll(backup.blacklist)
+        // Reading lists, smart lists, and the chapter blacklist, replacing what is here. Backups
+        // older than version 3 never carried them, so restoring one keeps what this device has.
+        if (backup.version >= 3) {
+            readingLists.replaceAll(backup.readingLists)
+            smartLists.replaceAll(backup.smartLists)
+            blacklist.replaceAll(backup.blacklist)
+        }
     }
 }

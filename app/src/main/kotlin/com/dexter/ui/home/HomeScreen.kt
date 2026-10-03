@@ -248,7 +248,7 @@ fun HomeScreen(
                             NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
                         }
 
-                        item(contentType = "header") { SectionHeader("Today's Picks", onClick = { onBrowse("Popular") }) }
+                        item(contentType = "header") { SectionHeader("Random Picks", onClick = { onBrowse("Popular") }) }
                         if (showTip) {
                             item(contentType = "tip") { LongPressTip(onDismiss = viewModel::dismissLongPressTip) }
                         }

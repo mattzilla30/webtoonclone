@@ -193,7 +193,12 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
                 if (ttsReady) speakCurrent() else updatePlaybackState()
             }
             ACTION_TOGGLE -> togglePlayback()
-            ACTION_STOP -> shutDown()
+            ACTION_STOP -> {
+                // stop() arrives through startForegroundService, which Android requires to be answered
+                // with startForeground before the service stops, or it crashes the app.
+                promoteToForeground()
+                shutDown()
+            }
             ACTION_NEXT -> skip(1)
             ACTION_PREV -> skip(-1)
             ACTION_MEDIA_BUTTON -> {

@@ -143,10 +143,9 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }
 
         /**
-         * Starts the worker that drains the queue. KEEP means only one runs at a time: the running
-         * worker loops on nextQueued() until the queue is empty, so rapid enqueues don't chain a
-         * worker each that would find nothing left to do. A new enqueue just wakes the drainer
-         * through the queue table.
+         * Starts the worker that drains the queue. A worker already running picks up new chapters itself;
+         * the one appended here runs after it, so a chapter queued just as the running worker finds the
+         * queue empty still gets saved instead of waiting for the next enqueue.
          */
         fun start(context: Context, wifiOnly: Boolean) {
             val request = OneTimeWorkRequestBuilder<DownloadWorker>()
@@ -157,7 +156,7 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 )
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(QUEUE, ExistingWorkPolicy.KEEP, request)
+            WorkManager.getInstance(context).enqueueUniqueWork(QUEUE, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         }
     }
 }

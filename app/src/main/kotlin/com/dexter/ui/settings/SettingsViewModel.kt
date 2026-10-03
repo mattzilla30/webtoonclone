@@ -16,6 +16,7 @@ import com.dexter.data.decodeBackup
 import com.dexter.data.isNewer
 import com.dexter.data.latestRelease
 import com.dexter.data.parseMihonBackup
+import com.dexter.data.readCapped
 import com.dexter.data.suggestedKeep
 import com.dexter.notify.AutoBackupWorker
 import com.dexter.notify.DownloadWorker
@@ -83,10 +84,16 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
 
     /** Reads a Mihon or Tachiyomi backup file and adds its MangaDex series to the library. */
     fun importMihon(uri: Uri) = accountJob {
-        val bytes = withContext(Dispatchers.IO) { app.contentResolver.openInputStream(uri)!!.use { it.readBytes() } }
+        // The read is capped: an unbounded readBytes on a crafted file exhausts memory first.
+        val bytes: ByteArray? = try {
+            withContext(Dispatchers.IO) { app.contentResolver.openInputStream(uri)?.use { it.readCapped() } }
+        } catch (e: IllegalArgumentException) {
+            return@accountJob "That file is not a Mihon or Tachiyomi backup."
+        }
+        if (bytes == null) return@accountJob "Couldn't open that file."
         val backup = try {
             withContext(Dispatchers.Default) { parseMihonBackup(bytes) }
-        } catch (e: IllegalArgumentException) {
+        } catch (e: RuntimeException) {
             return@accountJob "That file is not a Mihon or Tachiyomi backup."
         }
         app.libraryStore.importSeries(backup.series)

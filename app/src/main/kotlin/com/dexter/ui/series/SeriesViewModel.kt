@@ -379,18 +379,24 @@ class SeriesViewModel(
     /** The cover gallery: null until opened, then loading, then the covers. */
     val covers: StateFlow<Load<List<SeriesCover>>?> = coversState
 
+    private var coversGeneration = 0
+
     fun openCovers() {
+        // A close (or a reopen) since the request started wins; a stale result must not reopen the dialog.
+        val generation = ++coversGeneration
         coversState.value = Load.Loading
         viewModelScope.launch(LogFailures) {
-            coversState.value = try {
+            val result = try {
                 Load.Ready(repository.covers(seriesId))
             } catch (e: Exception) {
                 Load.Error(friendlyError(e, "Could not load covers"))
             }
+            if (generation == coversGeneration) coversState.value = result
         }
     }
 
     fun closeCovers() {
+        coversGeneration++
         coversState.value = null
     }
 

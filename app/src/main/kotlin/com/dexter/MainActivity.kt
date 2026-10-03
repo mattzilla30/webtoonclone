@@ -29,12 +29,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,11 +61,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.dexter.automation.DexterAutomation
@@ -88,7 +92,6 @@ import com.dexter.ui.FirstRunSetup
 import com.dexter.ui.LocalPaneWidthDp
 import com.dexter.ui.LocalSharedScope
 import com.dexter.ui.LockScreen
-import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.TWO_PANE_MIN_WIDTH_DP
 import com.dexter.ui.author.AuthorScreen
 import com.dexter.ui.author.AuthorViewModel
@@ -271,12 +274,10 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
     val route = backStackEntry?.destination?.route
     LaunchedEffect(open) {
         if (open != null) {
-            if (open.route in tabRoutes) {
+            if (open.route in setOf("home", "library", "updates", "settings", "downloads")) {
                 nav.navigateTab(open.route!!)
             } else if (open.route == "search") {
                 nav.navigate(SEARCH_FOCUSED)
-            } else if (open.route == "downloads") {
-                nav.navigate("downloads")
             } else {
                 // A chapter link names only the chapter, so ask MangaDex which series it belongs to.
                 val seriesId = open.seriesId ?: open.chapterId?.let { runCatching { app.repository.seriesIdForChapter(it) }.getOrNull() }
@@ -286,7 +287,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
             onOpened()
         }
     }
-    val onTab = route?.substringBefore('?') in tabRoutes
+    val onTab = route?.substringBefore('?') in paneRoutes
     val onReader = route?.startsWith("series/") == true && route.count { it == '/' } == 2
 
     // Light icons on dark surfaces and dark icons on light ones. The reader has its own background.
@@ -313,7 +314,6 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
             // One inset pad for the whole app keeps every screen between the status and navigation bars. The reader
             // draws edge to edge and pads only its own bars, so the pages fill the screen when the system bars hide.
             Box(Modifier.fillMaxSize().background(rootBackground).then(if (onReader) Modifier else Modifier.systemBarsPadding())) {
-                val wide = windowWidthDp() >= RAIL_MIN_WIDTH_DP
                 val motion = MaterialTheme.motionScheme
                 // On a wide screen a series opens beside the list it came from. Back closes it.
                 val twoPane = windowWidthDp() >= TWO_PANE_MIN_WIDTH_DP
@@ -322,12 +322,10 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                 val openSeries: (String) -> Unit = { id -> if (twoPane && onTab) paneSeries = id else nav.navigate("series/$id") }
                 BackHandler(showPane) { paneSeries = null }
                 Row(Modifier.fillMaxSize()) {
-                    if (wide && onTab) SideRail(nav, route?.substringBefore('?'), unread)
                     Scaffold(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         containerColor = MaterialTheme.colorScheme.background,
                         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                        bottomBar = { if (onTab && !wide) BottomBar(nav, route?.substringBefore('?'), unread) },
                     ) { padding ->
                         BoxWithConstraints {
                             CompositionLocalProvider(LocalPaneWidthDp provides if (showPane) maxWidth.value else null) {
@@ -352,6 +350,10 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                         onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
                                                         onBrowse = { label -> nav.navigate("search?browse=${Uri.encode(label)}") },
                                                         onOpenSearch = { nav.navigate(SEARCH_FOCUSED) },
+                                                        onOpenLibrary = { nav.navigateTab("library") },
+                                                        onOpenUpdates = { nav.navigateTab("updates") },
+                                                        onOpenSettings = { nav.navigateTab("settings") },
+                                                        unread = unread,
                                                         openCount = openCount,
                                                     )
                                                 }
@@ -375,6 +377,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                 Box(Modifier.fillMaxSize()) {
                                                     UpdatesScreen(
                                                         vm,
+                                                        onBack = { nav.popBackStack() },
                                                         onOpenSeries = openSeries,
                                                         onOpenChapter = { series, chapter -> nav.navigate("series/$series/$chapter") },
                                                     )
@@ -385,14 +388,34 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                 Box(Modifier.fillMaxSize()) {
                                                     LibraryScreen(
                                                         vm,
+                                                        onBack = { nav.popBackStack() },
                                                         onOpenSeries = openSeries,
                                                         onOpenSearch = { nav.navigate(SEARCH_FOCUSED) },
                                                     )
                                                 }
                                             }
-                                            screen("settings") {
+                                            // Settings is a bubble over Home. Opening another page from it closes the bubble first.
+                                            dialog("settings", dialogProperties = DialogProperties(usePlatformDefaultWidth = false)) {
                                                 val vm = koinViewModel<SettingsViewModel>()
-                                                SettingsScreen(vm, onOpenDownloads = { nav.navigate("downloads") }, onOpenStats = { nav.navigate("stats") }, onOpenErrors = { nav.navigate("errors") }, onOpenStorage = { nav.navigate("storage") })
+                                                val leaveTo: (String) -> Unit = { target ->
+                                                    nav.popBackStack()
+                                                    nav.navigate(target)
+                                                }
+                                                Surface(
+                                                    shape = MaterialTheme.shapes.extraLarge,
+                                                    color = MaterialTheme.colorScheme.background,
+                                                    tonalElevation = 6.dp,
+                                                    modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f),
+                                                ) {
+                                                    SettingsScreen(
+                                                        vm,
+                                                        onClose = { nav.popBackStack() },
+                                                        onOpenDownloads = { leaveTo("downloads") },
+                                                        onOpenStats = { leaveTo("stats") },
+                                                        onOpenErrors = { leaveTo("errors") },
+                                                        onOpenStorage = { leaveTo("storage") },
+                                                    )
+                                                }
                                             }
                                             screen("series/{seriesId}") { entry ->
                                                 val seriesId = entry.arguments!!.getString("seriesId")!!

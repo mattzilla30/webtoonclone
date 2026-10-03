@@ -25,14 +25,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
@@ -101,6 +106,11 @@ fun HomeScreen(
     onOpenChapter: (seriesId: String, chapterId: String) -> Unit,
     onBrowse: (label: String) -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onOpenUpdates: () -> Unit,
+    onOpenSettings: () -> Unit,
+    /** Subscribed series with unread chapters, shown as a badge on the My Series button. */
+    unread: Int,
     openCount: Int,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -151,7 +161,21 @@ fun HomeScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        HomeSearchBar(onOpenSearch)
+        // Search, then My Series, Updates and Settings, in one row across the top.
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            HomeSearchBar(onOpenSearch, Modifier.weight(1f))
+            IconButton(onClick = onOpenLibrary) {
+                if (unread > 0) {
+                    BadgedBox(badge = { Badge { Text(if (unread > 99) "99+" else unread.toString()) } }) {
+                        Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.my_series))
+                    }
+                } else {
+                    Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.my_series))
+                }
+            }
+            IconButton(onClick = onOpenUpdates) { Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.updates)) }
+            IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings)) }
+        }
         Box(Modifier.fillMaxSize()) {
             // A pull keeps what is on screen and swaps in the new picks when they arrive.
             PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
@@ -371,16 +395,15 @@ private fun LongPressTip(onDismiss: () -> Unit) {
 
 /** The search box at the top of Home. Tapping it opens the search page with the keyboard up. */
 @Composable
-private fun HomeSearchBar(onClick: () -> Unit) {
+private fun HomeSearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val label = stringResource(R.string.search_series)
     Surface(
         onClick = onClick,
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min = 56.dp)
-            .semantics { role = Role.Button },
+        modifier = modifier.heightIn(min = 52.dp).semantics { role = Role.Button },
     ) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp))
         }

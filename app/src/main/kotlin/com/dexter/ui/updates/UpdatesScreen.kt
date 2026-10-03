@@ -86,7 +86,7 @@ private fun withDayHeadings(entries: List<UpdateEntry>): List<UpdateRow> {
 }
 
 @Composable
-fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit, onOpenChapter: (seriesId: String, chapterId: String) -> Unit) {
+fun UpdatesScreen(viewModel: UpdatesViewModel, onBack: () -> Unit, onOpenSeries: (String) -> Unit, onOpenChapter: (seriesId: String, chapterId: String) -> Unit) {
     val haptics = LocalHapticFeedback.current
     val allState by viewModel.state.collectAsStateWithLifecycle()
     val subscribedState by viewModel.subscribedState.collectAsStateWithLifecycle()
@@ -102,7 +102,7 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onOpenSeries: (String) -> Unit, o
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            AppTopBar(stringResource(R.string.updates))
+            AppTopBar(stringResource(R.string.updates), onBack = onBack)
             if (subscribedIds.isNotEmpty()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ChoiceChip("Subscribed only", subscribedOnly && !showSchedule) {

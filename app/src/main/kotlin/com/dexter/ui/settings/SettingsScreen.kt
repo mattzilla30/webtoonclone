@@ -72,7 +72,7 @@ import org.koin.compose.koinInject
 import java.time.Instant
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit, onOpenErrors: () -> Unit, onOpenStorage: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDownloads: () -> Unit, onOpenStats: () -> Unit, onOpenErrors: () -> Unit, onOpenStorage: () -> Unit) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
     val cacheBytes by viewModel.cacheBytes.collectAsStateWithLifecycle()
@@ -189,7 +189,12 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
         if (open != null) {
             AppTopBar(open, onBack = { page = null })
         } else {
-            AppTopBar(stringResource(R.string.settings))
+            AppTopBar(
+                stringResource(R.string.settings),
+                actions = {
+                    IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close settings") }
+                },
+            )
         }
         if (open == null) OutlinedTextField(
             value = query,

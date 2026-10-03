@@ -69,6 +69,7 @@ import kotlin.time.Duration.Companion.seconds
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel,
+    onBack: () -> Unit,
     onOpenSeries: (String) -> Unit,
     onOpenSearch: () -> Unit,
 ) {
@@ -191,7 +192,7 @@ fun LibraryScreen(
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            AppTopBar(stringResource(R.string.my_series))
+            AppTopBar(stringResource(R.string.my_series), onBack = onBack)
             LibraryTabs(tab) { list ->
                 tabKey = list.key
                 selected.clear()

@@ -26,64 +26,18 @@ import androidx.navigation.compose.composable
 import com.dexter.data.Settings
 import com.dexter.ui.LocalNavScope
 
-internal data class Tab(val route: String, val label: String, val icon: ImageVector)
+/**
+ * The pages a series can open beside on a wide screen: Home, and My Series and Updates, which open from the
+ * buttons at the top of Home.
+ */
+internal val paneRoutes = setOf("home", "library", "updates")
 
-internal val tabs = listOf(
-    Tab("home", "Home", Icons.Default.Home),
-    Tab("updates", "Updates", Icons.Default.Refresh),
-    Tab("library", "My Series", Icons.Default.Favorite),
-    Tab("settings", "Settings", Icons.Default.Settings),
-)
-
-internal val tabRoutes = tabs.map { it.route }.toSet()
-
+/** Opens a page that sits directly on Home, so Back from it always lands on Home. */
 internal fun NavHostController.navigateTab(route: String) {
     navigate(route) {
         popUpTo("home") { saveState = true }
         launchSingleTop = true
         restoreState = true
-    }
-}
-
-@Composable
-internal fun SideRail(nav: NavHostController, current: String?, unread: Int) {
-    val state = rememberWideNavigationRailState()
-    WideNavigationRail(state = state) {
-        tabs.forEach { tab ->
-            WideNavigationRailItem(
-                selected = current == tab.route,
-                onClick = { nav.navigateTab(tab.route) },
-                icon = { TabIcon(tab, unread) },
-                label = { Text(tab.label) },
-                railExpanded = state.targetValue == WideNavigationRailValue.Expanded,
-            )
-        }
-    }
-}
-
-@Composable
-internal fun BottomBar(nav: NavHostController, current: String?, unread: Int) {
-    ShortNavigationBar {
-        tabs.forEach { tab ->
-            ShortNavigationBarItem(
-                selected = current == tab.route,
-                onClick = { nav.navigateTab(tab.route) },
-                icon = { TabIcon(tab, unread) },
-                label = { Text(tab.label) },
-            )
-        }
-    }
-}
-
-/** A tab's icon. My Series carries a badge with the number of subscribed series that have unread chapters. */
-@Composable
-internal fun TabIcon(tab: Tab, unread: Int) {
-    if (tab.route == "library" && unread > 0) {
-        BadgedBox(badge = { Badge { Text(if (unread > 99) "99+" else unread.toString()) } }) {
-            Icon(tab.icon, contentDescription = null)
-        }
-    } else {
-        Icon(tab.icon, contentDescription = null)
     }
 }
 

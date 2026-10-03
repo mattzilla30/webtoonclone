@@ -284,6 +284,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onOpenDownloads: () -> Unit, on
                     onImportArchive = { archiveImportLauncher.launch(arrayOf("application/zip", "*/*")) },
                 )
 
+                LicensesSection()
+
                 SettingsBlock("Watch") {
                     SwitchRow(
                         "Connect to the watch app",

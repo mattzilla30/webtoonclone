@@ -93,3 +93,14 @@ Calls every MangaDex endpoint the app uses. The default build skips it.
 - `MainActivity.kt` navigation and bottom bar
 
 Some series only link to their publisher. Those episodes open in the browser.
+
+## License
+
+Dexter, the phone app and the Wear OS app, is free software: you can redistribute it and modify
+it under the terms of the GNU General Public License, version 3, as published by the Free Software
+Foundation. See [LICENSE](LICENSE).
+
+Dexter comes with ABSOLUTELY NO WARRANTY. Every library it ships is open source as well: Apache 2.0
+for AndroidX, Kotlin, Coil, OkHttp, Koin, Tesseract and its language data, BSD for Leptonica and
+Protocol Buffers, and the libjpeg and libpng licenses for the image decoders inside Tesseract.
+Settings → Open-source licenses lists them in the app.

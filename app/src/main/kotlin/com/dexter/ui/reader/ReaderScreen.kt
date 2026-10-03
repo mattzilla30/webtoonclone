@@ -66,6 +66,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
@@ -382,6 +383,8 @@ private fun ReaderContent(
     var showThumbnails by remember { mutableStateOf(false) }
     var showSleepDialog by remember { mutableStateOf(false) }
     var showCastPicker by remember { mutableStateOf(false) }
+    // Where a hovering stylus points, for the magnifier. Null while no pen hovers.
+    var stylusHoverAt by remember { mutableStateOf<Offset?>(null) }
     val topActions = remember(readerUi.topActionsCsv) { toolbarActionsOrDefault(readerUi.topActionsCsv, defaultTopActions) }
     val bottomActions = remember(readerUi.bottomActionsCsv) { toolbarActionsOrDefault(readerUi.bottomActionsCsv, defaultBottomActions) }
     var container by remember { mutableStateOf(IntSize.Zero) }
@@ -927,6 +930,7 @@ private fun ReaderContent(
                     )
                 }
                 .zoomGestures(zoom) { container }
+                .stylusHover(readerUi.stylusHoverPeek) { stylusHoverAt = it }
                 // The S-Pen barrel button turns pages: primary forward, secondary back.
                 .stylusPenButton(
                     enabled = readerUi.stylusPenButton,
@@ -959,6 +963,9 @@ private fun ReaderContent(
                     )
                 },
         ) {
+            // A patterned strip background draws first, so it sits behind the pages instead of over them.
+            StripPattern(stripBgChoice, Modifier.fillMaxSize())
+
             // The pages and only the pages are zoomed. The bars and dimming stay put.
             Box(
                 Modifier
@@ -1063,12 +1070,9 @@ private fun ReaderContent(
                 }
             }
 
-            // A patterned strip background draws behind the pages; plain colors replaced the background above.
-            StripPattern(stripBgChoice, Modifier.fillMaxSize())
-
-            // A hovering stylus gets a 2x magnifier under its tip.
+            // A hovering stylus gets a 2x magnifier under its tip. It draws only, so taps still reach the pages.
             val peekUrl = if (paged) pagedChapter.pages.getOrNull(position) else current.pages.getOrNull(position)
-            StylusHoverPeek(enabled = readerUi.stylusHoverPeek, pageUrl = peekUrl, containerSize = container)
+            StylusHoverPeek(hover = stylusHoverAt.takeIf { readerUi.stylusHoverPeek }, pageUrl = peekUrl, containerSize = container)
 
             // Dimming sits over the pages and under the bars. It does not take touches. E-ink mode skips it.
             if (settings.readerDim > 0 && !eInk) {

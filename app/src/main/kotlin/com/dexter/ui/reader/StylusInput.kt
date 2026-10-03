@@ -15,6 +15,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -66,63 +67,63 @@ fun Modifier.stylusPenButton(
 }
 
 /**
+ * Tracks a hovering stylus for [StylusHoverPeek]: [onHover] gets the pen tip's position while it hovers,
+ * and null once it lands or leaves. It watches from the reader itself, in the first pass, and takes
+ * nothing, so taps and swipes still reach the pages and the buttons on them.
+ */
+fun Modifier.stylusHover(enabled: Boolean, onHover: (Offset?) -> Unit): Modifier = if (!enabled) {
+    this
+} else {
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                onHover(event.changes.firstOrNull { it.type == PointerType.Stylus && !it.pressed }?.position)
+            }
+        }
+    }
+}
+
+/**
  * A magnifier that follows a hovering stylus: a circle showing the page under the pen tip at 2x,
- * with the hovered point centered. Tracks hover moves from Compose's pointer input, which is where
- * stylus hover (no touch) surfaces; pen-down touches hide it.
+ * with the hovered point centered. [hover] comes from [stylusHover]. It draws only, and never takes
+ * a touch, so whatever sits beneath it stays tappable.
  *
- * @param pageUrl the page under the reader, or null when there is none to peek at.
  * @param containerSize the reader's size, so the zoomed image lines up with the page beneath it.
  */
 @Composable
 internal fun StylusHoverPeek(
-    enabled: Boolean,
+    hover: Offset?,
     pageUrl: String?,
     containerSize: IntSize,
-    modifier: Modifier = Modifier,
     diameter: Dp = PEEK_DIAMETER,
 ) {
-    var hover by remember { mutableStateOf<Offset?>(null) }
     val density = LocalDensity.current
+    val at = hover ?: return
+    val url = pageUrl ?: return
+    if (containerSize.width <= 0 || containerSize.height <= 0) return
+    // The zoomed page is PEEK_ZOOM times the reader; offset so the hovered point sits centered.
+    val zoomedWidth = containerSize.width * PEEK_ZOOM
+    val zoomedHeight = containerSize.height * PEEK_ZOOM
+    val diameterPx = with(density) { diameter.toPx() }
+    val offsetX = diameterPx / 2f - at.x * PEEK_ZOOM
+    val offsetY = diameterPx / 2f - at.y * PEEK_ZOOM
     Box(
-        modifier
-            .fillMaxSize()
-            .pointerInput(enabled) {
-                if (!enabled) return@pointerInput
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        hover = event.changes.firstOrNull { it.type == PointerType.Stylus && !it.pressed }?.position
-                    }
-                }
-            },
+        Modifier
+            .offset { IntOffset((at.x - diameterPx / 2f).roundToInt(), (at.y - diameterPx / 2f).roundToInt()) }
+            .size(diameter)
+            .clip(CircleShape),
     ) {
-        val at = hover
-        val url = pageUrl
-        if (enabled && at != null && url != null && containerSize.width > 0 && containerSize.height > 0) {
-            // The zoomed page is PEEK_ZOOM times the reader; offset so the hovered point sits centered.
-            val zoomedWidth = containerSize.width * PEEK_ZOOM
-            val zoomedHeight = containerSize.height * PEEK_ZOOM
-            val diameterPx = with(density) { diameter.toPx() }
-            val offsetX = diameterPx / 2f - at.x * PEEK_ZOOM
-            val offsetY = diameterPx / 2f - at.y * PEEK_ZOOM
-            Box(
-                Modifier
-                    .offset { IntOffset((at.x - diameterPx / 2f).roundToInt(), (at.y - diameterPx / 2f).roundToInt()) }
-                    .size(diameter)
-                    .clip(CircleShape),
-            ) {
-                AsyncImage(
-                    model = url,
-                    contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    modifier = Modifier
-                        .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
-                        .size(
-                            with(density) { zoomedWidth.toDp() },
-                            with(density) { zoomedHeight.toDp() },
-                        ),
-                )
-            }
-        }
+        AsyncImage(
+            model = url,
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+                .size(
+                    with(density) { zoomedWidth.toDp() },
+                    with(density) { zoomedHeight.toDp() },
+                ),
+        )
     }
 }

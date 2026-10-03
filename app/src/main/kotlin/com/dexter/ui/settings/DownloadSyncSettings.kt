@@ -95,7 +95,7 @@ fun DownloadSyncSection(
     }
 
     SettingsBlock("Backup & sync") {
-        Searchable("backup", "export", "import", "sync", "transfer", "cross-device") {
+        Searchable("backup", "export", "import", "sync", "transfer", "cross-device", key = "Backup archive") {
             Text(
                 "Save everything — library, lists, reading positions, history, stats, downloads, and covers — to one file you can move to another device.",
                 style = MaterialTheme.typography.bodySmall,

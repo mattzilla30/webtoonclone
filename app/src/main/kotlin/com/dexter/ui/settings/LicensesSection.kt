@@ -1,6 +1,7 @@
 package com.dexter.ui.settings
 
 import android.content.Intent
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -14,7 +15,7 @@ import androidx.core.net.toUri
 data class OpenSourceComponent(val name: String, val license: String, val url: String)
 
 /** Where Dexter's own source code lives. */
-const val SOURCE_URL = "https://github.com/mattzilla30/webtoonclone"
+const val SOURCE_URL = "https://github.com/mattzilla30/Dexter"
 
 /** Every open-source component inside the app, A to Z. Dexter's own GPL notice comes first on the page. */
 val OpenSourceComponents: List<OpenSourceComponent> = listOf(
@@ -42,21 +43,21 @@ internal fun LicensesSection() {
     val context = LocalContext.current
     val open = { url: String -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } }
     SettingsBlock("Open-source licenses") {
-        Text(
-            "Dexter is free software: you can redistribute it and modify it under the terms of the GNU General Public " +
-                "License, version 3. It comes with ABSOLUTELY NO WARRANTY.",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
-        InfoRow(title = "GNU General Public License v3", subtitle = "Dexter's license", onClick = { open("https://www.gnu.org/licenses/gpl-3.0.html") })
-        InfoRow(title = "Source code", subtitle = SOURCE_URL.removePrefix("https://"), onClick = { open(SOURCE_URL) })
-        Text(
-            "Built with",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-        )
-        OpenSourceComponents.forEach { component ->
-            InfoRow(title = component.name, subtitle = component.license, onClick = { open(component.url) })
+        // One entry in the A-to-Z list: the libraries below are credits, not settings to sort among the rest.
+        Keyed("Open-source licenses") {
+            Column {
+                Text(
+                    "Dexter is free software: you can redistribute it and modify it under the terms of the GNU General Public " +
+                        "License, version 3. It comes with ABSOLUTELY NO WARRANTY. Dexter is built with the libraries below.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                InfoRow(title = "GNU General Public License v3", subtitle = "Dexter's license", onClick = { open("https://www.gnu.org/licenses/gpl-3.0.html") })
+                InfoRow(title = "Source code", subtitle = SOURCE_URL.removePrefix("https://"), onClick = { open(SOURCE_URL) })
+                OpenSourceComponents.forEach { component ->
+                    InfoRow(title = component.name, subtitle = component.license, onClick = { open(component.url) })
+                }
+            }
         }
     }
 }

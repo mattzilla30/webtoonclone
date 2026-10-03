@@ -50,7 +50,7 @@ internal fun MangaDexAccountSection(
             InfoRow(title = "Sign out", subtitle = "Forgets the sign-in on this phone.", action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } })
             return@SettingsBlock
         }
-        Searchable("MangaDex account", "sign in", "sync", "follows", "client") {
+        Searchable("MangaDex account", "sign in", "sync", "follows", "client", key = "MangaDex account") {
             var clientId by rememberSaveable { mutableStateOf("") }
             var clientSecret by rememberSaveable { mutableStateOf("") }
             var username by rememberSaveable { mutableStateOf("") }
@@ -131,7 +131,7 @@ private fun TrackerRow(name: String, login: TrackerLogin?, help: String, onSignI
         )
         return
     }
-    Searchable(name, "tracking", "sign in", "progress") {
+    Searchable(name, "tracking", "sign in", "progress", key = name) {
         var clientId by rememberSaveable(name) { mutableStateOf("") }
         Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(name, style = MaterialTheme.typography.bodyLarge)

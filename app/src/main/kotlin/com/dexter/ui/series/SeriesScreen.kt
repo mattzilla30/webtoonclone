@@ -95,6 +95,7 @@ import com.dexter.ui.PickTile
 import com.dexter.ui.RAIL_MIN_WIDTH_DP
 import com.dexter.ui.TextPromptDialog
 import com.dexter.ui.compact
+import com.dexter.ui.openLink
 import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -214,7 +215,7 @@ fun SeriesScreen(
             val open: (Chapter) -> Unit = { chapter ->
                 val link = chapter.externalUrl
                 if (link == null) onOpenChapter(chapter.id)
-                else context.startActivity(Intent(Intent.ACTION_VIEW, link.toUri()))
+                else context.openLink(link)
             }
 
             covers?.let { state ->
@@ -288,7 +289,7 @@ fun SeriesScreen(
             if (showInfo) {
                 InfoDialog(
                     page.detail,
-                    onOpenLink = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) },
+                    onOpenLink = { url -> context.openLink(url) },
                     onOpenCovers = { showInfo = false; viewModel.openCovers() },
                     onDismiss = { showInfo = false },
                 )
@@ -600,7 +601,7 @@ fun SeriesScreen(
                                 picked.add(chapter.id)
                                 anchor = chapter.id
                             },
-                            onComments = { viewModel.openComments(chapter) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+                            onComments = { viewModel.openComments(chapter) { url -> context.openLink(url) } },
                             onBlacklist = {
                                 scope.launch {
                                     blacklist.add(summary.id, chapter.id)

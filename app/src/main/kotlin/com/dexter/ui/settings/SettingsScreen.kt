@@ -66,6 +66,7 @@ import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.ConfirmDialog
 import com.dexter.ui.PinSetupScreen
+import com.dexter.ui.openLink
 import com.dexter.ui.timeAgo
 import org.koin.compose.koinInject
 import java.time.Instant
@@ -162,7 +163,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.dismissRelease()
-                    context.startActivity(Intent(Intent.ACTION_VIEW, (latest.apk ?: latest.page).toUri()))
+                    context.openLink(latest.apk ?: latest.page)
                 }) { Text(if (latest.apk != null) "Download" else "Open release") }
             },
             dismissButton = { TextButton(onClick = viewModel::dismissRelease) { Text("Later") } },
@@ -253,8 +254,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
 
                     TrackingSection(
                         accounts = accounts,
-                        onAniList = { id -> viewModel.signInAniList(id) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
-                        onMal = { id -> viewModel.signInMal(id) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } },
+                        onAniList = { id -> viewModel.signInAniList(id) { url -> context.openLink(url) } },
+                        onMal = { id -> viewModel.signInMal(id) { url -> context.openLink(url) } },
                         onSignOutAniList = viewModel::signOutAniList,
                         onSignOutMal = viewModel::signOutMal,
                     )

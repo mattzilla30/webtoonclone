@@ -52,6 +52,7 @@ import com.dexter.data.scanLocalRoot
 import com.dexter.data.toSavedSeries
 import com.dexter.ui.CardRow
 import com.dexter.ui.ChoiceChip
+import com.dexter.ui.openLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -505,7 +506,7 @@ fun CloudOAuthSection(qol: QolPrefs) {
                                 message = e.message ?: "Could not start sign-in."
                                 null
                             }
-                            if (url != null) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            if (url != null) context.openLink(url)
                         }
                     }) { Text("Sign in") }
                 }

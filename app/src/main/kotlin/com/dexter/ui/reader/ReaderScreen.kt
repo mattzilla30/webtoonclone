@@ -129,6 +129,7 @@ import com.dexter.tts.ReaderTtsService
 import com.dexter.tts.TtsPageEvents
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
+import com.dexter.ui.openLink
 import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -1302,7 +1303,7 @@ private fun ReaderContent(
 }
 
 private fun openComments(viewModel: ReaderViewModel, context: Context, segment: ChapterSegment) {
-    viewModel.openComments(segment.chapter) { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+    viewModel.openComments(segment.chapter) { url -> context.openLink(url) }
 }
 
 /** The time and battery level, refreshed every half minute, or null when [enabled] is off. */

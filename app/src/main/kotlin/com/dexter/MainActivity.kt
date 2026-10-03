@@ -234,7 +234,13 @@ class MainActivity : ComponentActivity() {
         finishSignIn(intent)
         val app = application as DexterApp
         setContent {
-            val settings by app.settingsStore.settings.collectAsStateWithLifecycle(initialValue = app.settingsStore.latest)
+            // Null until the saved settings arrive. Drawing with the defaults first would flash first-run setup
+            // for an existing user and, with the lock on, show the library before the lock covers it.
+            val loaded by app.settingsStore.settings.collectAsStateWithLifecycle<Settings?>(initialValue = app.settingsStore.settings.replayCache.firstOrNull())
+            val settings = loaded ?: run {
+                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
+                return@setContent
+            }
             // Push the lock config down; LockScreen reads it live.
             LaunchedEffect(settings.lockMode, settings.relockTimeoutMs) {
                 AppLock.lockMode = settings.lockMode

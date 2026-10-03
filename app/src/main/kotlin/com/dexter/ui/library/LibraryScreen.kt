@@ -93,7 +93,7 @@ fun LibraryScreen(
     val readingLists: ReadingListStore = koinInject()
     val allReadingLists by readingLists.all.collectAsStateWithLifecycle(initialValue = emptyList())
     var readingListFilter by rememberSaveable { mutableStateOf<String?>(null) }
-    val readingList = readingListFilter?.let { id -> allReadingLists.firstOrNull { it.id == id } }
+    val readingList = readingListFilter?.takeIf { tab == LibraryList.Lists }?.let { id -> allReadingLists.firstOrNull { it.id == id } }
     var query by rememberSaveable { mutableStateOf("") }
     var unreadOnly by rememberSaveable { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -116,7 +116,8 @@ fun LibraryScreen(
             tab == LibraryList.Lists && statusFilter == null -> allListed
             else -> listFor(library, tab)
         }
-        offlineSeries(base, savedSeriesIds)
+        // Only the offline-only setting narrows the tabs to series with saved chapters.
+        if (offlineOnly) offlineSeries(base, savedSeriesIds) else base
     }
     val lastReadById = remember(library.recent) { HashMap<String, String?>().also { map -> library.recent.forEach { map.putIfAbsent(it.id, it.chapterNumber) } } }
     val recentById = remember(library.recent) { library.recent.associateBy { it.id } }

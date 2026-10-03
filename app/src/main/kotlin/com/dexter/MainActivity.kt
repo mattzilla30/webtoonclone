@@ -20,6 +20,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -384,12 +385,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                     nav.popBackStack()
                                                     nav.navigate(target)
                                                 }
-                                                Surface(
-                                                    shape = MaterialTheme.shapes.extraLarge,
-                                                    color = MaterialTheme.colorScheme.background,
-                                                    tonalElevation = 6.dp,
-                                                    modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f),
-                                                ) {
+                                                Bubble(onDismiss = { nav.popBackStack() }) {
                                                     UpdatesScreen(
                                                         vm,
                                                         onClose = { nav.popBackStack() },
@@ -416,12 +412,7 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                                     nav.popBackStack()
                                                     nav.navigate(target)
                                                 }
-                                                Surface(
-                                                    shape = MaterialTheme.shapes.extraLarge,
-                                                    color = MaterialTheme.colorScheme.background,
-                                                    tonalElevation = 6.dp,
-                                                    modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f),
-                                                ) {
+                                                Bubble(onDismiss = { nav.popBackStack() }) {
                                                     SettingsScreen(
                                                         vm,
                                                         onClose = { nav.popBackStack() },
@@ -609,4 +600,24 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
 /** Haptic feedback that does nothing, for when you turn haptics off. */
 private object NoHaptics : HapticFeedback {
     override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
+}
+
+/**
+ * A rounded card centered over the screen, for Settings and Updates. A tap on the dimmed space
+ * around it closes it.
+ */
+@Composable
+private fun Bubble(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        Modifier.fillMaxSize().clickable(interactionSource = null, indication = null, onClick = onDismiss),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.background,
+            tonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f),
+            content = content,
+        )
+    }
 }

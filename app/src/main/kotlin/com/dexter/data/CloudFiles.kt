@@ -94,7 +94,8 @@ suspend fun CloudFileProvider.cachedArchive(entry: CloudEntry, cacheDir: File): 
         val out = dir.resolve("$key.$ext")
         if (!out.exists() || out.length() == 0L) {
             // Drop cached copies of older revisions of the same file (including the pre-revision key format).
-            dir.listFiles { file -> file.name.startsWith(baseKey) && file.name != out.name }
+            // Matched up to the separator, so another file whose key merely starts with the same digits is kept.
+            dir.listFiles { file -> (file.name.startsWith("${baseKey}_") || file.name.startsWith("$baseKey.")) && file.name != out.name }
                 ?.forEach { it.delete() }
             open(entry).use { input -> out.writeAtomically { input.copyTo(it) } }
         }

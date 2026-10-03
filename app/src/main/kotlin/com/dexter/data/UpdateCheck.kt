@@ -48,7 +48,22 @@ fun isNewer(tag: String, current: String): Boolean {
     if (qa == null && qb == null) return false
     if (qa == null) return true
     if (qb == null) return false
-    return qa > qb
+    return compareQualifiers(qa, qb) > 0
+}
+
+/** Compares pre-release qualifiers part by part, numbers as numbers, so "beta.10" comes after "beta.2". */
+private fun compareQualifiers(a: String, b: String): Int {
+    val x = a.split('.')
+    val y = b.split('.')
+    for (i in 0 until maxOf(x.size, y.size)) {
+        val p = x.getOrNull(i) ?: return -1
+        val q = y.getOrNull(i) ?: return 1
+        val pn = p.toIntOrNull()
+        val qn = q.toIntOrNull()
+        val c = if (pn != null && qn != null) pn.compareTo(qn) else p.compareTo(q)
+        if (c != 0) return c
+    }
+    return 0
 }
 
 /** Asks GitHub for the latest release. Null when the repository has none, or does not let the app see it. */

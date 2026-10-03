@@ -105,7 +105,15 @@ fun SearchScreen(
     // The ViewModel can start a search on its own (saved search, filter change): mirror its query
     // into the field. Typing flows the other way, so this never fights the keyboard.
     val vmQuery by viewModel.queryFlow.collectAsStateWithLifecycle()
-    LaunchedEffect(vmQuery) { text = vmQuery }
+    // Only a query the ViewModel has not handed over yet replaces the field, so rotating the phone keeps
+    // text you typed but have not searched.
+    var mirrored by rememberSaveable { mutableStateOf(vmQuery) }
+    LaunchedEffect(vmQuery) {
+        if (vmQuery != mirrored) {
+            mirrored = vmQuery
+            text = vmQuery
+        }
+    }
     saveName?.let { name ->
         AlertDialog(
             onDismissRequest = { saveName = null },

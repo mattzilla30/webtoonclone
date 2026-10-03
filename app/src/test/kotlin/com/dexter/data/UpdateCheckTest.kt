@@ -11,6 +11,9 @@ class UpdateCheckTest {
         assertTrue(isNewer("v0.2.0", "0.1.0"))
         assertTrue(isNewer("0.1.10", "0.1.9"))
         assertFalse(isNewer("v0.1.0", "0.1.0"))
+        assertTrue(isNewer("1.0.0-beta.10", "1.0.0-beta.2"))
+        assertTrue(isNewer("1.0.0", "1.0.0-rc.1"))
+        assertFalse(isNewer("1.0.0-beta", "1.0.0"))
         assertFalse(isNewer("0.0.9", "0.1.0"))
         assertTrue(isNewer("1.0", "0.9.9"))
     }

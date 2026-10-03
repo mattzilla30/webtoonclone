@@ -77,11 +77,6 @@ fun SearchScreen(
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
-    val gems by viewModel.gems.collectAsStateWithLifecycle()
-    // The hidden-gems feed on the idle screen is gated by its own toggle.
-    val qolContext = LocalContext.current
-    val qolPrefs = remember(qolContext) { QolPrefs(qolContext) }
-    val gemsOn by qolPrefs.hiddenGemsEnabled.collectAsStateWithLifecycle(initialValue = true)
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val savedSearches by viewModel.savedSearches.collectAsStateWithLifecycle()
     val authors by viewModel.authorSuggestions.collectAsStateWithLifecycle()
@@ -205,9 +200,6 @@ fun SearchScreen(
                         text = tag
                         viewModel.openTag(tag)
                     },
-                    gems = gems,
-                    gemsEnabled = gemsOn,
-                    onLoadGems = viewModel::loadGems,
                 )
             } else {
                 offlineSavedAt?.let { OfflineBanner(it, "results", onRetry = viewModel::retry) }

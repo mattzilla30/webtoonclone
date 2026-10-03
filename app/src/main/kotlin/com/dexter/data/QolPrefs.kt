@@ -15,13 +15,11 @@ import kotlinx.serialization.builtins.ListSerializer
 private val Context.qolDataStore by preferencesDataStore(name = "qol")
 
 /**
- * Preferences for the quality-of-life batch: spoiler blur, trope tag picks,
- * and the Hidden gems feed. Kept separate from [Settings] so this batch never touches the shared settings file.
+ * Preferences for the quality-of-life batch: spoiler blur and trope tag picks. Kept separate from [Settings] so this batch never touches the shared settings file.
  */
 class QolPrefs(private val context: Context) {
     private val blurKey = booleanPreferencesKey("spoiler_blur")
     private val tropesKey = stringSetPreferencesKey("trope_picks")
-    private val hiddenGemsKey = booleanPreferencesKey("hidden_gems_enabled")
     private val nasHostKey = stringPreferencesKey("nas_default_host")
 
     /** Blur covers, chapter art, and progress-adjacent UI ahead of the current position. */
@@ -30,19 +28,12 @@ class QolPrefs(private val context: Context) {
     /** Trope tag ids the user picked for discovery filtering. */
     val tropePicks: Flow<Set<String>> = context.qolDataStore.data.map { it[tropesKey].orEmpty() }
 
-    /** Whether the Hidden gems feed shows in Discover. */
-    val hiddenGemsEnabled: Flow<Boolean> = context.qolDataStore.data.map { it[hiddenGemsKey] != false }
-
     suspend fun setSpoilerBlur(on: Boolean) {
         context.qolDataStore.edit { it[blurKey] = on }
     }
 
     suspend fun setTropePicks(ids: Set<String>) {
         context.qolDataStore.edit { it[tropesKey] = ids }
-    }
-
-    suspend fun setHiddenGemsEnabled(on: Boolean) {
-        context.qolDataStore.edit { it[hiddenGemsKey] = on }
     }
 
     suspend fun setNasDefaultHost(host: String) {

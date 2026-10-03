@@ -58,8 +58,6 @@ import com.dexter.data.Themes
 import com.dexter.ui.CardRow
 import com.dexter.ui.Cover
 import com.dexter.ui.GenreLabel
-import com.dexter.ui.discover.HiddenGem
-import com.dexter.ui.discover.HiddenGemRow
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -74,10 +72,6 @@ internal fun Idle(
     onOpenAuthor: (id: String, name: String) -> Unit,
     onBrowse: (String) -> Unit,
     onTag: (String) -> Unit,
-    /** The hidden-gems feed, null until loaded; hidden entirely when [gemsEnabled] is false. */
-    gems: List<HiddenGem>?,
-    gemsEnabled: Boolean,
-    onLoadGems: () -> Unit,
 ) {
     // Which tag sections are open. Browse and Genres start open, the long lists start closed.
     var open by rememberSaveable { mutableStateOf(setOf("Browse", "Genres")) }
@@ -171,42 +165,6 @@ internal fun Idle(
         tagSection("Genres", Genres.map { it.name }, "Genres" in open, toggle, onTag)
         tagSection("Suggestive", SuggestiveTags, "Suggestive" in open, toggle, onTag)
         tagSection("Themes", Themes, "Themes" in open, toggle, onTag)
-        // High-rated but little-followed series, loaded on demand.
-        if (gemsEnabled) {
-            val gemsOpen = "Hidden gems" in open
-            item(key = "section-gems") {
-                Row(
-                    Modifier.fillMaxWidth().clickable {
-                        toggle("Hidden gems")
-                        if (!gemsOpen) onLoadGems()
-                    }.padding(top = 16.dp, bottom = 10.dp)
-                        .semantics { role = Role.Button; stateDescription = if (gemsOpen) "Open" else "Closed" },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Hidden gems", style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.weight(1f))
-                    Icon(if (gemsOpen) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
-                }
-                if (gemsOpen) {
-                    val list = gems
-                    when {
-                        list == null -> Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) {
-                            CircularProgressIndicator(Modifier.size(24.dp))
-                        }
-                        list.isEmpty() -> Text(
-                            "No hidden gems right now. Check back later.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                    }
-                }
-            }
-            if (gemsOpen) {
-                items(gems.orEmpty(), key = { "gem-${it.detail.summary.id}" }) { gem ->
-                    HiddenGemRow(gem, onOpenSeries)
-                }
-            }
-        }
         item { Box(Modifier.padding(bottom = 24.dp)) }
     }
 }

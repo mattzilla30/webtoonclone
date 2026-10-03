@@ -59,14 +59,13 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Quality-of-life settings: spoiler-safe blur and the hidden-gems feed toggle. Backed by [QolPrefs], not the shared [com.dexter.data.Settings]. Wired into the
+ * Quality-of-life settings: spoiler-safe blur. Backed by [QolPrefs], not the shared [com.dexter.data.Settings]. Wired into the
  * Settings screen by calling [QolSettingsSection]; see the insertion snippet in the task report.
  */
 @Composable
 fun QolSettingsSection(qol: QolPrefs) {
     val scope = rememberCoroutineScope()
     val spoilerBlur by qol.spoilerBlur.collectAsState(initial = false)
-    val hiddenGems by qol.hiddenGemsEnabled.collectAsState(initial = true)
 
     SettingsBlock("Quality of life") {
         SwitchRow(
@@ -74,11 +73,6 @@ fun QolSettingsSection(qol: QolPrefs) {
             "Blur covers until a series is started, and blur chapter art ahead of your current position.",
             spoilerBlur,
         ) { on -> scope.launch { qol.setSpoilerBlur(on) } }
-        SwitchRow(
-            "Hidden gems feed",
-            "Show high-rated but little-followed series in Discover.",
-            hiddenGems,
-        ) { on -> scope.launch { qol.setHiddenGemsEnabled(on) } }
     }
 }
 

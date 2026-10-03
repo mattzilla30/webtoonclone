@@ -590,7 +590,9 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                 if (!settings.setupDone) {
                     FirstRunSetup(settings) { change -> scope.launch { app.settingsStore.update(change) } }
                 } else if (settings.appLock && AppLock.locked) {
-                    LockScreen()
+                    // The mode comes straight from the settings, so a cold start in PIN mode never flashes
+                    // the fingerprint prompt before the pushed-down AppLock.lockMode catches up.
+                    LockScreen(settings.lockMode)
                 }
             }
         }

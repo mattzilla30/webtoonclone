@@ -115,18 +115,18 @@ object AppLock {
  * prompt opens by itself, and the button opens it again.
  */
 @Composable
-fun LockScreen() {
+fun LockScreen(mode: LockMode) {
     val context = LocalContext.current
     // A PIN lock with no stored PIN (damaged data, or one cleared elsewhere) could never be opened,
     // so it falls back to the phone's own screen lock.
-    val hasPin by produceState<Boolean?>(null, AppLock.lockMode) {
-        value = AppLock.lockMode != LockMode.AppPin || LockPinStore(context).hasPin()
+    val hasPin by produceState<Boolean?>(null, mode) {
+        value = mode != LockMode.AppPin || LockPinStore(context).hasPin()
     }
     when {
         hasPin == null -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
-        AppLock.lockMode == LockMode.AppPin && hasPin == true -> PinEntryScreen(onUnlocked = { AppLock.locked = false })
+        mode == LockMode.AppPin && hasPin == true -> PinEntryScreen(onUnlocked = { AppLock.locked = false })
         // No PIN and no screen lock on the phone either: nothing could ever open it, so it opens.
-        AppLock.lockMode == LockMode.AppPin && !phoneCanAuthenticate(context) -> LaunchedEffect(Unit) { AppLock.locked = false }
+        mode == LockMode.AppPin && !phoneCanAuthenticate(context) -> LaunchedEffect(Unit) { AppLock.locked = false }
         else -> BiometricLockScreen()
     }
 }

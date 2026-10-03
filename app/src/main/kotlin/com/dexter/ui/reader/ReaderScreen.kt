@@ -48,9 +48,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -61,6 +63,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
@@ -202,6 +206,12 @@ private val PLACEHOLDER_HEIGHT = 500.dp
 
 /** On a tablet a vertical strip this wide reads better than one stretched across the screen. */
 private val MAX_STRIP_WIDTH = 720.dp
+
+/** Saves the reading cursor across recreation (rotation): segment and page as plain ints. */
+private val CursorStateSaver: Saver<MutableState<Cursor>, ArrayList<Int>> = Saver(
+    save = { arrayListOf(it.value.segment, it.value.page) },
+    restore = { saved -> mutableStateOf(Cursor(saved[0], saved[1])) },
+)
 
 /** Pixels scrolled per 60 Hz frame at each auto-scroll level. Level 0 is off. */
 private val AUTO_SCROLL_PX = floatArrayOf(0f, 1.5f, 3f, 5f, 8f, 12f)
@@ -359,6 +369,7 @@ private fun ReaderContent(
     // Bumped on every touch of the bars, so auto-hide waits for you to stop using them.
     var barTouch by remember { mutableIntStateOf(0) }
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
+    val appendFailed by viewModel.appendFailed.collectAsStateWithLifecycle()
     val eInk = settings.eInkMode
     val reduceMotion = remember(context, settings) { reduceMotionEnabled(context, settings) }
     // Guided panel stepping keeps its own camera state for the page on screen.
@@ -448,7 +459,8 @@ private fun ReaderContent(
 
     // The place on screen. When the mode changes, the newly shown layout is moved to it first, and then follows it.
     val startPage = page.startPage.coerceIn(0, (page.first.pages.size - 1).coerceAtLeast(0))
-    var cursor by remember { mutableStateOf(Cursor(0, startPage)) }
+    // Saved across recreation, so rotating keeps your page instead of jumping to the chapter's start page.
+    var cursor by rememberSaveable(saver = CursorStateSaver) { mutableStateOf(Cursor(0, startPage)) }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = stripIndexOf(strip, 0, startPage))
 
     // Paged mode shows one chapter at a time: the one you were in when it opened.
@@ -776,7 +788,8 @@ private fun ReaderContent(
 
     // Text-to-speech narration: reads page announcements aloud through a foreground service, so it
     // keeps going with the screen off and headset buttons control it. Stops when the reader closes.
-    var narrationRunning by remember { mutableStateOf(ReaderTtsService.running) }
+    // Collected from the service, so the icon follows it even when narration stops on its own.
+    val narrationRunning by ReaderTtsService.runningFlow.collectAsStateWithLifecycle()
     fun toggleNarration() {
         if (ReaderTtsService.running) {
             ReaderTtsService.toggle(context)
@@ -791,7 +804,6 @@ private fun ReaderContent(
                 a11y.ttsAutoAdvance,
             )
         }
-        narrationRunning = ReaderTtsService.running
     }
     DisposableEffect(Unit) {
         onDispose { if (ReaderTtsService.running) ReaderTtsService.stop(context) }
@@ -1062,6 +1074,8 @@ private fun ReaderContent(
                                         segment = segment,
                                         textColor = onPage,
                                         continuing = continuous && segment.nextId != null && segments.size < MAX_SEGMENTS,
+                                        appendFailed = appendFailed,
+                                        onRetryAppend = viewModel::appendNext,
                                         onOpenChapter = onOpenChapter,
                                         onComments = { openComments(viewModel, context, segment) },
                                         modifier = Modifier.fillMaxWidth(),
@@ -1257,7 +1271,11 @@ private fun ReaderContent(
             if (showSleepDialog) {
                 SleepTimerDialog(
                     currentMinutes = readerUi.sleepTimerMinutes,
-                    onSelect = { minutes -> scope.launch { uiPrefs.setSleepTimerMinutes(minutes) } },
+                    onSelect = { minutes ->
+                        // The countdown runs from the moment the length is chosen, not from the next chapter.
+                        SleepTimerClock.start(minutes)
+                        scope.launch { uiPrefs.setSleepTimerMinutes(minutes) }
+                    },
                     onDismiss = { showSleepDialog = false },
                 )
             }
@@ -1505,10 +1523,17 @@ private fun EndOfChapter(
     onOpenChapter: (String) -> Unit,
     onComments: () -> Unit,
     modifier: Modifier,
+    /** The next chapter failed to join the strip: offer a retry instead of a stuck loader. */
+    appendFailed: Boolean = false,
+    onRetryAppend: () -> Unit = {},
 ) {
     Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text("End of Ep. ${segment.chapter.number}", color = textColor, style = MaterialTheme.typography.titleMediumEmphasized)
         when {
+            continuing && appendFailed -> {
+                Text("Couldn't load the next episode.", color = textColor, modifier = Modifier.padding(top = 16.dp))
+                TextButton(onClick = onRetryAppend, modifier = Modifier.padding(top = 4.dp)) { Text("Retry") }
+            }
             continuing -> Text("Loading the next episode...", color = textColor, modifier = Modifier.padding(top = 16.dp))
             segment.nextId != null -> Button(
                 onClick = { onOpenChapter(segment.nextId) },

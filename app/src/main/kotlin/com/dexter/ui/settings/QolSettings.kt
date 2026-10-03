@@ -71,22 +71,23 @@ fun QolSettingsSection(qol: QolPrefs) {
     val hiddenGems by qol.hiddenGemsEnabled.collectAsState(initial = true)
     val surpriseFilter by qol.surpriseFilter.collectAsState(initial = null)
 
-    SectionTitle("Quality of life")
-    SwitchRow(
-        "Spoiler-safe blur",
-        "Blur covers until a series is started, and blur chapter art ahead of your current position.",
-        spoilerBlur,
-    ) { on -> scope.launch { qol.setSpoilerBlur(on) } }
-    SwitchRow(
-        "Hidden gems feed",
-        "Show high-rated but little-followed series in Discover.",
-        hiddenGems,
-    ) { on -> scope.launch { qol.setHiddenGemsEnabled(on) } }
-    ChoiceRow(
-        "Surprise-me filter",
-        SurpriseFilter.entries.map { it to it.label },
-        SurpriseFilter.entries.firstOrNull { it.name == surpriseFilter } ?: SurpriseFilter.ANY,
-    ) { choice -> scope.launch { qol.setSurpriseFilter(choice.name.takeIf { it != SurpriseFilter.ANY.name }) } }
+    SettingsBlock("Quality of life") {
+        SwitchRow(
+            "Spoiler-safe blur",
+            "Blur covers until a series is started, and blur chapter art ahead of your current position.",
+            spoilerBlur,
+        ) { on -> scope.launch { qol.setSpoilerBlur(on) } }
+        SwitchRow(
+            "Hidden gems feed",
+            "Show high-rated but little-followed series in Discover.",
+            hiddenGems,
+        ) { on -> scope.launch { qol.setHiddenGemsEnabled(on) } }
+        ChoiceRow(
+            "Surprise-me filter",
+            SurpriseFilter.entries.map { it to it.label },
+            SurpriseFilter.entries.firstOrNull { it.name == surpriseFilter } ?: SurpriseFilter.ANY,
+        ) { choice -> scope.launch { qol.setSurpriseFilter(choice.name.takeIf { it != SurpriseFilter.ANY.name }) } }
+    }
 }
 
 /**
@@ -110,69 +111,70 @@ fun NasSharesSection(store: NasShareStore) {
         }
     }
 
-    SectionTitle("NAS shares")
-    CardRow {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            if (shares.isEmpty()) {
-                Text(
-                    "No shares yet. Add your NAS folder to browse and stream CBZ files from it.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-            }
-            shares.forEach { share ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
-                        Text(share.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            if (share.treeUri.isNotBlank()) "Connected" else "Tap + then pick its folder",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = { scope.launch { store.remove(share.id) } }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove ${share.name}")
+    SettingsBlock("NAS shares") {
+        CardRow {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                if (shares.isEmpty()) {
+                    Text(
+                        "No shares yet. Add your NAS folder to browse and stream CBZ files from it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+                shares.forEach { share ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                            Text(share.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                if (share.treeUri.isNotBlank()) "Connected" else "Tap + then pick its folder",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { scope.launch { store.remove(share.id) } }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Remove ${share.name}")
+                        }
                     }
                 }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = { adding = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add NAS share")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(onClick = { adding = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add NAS share")
+                    }
                 }
             }
         }
-    }
 
-    if (adding) {
-        var name by remember { mutableStateOf("") }
-        var host by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { adding = false },
-            title = { Text("Add NAS share") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
-                    OutlinedTextField(host, { host = it }, label = { Text("Host (optional)") }, singleLine = true)
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (name.isBlank()) return@TextButton
-                        val share = NasShare(id = UUID.randomUUID().toString(), name = name.trim(), host = host.trim())
-                        pendingShare = share
-                        adding = false
-                        scope.launch {
-                            store.add(share)
-                            // The folder pick grants the persisted SAF permission the bookmark needs.
-                            picker.launch(null)
-                        }
-                    },
-                ) { Text("Pick folder") }
-            },
-            dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } },
-        )
+        if (adding) {
+            var name by remember { mutableStateOf("") }
+            var host by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { adding = false },
+                title = { Text("Add NAS share") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                        OutlinedTextField(host, { host = it }, label = { Text("Host (optional)") }, singleLine = true)
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (name.isBlank()) return@TextButton
+                            val share = NasShare(id = UUID.randomUUID().toString(), name = name.trim(), host = host.trim())
+                            pendingShare = share
+                            adding = false
+                            scope.launch {
+                                store.add(share)
+                                // The folder pick grants the persisted SAF permission the bookmark needs.
+                                picker.launch(null)
+                            }
+                        },
+                    ) { Text("Pick folder") }
+                },
+                dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } },
+            )
+        }
     }
 }
 
@@ -190,65 +192,66 @@ fun LocalImportSection(qol: QolPrefs, libraryStore: LibraryStore) {
     var scanned by remember { mutableStateOf<List<LocalSeries>?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
 
-    SectionTitle("Local comics")
-    if (!editing) {
-        InfoRow(
-            "Comics folder",
-            folder ?: "Not set. Dexter scans it for CBZ and CBR files.",
-            onClick = { editing = true },
-        )
-    } else {
-        OutlinedTextField(
-            value = path,
-            onValueChange = { path = it },
-            label = { Text("Folder path") },
-            placeholder = { Text("/storage/emulated/0/Comics") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        )
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(
-                onClick = {
-                    scope.launch { qol.setLocalFolder(path) }
-                    editing = false
-                    scanned = null
-                },
-            ) { Text("Save") }
-            TextButton(onClick = { editing = false; path = folder.orEmpty() }) { Text("Cancel") }
-        }
-    }
-    if (folder != null) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(
-                onClick = {
-                    message = null
-                    scanned = null
-                    scope.launch {
-                        val found = runCatching { scanLocalRoot(File(folder)) }
-                        scanned = found.getOrDefault(emptyList())
-                        message = found.fold(
-                            { "${scanned.orEmpty().size} series found" },
-                            { "Could not read that folder: ${it.message}" },
-                        )
-                    }
-                },
-            ) { Text("Scan") }
-            if (!scanned.isNullOrEmpty()) {
+    SettingsBlock("Local comics") {
+        if (!editing) {
+            InfoRow(
+                "Comics folder",
+                folder ?: "Not set. Dexter scans it for CBZ and CBR files.",
+                onClick = { editing = true },
+            )
+        } else {
+            OutlinedTextField(
+                value = path,
+                onValueChange = { path = it },
+                label = { Text("Folder path") },
+                placeholder = { Text("/storage/emulated/0/Comics") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(
                     onClick = {
-                        scope.launch {
-                            scanned.orEmpty().forEach { series ->
-                                libraryStore.setStatus(series.toSavedSeries(), ReadingStatus.Reading)
-                            }
-                            message = "Added ${scanned.orEmpty().size} series to the library"
-                            scanned = null
-                        }
+                        scope.launch { qol.setLocalFolder(path) }
+                        editing = false
+                        scanned = null
                     },
-                ) { Text("Add ${scanned.orEmpty().size} to library") }
+                ) { Text("Save") }
+                TextButton(onClick = { editing = false; path = folder.orEmpty() }) { Text("Cancel") }
             }
         }
+        if (folder != null) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = {
+                        message = null
+                        scanned = null
+                        scope.launch {
+                            val found = runCatching { scanLocalRoot(File(folder)) }
+                            scanned = found.getOrDefault(emptyList())
+                            message = found.fold(
+                                { "${scanned.orEmpty().size} series found" },
+                                { "Could not read that folder: ${it.message}" },
+                            )
+                        }
+                    },
+                ) { Text("Scan") }
+                if (!scanned.isNullOrEmpty()) {
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                scanned.orEmpty().forEach { series ->
+                                    libraryStore.setStatus(series.toSavedSeries(), ReadingStatus.Reading)
+                                }
+                                message = "Added ${scanned.orEmpty().size} series to the library"
+                                scanned = null
+                            }
+                        },
+                    ) { Text("Add ${scanned.orEmpty().size} to library") }
+                }
+            }
+        }
+        message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
     }
-    message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp)) }
 }
 
 /**
@@ -264,68 +267,69 @@ fun WebDavSection(qol: QolPrefs) {
     var adding by remember { mutableStateOf(false) }
     var browsing by remember { mutableStateOf<WebDavAccount?>(null) }
 
-    SectionTitle("Cloud (WebDAV)")
-    if (accounts.isEmpty()) {
-        Text(
-            "No cloud accounts. Add your WebDAV server to browse its CBZ files.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        )
-    }
-    accounts.forEach { account ->
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
-                Text(account.name, style = MaterialTheme.typography.bodyLarge)
-                Text(account.baseUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            TextButton(onClick = { browsing = account }) { Text("Browse") }
-            IconButton(onClick = { scope.launch { qol.removeWebdavAccount(account.name) } }) {
-                Icon(Icons.Default.Delete, contentDescription = "Remove ${account.name}")
+    SettingsBlock("Cloud (WebDAV)") {
+        if (accounts.isEmpty()) {
+            Text(
+                "No cloud accounts. Add your WebDAV server to browse its CBZ files.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        accounts.forEach { account ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                    Text(account.name, style = MaterialTheme.typography.bodyLarge)
+                    Text(account.baseUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = { browsing = account }) { Text("Browse") }
+                IconButton(onClick = { scope.launch { qol.removeWebdavAccount(account.name) } }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remove ${account.name}")
+                }
             }
         }
-    }
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        TextButton(onClick = { adding = true }) { Text("Add WebDAV server") }
-    }
-    if (adding) {
-        var name by remember { mutableStateOf("") }
-        var url by remember { mutableStateOf("") }
-        var username by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { adding = false },
-            title = { Text("Add WebDAV server") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
-                    OutlinedTextField(url, { url = it }, label = { Text("Base URL") }, placeholder = { Text("https://nas.local/remote.php/dav/files/user/Manga") }, singleLine = true)
-                    OutlinedTextField(username, { username = it }, label = { Text("Username (optional)") }, singleLine = true)
-                    Text(
-                        "The password is asked each time you connect and is never stored.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = name.isNotBlank() && url.isNotBlank(),
-                    onClick = {
-                        scope.launch { qol.addWebdavAccount(WebDavAccount(name.trim(), url.trim(), username.trim())) }
-                        adding = false
-                    },
-                ) { Text("Add") }
-            },
-            dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } },
-        )
-    }
-    browsing?.let { account ->
-        WebDavBrowser(
-            account = account,
-            client = client,
-            cacheDir = context.cacheDir,
-            onDismiss = { browsing = null },
-        )
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            TextButton(onClick = { adding = true }) { Text("Add WebDAV server") }
+        }
+        if (adding) {
+            var name by remember { mutableStateOf("") }
+            var url by remember { mutableStateOf("") }
+            var username by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { adding = false },
+                title = { Text("Add WebDAV server") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                        OutlinedTextField(url, { url = it }, label = { Text("Base URL") }, placeholder = { Text("https://nas.local/remote.php/dav/files/user/Manga") }, singleLine = true)
+                        OutlinedTextField(username, { username = it }, label = { Text("Username (optional)") }, singleLine = true)
+                        Text(
+                            "The password is asked each time you connect and is never stored.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = name.isNotBlank() && url.isNotBlank(),
+                        onClick = {
+                            scope.launch { qol.addWebdavAccount(WebDavAccount(name.trim(), url.trim(), username.trim())) }
+                            adding = false
+                        },
+                    ) { Text("Add") }
+                },
+                dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } },
+            )
+        }
+        browsing?.let { account ->
+            WebDavBrowser(
+                account = account,
+                client = client,
+                cacheDir = context.cacheDir,
+                onDismiss = { browsing = null },
+            )
+        }
     }
 }
 
@@ -444,117 +448,118 @@ fun CloudOAuthSection(qol: QolPrefs) {
         signedIn = accounts.associate { it.name to tokenStore.isSignedIn(it.provider, it.name) }
     }
 
-    SectionTitle("Cloud (Drive / Dropbox)")
-    Text(
-        "Browse CBZ files on Google Drive or Dropbox. Paste your own OAuth client ID (Google Cloud Console, Desktop-app type) or app key (Dropbox App Console, with dexter://oauth/dropbox as a redirect URI).",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-    )
-    if (keysLoaded) {
-        OutlinedTextField(
-            value = driveId,
-            onValueChange = { driveId = it },
-            label = { Text("Google OAuth client ID") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            singleLine = true,
-        )
-        OutlinedTextField(
-            value = dropboxKey,
-            onValueChange = { dropboxKey = it },
-            label = { Text("Dropbox app key") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            singleLine = true,
-        )
-        Row(Modifier.padding(horizontal = 16.dp)) {
-            TextButton(onClick = {
-                scope.launch {
-                    tokenStore.setClientId(CloudProviderType.GOOGLE_DRIVE, driveId)
-                    tokenStore.setClientId(CloudProviderType.DROPBOX, dropboxKey)
-                    message = "Keys saved."
-                }
-            }) { Text("Save keys") }
-        }
-    }
-    accounts.forEach { account ->
-        val isIn = signedIn[account.name] == true
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
-                Text(account.name, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    account.provider.label + if (isIn) " · signed in" else " · not signed in",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (isIn) {
-                TextButton(onClick = {
-                    scope.launch {
-                        tokenStore.clearTokens(account.provider, account.name)
-                        signedIn = signedIn + (account.name to false)
-                    }
-                }) { Text("Sign out") }
-            } else {
-                TextButton(onClick = {
-                    scope.launch {
-                        val url = try {
-                            when (account.provider) {
-                                CloudProviderType.GOOGLE_DRIVE -> CloudOAuth.startDriveSignIn(tokenStore, account.name, driveId)
-                                CloudProviderType.DROPBOX -> CloudOAuth.startDropboxSignIn(tokenStore, account.name, dropboxKey)
-                                CloudProviderType.WEBDAV -> null
-                            }
-                        } catch (e: Exception) {
-                            message = e.message ?: "Could not start sign-in."
-                            null
-                        }
-                        if (url != null) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    }
-                }) { Text("Sign in") }
-            }
-            IconButton(onClick = {
-                scope.launch {
-                    tokenStore.clearTokens(account.provider, account.name)
-                    qol.removeOauthAccount(account.name)
-                }
-            }) { Icon(Icons.Default.Delete, contentDescription = "Remove ${account.name}") }
-        }
-    }
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        TextButton(onClick = { adding = true }) { Text("Add cloud account") }
-    }
-    message?.let {
+    SettingsBlock("Cloud (Drive / Dropbox)") {
         Text(
-            it,
+            "Browse CBZ files on Google Drive or Dropbox. Paste your own OAuth client ID (Google Cloud Console, Desktop-app type) or app key (Dropbox App Console, with dexter://oauth/dropbox as a redirect URI).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
-    }
-    if (adding) {
-        var name by remember { mutableStateOf("") }
-        var provider by remember { mutableStateOf(CloudProviderType.GOOGLE_DRIVE) }
-        AlertDialog(
-            onDismissRequest = { adding = false },
-            title = { Text("Add cloud account") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ChoiceChip("Google Drive", provider == CloudProviderType.GOOGLE_DRIVE) { provider = CloudProviderType.GOOGLE_DRIVE }
-                        ChoiceChip("Dropbox", provider == CloudProviderType.DROPBOX) { provider = CloudProviderType.DROPBOX }
+        if (keysLoaded) {
+            OutlinedTextField(
+                value = driveId,
+                onValueChange = { driveId = it },
+                label = { Text("Google OAuth client ID") },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = dropboxKey,
+                onValueChange = { dropboxKey = it },
+                label = { Text("Dropbox app key") },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                singleLine = true,
+            )
+            Row(Modifier.padding(horizontal = 16.dp)) {
+                TextButton(onClick = {
+                    scope.launch {
+                        tokenStore.setClientId(CloudProviderType.GOOGLE_DRIVE, driveId)
+                        tokenStore.setClientId(CloudProviderType.DROPBOX, dropboxKey)
+                        message = "Keys saved."
                     }
+                }) { Text("Save keys") }
+            }
+        }
+        accounts.forEach { account ->
+            val isIn = signedIn[account.name] == true
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                    Text(account.name, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        account.provider.label + if (isIn) " · signed in" else " · not signed in",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = name.isNotBlank(),
-                    onClick = {
-                        scope.launch { qol.addOauthAccount(OAuthAccount(name.trim(), provider)) }
-                        adding = false
-                    },
-                ) { Text("Add") }
-            },
-            dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } },
-        )
+                if (isIn) {
+                    TextButton(onClick = {
+                        scope.launch {
+                            tokenStore.clearTokens(account.provider, account.name)
+                            signedIn = signedIn + (account.name to false)
+                        }
+                    }) { Text("Sign out") }
+                } else {
+                    TextButton(onClick = {
+                        scope.launch {
+                            val url = try {
+                                when (account.provider) {
+                                    CloudProviderType.GOOGLE_DRIVE -> CloudOAuth.startDriveSignIn(tokenStore, account.name, driveId)
+                                    CloudProviderType.DROPBOX -> CloudOAuth.startDropboxSignIn(tokenStore, account.name, dropboxKey)
+                                    CloudProviderType.WEBDAV -> null
+                                }
+                            } catch (e: Exception) {
+                                message = e.message ?: "Could not start sign-in."
+                                null
+                            }
+                            if (url != null) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        }
+                    }) { Text("Sign in") }
+                }
+                IconButton(onClick = {
+                    scope.launch {
+                        tokenStore.clearTokens(account.provider, account.name)
+                        qol.removeOauthAccount(account.name)
+                    }
+                }) { Icon(Icons.Default.Delete, contentDescription = "Remove ${account.name}") }
+            }
+        }
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            TextButton(onClick = { adding = true }) { Text("Add cloud account") }
+        }
+        message?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        if (adding) {
+            var name by remember { mutableStateOf("") }
+            var provider by remember { mutableStateOf(CloudProviderType.GOOGLE_DRIVE) }
+            AlertDialog(
+                onDismissRequest = { adding = false },
+                title = { Text("Add cloud account") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ChoiceChip("Google Drive", provider == CloudProviderType.GOOGLE_DRIVE) { provider = CloudProviderType.GOOGLE_DRIVE }
+                            ChoiceChip("Dropbox", provider == CloudProviderType.DROPBOX) { provider = CloudProviderType.DROPBOX }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = name.isNotBlank(),
+                        onClick = {
+                            scope.launch { qol.addOauthAccount(OAuthAccount(name.trim(), provider)) }
+                            adding = false
+                        },
+                    ) { Text("Add") }
+                },
+                dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancel") } },
+            )
+        }
     }
 }

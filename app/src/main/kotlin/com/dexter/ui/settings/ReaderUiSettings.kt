@@ -54,137 +54,148 @@ internal fun ReaderUiSection() {
     val scope = rememberCoroutineScope()
     fun set(change: suspend ReaderUiPrefs.() -> Unit) = scope.launch { prefs.change() }
 
-    SectionTitle("Chapter navigation")
-    SwitchRow(
-        "Thumbnail grid",
-        "Tap the page counter to open a thumbnail grid of the chapter instead of the go-to-page dialog.",
-        ui.thumbnailsEnabled,
-    ) { on -> set { setThumbnailsEnabled(on) } }
-    SwitchRow(
-        "Scrubber previews",
-        "While dragging the page slider, show the page under your thumb.",
-        ui.scrubberPreview,
-    ) { on -> set { setScrubberPreview(on) } }
-
-    SectionTitle("Reader toolbar")
-    Searchable("Reader toolbar", "buttons", "reorder", "customize") {
-        Text(
-            "Choose which buttons the reader's bars show, and in what order.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
+    SettingsBlock("Chapter navigation") {
+        SwitchRow(
+            "Thumbnail grid",
+            "Tap the page counter to open a thumbnail grid of the chapter instead of the go-to-page dialog.",
+            ui.thumbnailsEnabled,
+        ) { on -> set { setThumbnailsEnabled(on) } }
+        SwitchRow(
+            "Scrubber previews",
+            "While dragging the page slider, show the page under your thumb.",
+            ui.scrubberPreview,
+        ) { on -> set { setScrubberPreview(on) } }
     }
-    ToolbarEditor(
-        top = toolbarActionsOrDefault(ui.topActionsCsv, defaultTopActions),
-        bottom = toolbarActionsOrDefault(ui.bottomActionsCsv, defaultBottomActions),
-        onTopChange = { actions -> set { setTopActions(serializeToolbarActions(actions)) } },
-        onBottomChange = { actions -> set { setBottomActions(serializeToolbarActions(actions)) } },
-    )
 
-    SectionTitle("Binge mode")
-    SwitchRow(
-        "Binge mode",
-        "At the end of a chapter, count down and open the next episode automatically, like the next-episode prompt on TV.",
-        ui.bingeMode,
-    ) { on -> set { setBingeMode(on) } }
-    ChoiceRow(
-        "Countdown length",
-        listOf(3 to "3 seconds", 5 to "5 seconds", 10 to "10 seconds"),
-        ui.bingeSeconds,
-    ) { seconds -> set { setBingeSeconds(seconds) } }
-
-    SectionTitle("Back gesture")
-    SwitchRow(
-        "Predictive back",
-        "On Android 14 and newer, the reader shrinks away with your swipe instead of closing abruptly.",
-        ui.predictiveBack,
-    ) { on -> set { setPredictiveBack(on) } }
-
-    SectionTitle("Stylus")
-    SwitchRow(
-        "Pen button page turns",
-        "The S Pen barrel button turns pages: the primary button forward, the secondary button back.",
-        ui.stylusPenButton,
-    ) { on -> set { setStylusPenButton(on) } }
-    SwitchRow(
-        "Hover peek zoom",
-        "Hovering the pen over a page shows a 2x magnifier under its tip.",
-        ui.stylusHoverPeek,
-    ) { on -> set { setStylusHoverPeek(on) } }
-
-    SectionTitle("Device class")
-    SwitchRow(
-        "Per-device reading mode",
-        "Phones read as a vertical strip; tablets and unfolded foldables use the tablet mode below. A series' own mode choice always wins.",
-        ui.deviceClassMode,
-    ) { on -> set { setDeviceClassMode(on) } }
-    ChoiceRow(
-        "Tablet mode",
-        listOf(ReadingMode.PagedLtr to "Pages, left to right", ReadingMode.PagedRtl to "Pages, right to left"),
-        ui.tabletReadingMode(),
-    ) { mode -> set { setTabletMode(mode) } }
-
-    SectionTitle("Two-page spreads")
-    SwitchRow(
-        "Spread-aware pairing",
-        "Wide pages are detected as two-page spreads and get a full-width slot instead of being paired up.",
-        ui.spreadAware,
-    ) { on -> set { setSpreadAware(on) } }
-    Searchable("spreads", "pairing", "shift") {
-        Text(
-            "When a chapter still pairs up wrong, the reader options sheet has a page-pairing shift that moves every pair by one page.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
+    SettingsBlock("Reader toolbar") {
+        Searchable("Reader toolbar", "buttons", "reorder", "customize") {
+            Text(
+                "Choose which buttons the reader's bars show, and in what order.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        ToolbarEditor(
+            top = toolbarActionsOrDefault(ui.topActionsCsv, defaultTopActions),
+            bottom = toolbarActionsOrDefault(ui.bottomActionsCsv, defaultBottomActions),
+            onTopChange = { actions -> set { setTopActions(serializeToolbarActions(actions)) } },
+            onBottomChange = { actions -> set { setBottomActions(serializeToolbarActions(actions)) } },
         )
     }
 
-    SectionTitle("Strip style")
-    ChoiceRow(
-        "Space between pages",
-        listOf(-1 to "Follow reader setting", 0 to "None", 8 to "Small", 16 to "Medium", 32 to "Large"),
-        ui.stripGapDp,
-    ) { gap -> set { setStripGapDp(gap) } }
-    ChoiceRow(
-        "Page corners",
-        listOf(0 to "Square", 4 to "Slightly rounded", 8 to "Rounded", 16 to "Very rounded"),
-        ui.stripCornerDp,
-    ) { corners -> set { setStripCornerDp(corners) } }
-    ChoiceRow(
-        "Strip background",
-        StripBackground.entries.map { it to it.name },
-        parseStripBackground(ui.stripBg),
-    ) { choice -> set { setStripBg(choice.name) } }
-
-    SectionTitle("Color pages")
-    SwitchRow(
-        "Exempt color pages from night filters",
-        "Pages detected as color skip the greyscale and tint filters, so night reading never washes them out.",
-        ui.colorPageExempt,
-    ) { on -> set { setColorPageExempt(on) } }
-
-    SectionTitle("Sleep timer")
-    ChoiceRow(
-        "Sleep timer",
-        listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minutes", 45 to "45 minutes", 60 to "1 hour"),
-        ui.sleepTimerMinutes,
-    ) { minutes -> set { setSleepTimerMinutes(minutes) } }
-    Searchable("Sleep timer") {
-        Text(
-            "When the time is up, auto-scroll stops and the screen dims. Changing the length restarts the countdown. The toolbar can hold a sleep timer button too.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
+    SettingsBlock("Binge mode") {
+        SwitchRow(
+            "Binge mode",
+            "At the end of a chapter, count down and open the next episode automatically, like the next-episode prompt on TV.",
+            ui.bingeMode,
+        ) { on -> set { setBingeMode(on) } }
+        ChoiceRow(
+            "Countdown length",
+            listOf(3 to "3 seconds", 5 to "5 seconds", 10 to "10 seconds"),
+            ui.bingeSeconds,
+        ) { seconds -> set { setBingeSeconds(seconds) } }
     }
 
-    SectionTitle("Data saver")
-    SwitchRow(
-        "Data saver on metered connections",
-        "Automatically load the smaller page images on mobile data or metered Wi-Fi. Combines with the manual Data saver toggle.",
-        ui.dataSaverAutoMetered,
-    ) { on -> set { setDataSaverAutoMetered(on) } }
+    SettingsBlock("Back gesture") {
+        SwitchRow(
+            "Predictive back",
+            "On Android 14 and newer, the reader shrinks away with your swipe instead of closing abruptly.",
+            ui.predictiveBack,
+        ) { on -> set { setPredictiveBack(on) } }
+    }
+
+    SettingsBlock("Stylus") {
+        SwitchRow(
+            "Pen button page turns",
+            "The S Pen barrel button turns pages: the primary button forward, the secondary button back.",
+            ui.stylusPenButton,
+        ) { on -> set { setStylusPenButton(on) } }
+        SwitchRow(
+            "Hover peek zoom",
+            "Hovering the pen over a page shows a 2x magnifier under its tip.",
+            ui.stylusHoverPeek,
+        ) { on -> set { setStylusHoverPeek(on) } }
+    }
+
+    SettingsBlock("Device class") {
+        SwitchRow(
+            "Per-device reading mode",
+            "Phones read as a vertical strip; tablets and unfolded foldables use the tablet mode below. A series' own mode choice always wins.",
+            ui.deviceClassMode,
+        ) { on -> set { setDeviceClassMode(on) } }
+        ChoiceRow(
+            "Tablet mode",
+            listOf(ReadingMode.PagedLtr to "Pages, left to right", ReadingMode.PagedRtl to "Pages, right to left"),
+            ui.tabletReadingMode(),
+        ) { mode -> set { setTabletMode(mode) } }
+    }
+
+    SettingsBlock("Two-page spreads") {
+        SwitchRow(
+            "Spread-aware pairing",
+            "Wide pages are detected as two-page spreads and get a full-width slot instead of being paired up.",
+            ui.spreadAware,
+        ) { on -> set { setSpreadAware(on) } }
+        Searchable("spreads", "pairing", "shift") {
+            Text(
+                "When a chapter still pairs up wrong, the reader options sheet has a page-pairing shift that moves every pair by one page.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+    }
+
+    SettingsBlock("Strip style") {
+        ChoiceRow(
+            "Space between pages",
+            listOf(-1 to "Follow reader setting", 0 to "None", 8 to "Small", 16 to "Medium", 32 to "Large"),
+            ui.stripGapDp,
+        ) { gap -> set { setStripGapDp(gap) } }
+        ChoiceRow(
+            "Page corners",
+            listOf(0 to "Square", 4 to "Slightly rounded", 8 to "Rounded", 16 to "Very rounded"),
+            ui.stripCornerDp,
+        ) { corners -> set { setStripCornerDp(corners) } }
+        ChoiceRow(
+            "Strip background",
+            StripBackground.entries.map { it to it.name },
+            parseStripBackground(ui.stripBg),
+        ) { choice -> set { setStripBg(choice.name) } }
+    }
+
+    SettingsBlock("Color pages") {
+        SwitchRow(
+            "Exempt color pages from night filters",
+            "Pages detected as color skip the greyscale and tint filters, so night reading never washes them out.",
+            ui.colorPageExempt,
+        ) { on -> set { setColorPageExempt(on) } }
+    }
+
+    SettingsBlock("Sleep timer") {
+        ChoiceRow(
+            "Sleep timer",
+            listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minutes", 45 to "45 minutes", 60 to "1 hour"),
+            ui.sleepTimerMinutes,
+        ) { minutes -> set { setSleepTimerMinutes(minutes) } }
+        Searchable("Sleep timer") {
+            Text(
+                "When the time is up, auto-scroll stops and the screen dims. Changing the length restarts the countdown. The toolbar can hold a sleep timer button too.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+    }
+
+    SettingsBlock("Data saver") {
+        SwitchRow(
+            "Data saver on metered connections",
+            "Automatically load the smaller page images on mobile data or metered Wi-Fi. Combines with the manual Data saver toggle.",
+            ui.dataSaverAutoMetered,
+        ) { on -> set { setDataSaverAutoMetered(on) } }
+    }
 }
 
 /** Reorders and toggles the reader's top and bottom bar buttons. */

@@ -45,79 +45,84 @@ internal fun A11ySection(prefs: A11yPrefs) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    SectionTitle("Narration")
-    SwitchRow(
-        "Read aloud",
-        "Narrate chapters with text-to-speech, even with the screen off. Headset buttons pause and resume.",
-        state.ttsEnabled,
-    ) { on -> scope.launch { prefs.setTtsEnabled(on) } }
-    if (state.ttsEnabled) {
+    SettingsBlock("Narration") {
         SwitchRow(
-            "Turn pages while narrating",
-            "The reader follows along as each page is announced.",
-            state.ttsAutoAdvance,
-        ) { on -> scope.launch { prefs.setTtsAutoAdvance(on) } }
-        SpeechRateRow(state.ttsSpeed) { speed -> scope.launch { prefs.setTtsSpeed(speed) } }
-    }
-
-    SectionTitle("Hearing and voice")
-    SwitchRow(
-        "Voice control",
-        "Say \"next page\", \"scroll down\", or \"go back\" in the reader. The mic only listens while you hold it on.",
-        state.voiceControl,
-    ) { on -> scope.launch { prefs.setVoiceControl(on) } }
-
-    SectionTitle("Reading type")
-    ChoiceRow(
-        "App typeface",
-        listOf(
-            AppFont.System to "System",
-            AppFont.OpenDyslexicStyle to "Dyslexia-friendly",
-            AppFont.CustomFile to "Custom font file",
-        ),
-        state.font,
-    ) { choice -> scope.launch { prefs.setFont(choice) } }
-    if (state.font == AppFont.CustomFile) {
-        val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-            if (uri != null) scope.launch {
-                if (installCustomFont(context, uri) != null) prefs.setCustomFontUri(uri.toString())
-            }
+            "Read aloud",
+            "Narrate chapters with text-to-speech, even with the screen off. Headset buttons pause and resume.",
+            state.ttsEnabled,
+        ) { on -> scope.launch { prefs.setTtsEnabled(on) } }
+        if (state.ttsEnabled) {
+            SwitchRow(
+                "Turn pages while narrating",
+                "The reader follows along as each page is announced.",
+                state.ttsAutoAdvance,
+            ) { on -> scope.launch { prefs.setTtsAutoAdvance(on) } }
+            SpeechRateRow(state.ttsSpeed) { speed -> scope.launch { prefs.setTtsSpeed(speed) } }
         }
-        InfoRow(
-            "Font file",
-            if (state.customFontUri.isBlank()) "Pick a .ttf or .otf, such as the free OpenDyslexic from opendyslexic.org." else "Installed. Pick again to replace it.",
-            onClick = { picker.launch(arrayOf("font/ttf", "font/otf", "application/octet-stream")) },
-        )
-    } else if (state.font == AppFont.OpenDyslexicStyle) {
-        InfoRow(
-            "About the dyslexia-friendly typeface",
-            "Dexter widens letter spacing for legibility. For the real OpenDyslexic letterforms, download them free from opendyslexic.org and pick the file under \"Custom font file\".",
-        )
     }
 
-    SectionTitle("Colour vision")
-    ChoiceRow(
-        "Colour-blind-safe theme",
-        listOf(
-            CvdTheme.None to "Off",
-            CvdTheme.DeuteranopiaSafe to "Deuteranopia",
-            CvdTheme.ProtanopiaSafe to "Protanopia",
-            CvdTheme.HighContrast to "High contrast",
-        ),
-        state.cvdTheme,
-    ) { choice -> scope.launch { prefs.setCvdTheme(choice) } }
-    if (state.cvdTheme != CvdTheme.None) {
-        CvdPreview(state.cvdTheme)
+    SettingsBlock("Hearing and voice") {
+        SwitchRow(
+            "Voice control",
+            "Say \"next page\", \"scroll down\", or \"go back\" in the reader. The mic only listens while you hold it on.",
+            state.voiceControl,
+        ) { on -> scope.launch { prefs.setVoiceControl(on) } }
     }
 
-    SectionTitle("Tall pages")
-    SwitchRow(
-        "Split tall pages",
-        "Cut oversized vertical pages into screen-sized segments so text stays legible.",
-        state.tallPageSplit,
-    ) { on -> scope.launch { prefs.setTallPageSplit(on) } }
-    if (state.tallPageSplit) {
-        SplitThresholdRow(state.tallSplitScreens) { screens -> scope.launch { prefs.setTallSplitScreens(screens) } }
+    SettingsBlock("Reading type") {
+        ChoiceRow(
+            "App typeface",
+            listOf(
+                AppFont.System to "System",
+                AppFont.OpenDyslexicStyle to "Dyslexia-friendly",
+                AppFont.CustomFile to "Custom font file",
+            ),
+            state.font,
+        ) { choice -> scope.launch { prefs.setFont(choice) } }
+        if (state.font == AppFont.CustomFile) {
+            val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                if (uri != null) scope.launch {
+                    if (installCustomFont(context, uri) != null) prefs.setCustomFontUri(uri.toString())
+                }
+            }
+            InfoRow(
+                "Font file",
+                if (state.customFontUri.isBlank()) "Pick a .ttf or .otf, such as the free OpenDyslexic from opendyslexic.org." else "Installed. Pick again to replace it.",
+                onClick = { picker.launch(arrayOf("font/ttf", "font/otf", "application/octet-stream")) },
+            )
+        } else if (state.font == AppFont.OpenDyslexicStyle) {
+            InfoRow(
+                "About the dyslexia-friendly typeface",
+                "Dexter widens letter spacing for legibility. For the real OpenDyslexic letterforms, download them free from opendyslexic.org and pick the file under \"Custom font file\".",
+            )
+        }
+    }
+
+    SettingsBlock("Colour vision") {
+        ChoiceRow(
+            "Colour-blind-safe theme",
+            listOf(
+                CvdTheme.None to "Off",
+                CvdTheme.DeuteranopiaSafe to "Deuteranopia",
+                CvdTheme.ProtanopiaSafe to "Protanopia",
+                CvdTheme.HighContrast to "High contrast",
+            ),
+            state.cvdTheme,
+        ) { choice -> scope.launch { prefs.setCvdTheme(choice) } }
+        if (state.cvdTheme != CvdTheme.None) {
+            CvdPreview(state.cvdTheme)
+        }
+    }
+
+    SettingsBlock("Tall pages") {
+        SwitchRow(
+            "Split tall pages",
+            "Cut oversized vertical pages into screen-sized segments so text stays legible.",
+            state.tallPageSplit,
+        ) { on -> scope.launch { prefs.setTallPageSplit(on) } }
+        if (state.tallPageSplit) {
+            SplitThresholdRow(state.tallSplitScreens) { screens -> scope.launch { prefs.setTallSplitScreens(screens) } }
+        }
     }
 }
 

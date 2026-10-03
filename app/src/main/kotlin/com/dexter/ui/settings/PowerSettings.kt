@@ -48,72 +48,76 @@ internal fun PowerSection(
     val blacklisted by blacklist.all().collectAsStateWithLifecycle(initialValue = emptyMap())
     val scope = rememberCoroutineScope()
 
-    SectionTitle("Gamepad and remote")
-    SwitchRow(
-        "Gamepad page turning",
-        "Turn pages in the reader with a Bluetooth clicker or gamepad: A / D-pad right goes forward, B / D-pad left goes back.",
-        state.gamepadReader,
-    ) { on -> scope.launch { prefs.setGamepadReader(on) } }
+    SettingsBlock("Gamepad and remote") {
+        SwitchRow(
+            "Gamepad page turning",
+            "Turn pages in the reader with a Bluetooth clicker or gamepad: A / D-pad right goes forward, B / D-pad left goes back.",
+            state.gamepadReader,
+        ) { on -> scope.launch { prefs.setGamepadReader(on) } }
+    }
 
-    SectionTitle("Automation")
-    SwitchRow(
-        "Automation intents",
-        "Let Tasker, MacroDroid, and friends drive Dexter with broadcast intents. Off by default.",
-        state.taskerEnabled,
-    ) { on -> scope.launch { prefs.setTaskerEnabled(on) } }
-    if (state.taskerEnabled) {
+    SettingsBlock("Automation") {
+        SwitchRow(
+            "Automation intents",
+            "Let Tasker, MacroDroid, and friends drive Dexter with broadcast intents. Off by default.",
+            state.taskerEnabled,
+        ) { on -> scope.launch { prefs.setTaskerEnabled(on) } }
+        if (state.taskerEnabled) {
+            InfoRow(
+                "Available intents",
+                "${DexterAutomation.ACTION_LIBRARY_UPDATE} (extra ${DexterAutomation.EXTRA_FORCE}), " +
+                    "${DexterAutomation.ACTION_OPEN_CONTINUE_READING}, " +
+                    "${DexterAutomation.ACTION_OPEN_READER} (extras ${DexterAutomation.EXTRA_SERIES_ID}, ${DexterAutomation.EXTRA_CHAPTER_ID}).",
+            )
+        }
+    }
+
+    SettingsBlock("Library power tools") {
+        SwitchRow(
+            "Duplicate hints",
+            "Flag the same series saved twice and repeated downloads, and suggest which copy to keep.",
+            state.duplicateHints,
+        ) { on -> scope.launch { prefs.setDuplicateHints(on) } }
+        if (state.duplicateHints && duplicates.isNotEmpty()) {
+            duplicates.forEach { group -> DuplicateGroupRow(group, onRemoveDuplicateCopies) }
+        }
         InfoRow(
-            "Available intents",
-            "${DexterAutomation.ACTION_LIBRARY_UPDATE} (extra ${DexterAutomation.EXTRA_FORCE}), " +
-                "${DexterAutomation.ACTION_OPEN_CONTINUE_READING}, " +
-                "${DexterAutomation.ACTION_OPEN_READER} (extras ${DexterAutomation.EXTRA_SERIES_ID}, ${DexterAutomation.EXTRA_CHAPTER_ID}).",
+            "Storage analyzer",
+            "Per-series breakdown, largest chapters, and cleanup suggestions.",
+            onClick = onOpenStorage,
         )
     }
 
-    SectionTitle("Library power tools")
-    SwitchRow(
-        "Duplicate hints",
-        "Flag the same series saved twice and repeated downloads, and suggest which copy to keep.",
-        state.duplicateHints,
-    ) { on -> scope.launch { prefs.setDuplicateHints(on) } }
-    if (state.duplicateHints && duplicates.isNotEmpty()) {
-        duplicates.forEach { group -> DuplicateGroupRow(group, onRemoveDuplicateCopies) }
-    }
-    InfoRow(
-        "Storage analyzer",
-        "Per-series breakdown, largest chapters, and cleanup suggestions.",
-        onClick = onOpenStorage,
-    )
-
-    SectionTitle("Chapter blacklist")
-    val blacklistedCount = blacklisted.values.sumOf { it.size }
-    var confirmClear by remember { mutableStateOf(false) }
-    InfoRow(
-        "Blacklisted chapters",
-        if (blacklistedCount == 0) {
-            "None. Long-press a chapter in its series page to never see it again: it stays out of downloads, update checks, and listings."
-        } else {
-            "$blacklistedCount ${if (blacklistedCount == 1) "chapter" else "chapters"} in ${blacklisted.size} ${if (blacklisted.size == 1) "series" else "series"} stay out of downloads, update checks, and listings."
-        },
-        action = {
-            if (blacklistedCount > 0) {
-                TextButton(onClick = { confirmClear = true }) { Text("Clear") }
-            }
-        },
-    )
-    if (confirmClear) {
-        ConfirmDialog(
-            title = "Clear the blacklist?",
-            text = "Blacklisted chapters become downloadable and visible again.",
-            confirmLabel = "Clear",
-            onConfirm = {
-                confirmClear = false
-                scope.launch {
-                    blacklisted.forEach { (seriesId, ids) -> ids.forEach { blacklist.remove(seriesId, it) } }
+    SettingsBlock("Chapter blacklist") {
+        val blacklistedCount = blacklisted.values.sumOf { it.size }
+        var confirmClear by remember { mutableStateOf(false) }
+        InfoRow(
+            "Blacklisted chapters",
+            if (blacklistedCount == 0) {
+                "None. Long-press a chapter in its series page to never see it again: it stays out of downloads, update checks, and listings."
+            } else {
+                "$blacklistedCount ${if (blacklistedCount == 1) "chapter" else "chapters"} in ${blacklisted.size} ${if (blacklisted.size == 1) "series" else "series"} stay out of downloads, update checks, and listings."
+            },
+            action = {
+                if (blacklistedCount > 0) {
+                    TextButton(onClick = { confirmClear = true }) { Text("Clear") }
                 }
             },
-            onDismiss = { confirmClear = false },
         )
+        if (confirmClear) {
+            ConfirmDialog(
+                title = "Clear the blacklist?",
+                text = "Blacklisted chapters become downloadable and visible again.",
+                confirmLabel = "Clear",
+                onConfirm = {
+                    confirmClear = false
+                    scope.launch {
+                        blacklisted.forEach { (seriesId, ids) -> ids.forEach { blacklist.remove(seriesId, it) } }
+                    }
+                },
+                onDismiss = { confirmClear = false },
+            )
+        }
     }
 }
 

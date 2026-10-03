@@ -58,77 +58,79 @@ fun DownloadSyncSection(
 ) {
     var intervalsOpen by remember { mutableStateOf(false) }
 
-    SectionTitle("Downloads & sync")
-    Searchable("auto-download", "download new chapters", "followed") {
-        SwitchRow(
-            "Auto-download new chapters",
-            "When a check finds new chapters of followed series, they save in the background. Follows the Wi-Fi-only setting and the storage cap.",
-            settings.autoDownloadNew,
-        ) { on -> update { it.copy(autoDownloadNew = on) } }
-    }
-    Searchable("skip read", "skip read chapters", "next chapter") {
-        SwitchRow(
-            "Skip chapters you already read",
-            "The reader's next chapter jumps past chapters at or below the last one you read.",
-            settings.skipReadChapters,
-        ) { on -> update { it.copy(skipReadChapters = on) } }
-    }
-    Searchable("offline", "offline only", "downloaded only") {
-        SwitchRow(
-            "Offline only",
-            "Library and chapter lists show only series and chapters saved on the device.",
-            settings.offlineOnly,
-        ) { on -> update { it.copy(offlineOnly = on) } }
-    }
-    Searchable("update interval", "check interval", "per series") {
-        val custom = settings.seriesUpdateIntervals.count { it.value > 0 }
-        InfoRow(
-            title = "Check for new chapters per series",
-            subtitle = if (custom == 0) {
-                "Every followed series follows the global schedule."
-            } else {
-                "$custom ${if (custom == 1) "series has" else "series have"} their own schedule."
-            },
-            onClick = { intervalsOpen = true },
-        )
-    }
-
-    SectionTitle("Backup & sync")
-    Searchable("backup", "export", "import", "sync", "transfer", "cross-device") {
-        Text(
-            "Save everything — library, lists, reading positions, history, stats, downloads, and covers — to one file you can move to another device.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = onExportArchive) { Text("Export backup") }
-            OutlinedButton(onClick = onImportArchive) { Text("Import backup") }
+    SettingsBlock("Downloads & sync") {
+        Searchable("auto-download", "download new chapters", "followed") {
+            SwitchRow(
+                "Auto-download new chapters",
+                "When a check finds new chapters of followed series, they save in the background. Follows the Wi-Fi-only setting and the storage cap.",
+                settings.autoDownloadNew,
+            ) { on -> update { it.copy(autoDownloadNew = on) } }
         }
-        Text(
-            "There is no automatic cloud sync; you move the file yourself, by sharing it, a cable, or storage.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Searchable("skip read", "skip read chapters", "next chapter") {
+            SwitchRow(
+                "Skip chapters you already read",
+                "The reader's next chapter jumps past chapters at or below the last one you read.",
+                settings.skipReadChapters,
+            ) { on -> update { it.copy(skipReadChapters = on) } }
+        }
+        Searchable("offline", "offline only", "downloaded only") {
+            SwitchRow(
+                "Offline only",
+                "Library and chapter lists show only series and chapters saved on the device.",
+                settings.offlineOnly,
+            ) { on -> update { it.copy(offlineOnly = on) } }
+        }
+        Searchable("update interval", "check interval", "per series") {
+            val custom = settings.seriesUpdateIntervals.count { it.value > 0 }
+            InfoRow(
+                title = "Check for new chapters per series",
+                subtitle = if (custom == 0) {
+                    "Every followed series follows the global schedule."
+                } else {
+                    "$custom ${if (custom == 1) "series has" else "series have"} their own schedule."
+                },
+                onClick = { intervalsOpen = true },
+            )
+        }
     }
 
-    if (intervalsOpen) {
-        SeriesIntervalDialog(
-            subscribed = subscribed,
-            intervals = settings.seriesUpdateIntervals,
-            globalMinutes = settings.checkIntervalMinutes,
-            onSet = { seriesId, minutes ->
-                update { current ->
-                    current.copy(
-                        seriesUpdateIntervals = if (minutes == 0) {
-                            current.seriesUpdateIntervals - seriesId
-                        } else {
-                            current.seriesUpdateIntervals + (seriesId to minutes)
-                        },
-                    )
-                }
-            },
-            onDismiss = { intervalsOpen = false },
-        )
+    SettingsBlock("Backup & sync") {
+        Searchable("backup", "export", "import", "sync", "transfer", "cross-device") {
+            Text(
+                "Save everything — library, lists, reading positions, history, stats, downloads, and covers — to one file you can move to another device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = onExportArchive) { Text("Export backup") }
+                OutlinedButton(onClick = onImportArchive) { Text("Import backup") }
+            }
+            Text(
+                "There is no automatic cloud sync; you move the file yourself, by sharing it, a cable, or storage.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (intervalsOpen) {
+            SeriesIntervalDialog(
+                subscribed = subscribed,
+                intervals = settings.seriesUpdateIntervals,
+                globalMinutes = settings.checkIntervalMinutes,
+                onSet = { seriesId, minutes ->
+                    update { current ->
+                        current.copy(
+                            seriesUpdateIntervals = if (minutes == 0) {
+                                current.seriesUpdateIntervals - seriesId
+                            } else {
+                                current.seriesUpdateIntervals + (seriesId to minutes)
+                            },
+                        )
+                    }
+                },
+                onDismiss = { intervalsOpen = false },
+            )
+        }
     }
 }
 

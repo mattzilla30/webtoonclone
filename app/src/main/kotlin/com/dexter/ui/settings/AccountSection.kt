@@ -37,43 +37,44 @@ internal fun MangaDexAccountSection(
     onSignOut: () -> Unit,
     onReadMarkers: (Boolean) -> Unit,
 ) {
-    SectionTitle("MangaDex account")
-    if (login != null) {
-        InfoRow(
-            title = "Signed in as ${login.username}",
-            subtitle = "Follows and subscriptions merge both ways. Nothing is removed on either side.",
-            action = {
-                OutlinedButton(onClick = onSync, enabled = !busy) { Text("Sync") }
-            },
-        )
-        SwitchRow("Send read markers", "Mark each chapter you open as read on MangaDex.", login.readMarkers, onReadMarkers)
-        InfoRow(title = "Sign out", subtitle = "Forgets the sign-in on this phone.", action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } })
-        return
-    }
-    Searchable("MangaDex account", "sign in", "sync", "follows", "client") {
-        var clientId by rememberSaveable { mutableStateOf("") }
-        var clientSecret by rememberSaveable { mutableStateOf("") }
-        var username by rememberSaveable { mutableStateOf("") }
-        var password by rememberSaveable { mutableStateOf("") }
-        Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                "Create a personal API client on mangadex.org under Settings, API Clients, then enter its id and secret with your account. " +
-                    "The password signs you in once and is not kept.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    SettingsBlock("MangaDex account") {
+        if (login != null) {
+            InfoRow(
+                title = "Signed in as ${login.username}",
+                subtitle = "Follows and subscriptions merge both ways. Nothing is removed on either side.",
+                action = {
+                    OutlinedButton(onClick = onSync, enabled = !busy) { Text("Sync") }
+                },
             )
-            CredentialField("Client id", clientId) { clientId = it }
-            CredentialField("Client secret", clientSecret, secret = true) { clientSecret = it }
-            CredentialField("Username", username) { username = it }
-            CredentialField("Password", password, secret = true) { password = it }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                FilledTonalButton(
-                    enabled = !busy && listOf(clientId, clientSecret, username, password).all { it.isNotBlank() },
-                    onClick = {
-                        onSignIn(clientId, clientSecret, username, password)
-                        password = ""
-                    },
-                ) { Text(if (busy) "Signing in..." else "Sign in") }
+            SwitchRow("Send read markers", "Mark each chapter you open as read on MangaDex.", login.readMarkers, onReadMarkers)
+            InfoRow(title = "Sign out", subtitle = "Forgets the sign-in on this phone.", action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } })
+            return@SettingsBlock
+        }
+        Searchable("MangaDex account", "sign in", "sync", "follows", "client") {
+            var clientId by rememberSaveable { mutableStateOf("") }
+            var clientSecret by rememberSaveable { mutableStateOf("") }
+            var username by rememberSaveable { mutableStateOf("") }
+            var password by rememberSaveable { mutableStateOf("") }
+            Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Create a personal API client on mangadex.org under Settings, API Clients, then enter its id and secret with your account. " +
+                        "The password signs you in once and is not kept.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                CredentialField("Client id", clientId) { clientId = it }
+                CredentialField("Client secret", clientSecret, secret = true) { clientSecret = it }
+                CredentialField("Username", username) { username = it }
+                CredentialField("Password", password, secret = true) { password = it }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    FilledTonalButton(
+                        enabled = !busy && listOf(clientId, clientSecret, username, password).all { it.isNotBlank() },
+                        onClick = {
+                            onSignIn(clientId, clientSecret, username, password)
+                            password = ""
+                        },
+                    ) { Text(if (busy) "Signing in..." else "Sign in") }
+                }
             }
         }
     }
@@ -102,21 +103,22 @@ internal fun TrackingSection(
     onSignOutAniList: () -> Unit,
     onSignOutMal: () -> Unit,
 ) {
-    SectionTitle("Tracking")
-    TrackerRow(
-        name = "AniList",
-        login = accounts.aniList,
-        help = "Create a client at anilist.co under Settings, Developer, with the redirect URL $ANILIST_REDIRECT, then enter its id.",
-        onSignIn = onAniList,
-        onSignOut = onSignOutAniList,
-    )
-    TrackerRow(
-        name = "MyAnimeList",
-        login = accounts.myAnimeList,
-        help = "Create an app at myanimelist.net under Account, API, with the type Android and the redirect URL $MAL_REDIRECT, then enter its client id.",
-        onSignIn = onMal,
-        onSignOut = onSignOutMal,
-    )
+    SettingsBlock("Tracking") {
+        TrackerRow(
+            name = "AniList",
+            login = accounts.aniList,
+            help = "Create a client at anilist.co under Settings, Developer, with the redirect URL $ANILIST_REDIRECT, then enter its id.",
+            onSignIn = onAniList,
+            onSignOut = onSignOutAniList,
+        )
+        TrackerRow(
+            name = "MyAnimeList",
+            login = accounts.myAnimeList,
+            help = "Create an app at myanimelist.net under Account, API, with the type Android and the redirect URL $MAL_REDIRECT, then enter its client id.",
+            onSignIn = onMal,
+            onSignOut = onSignOutMal,
+        )
+    }
 }
 
 @Composable

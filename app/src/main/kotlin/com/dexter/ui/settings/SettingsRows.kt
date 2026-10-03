@@ -23,6 +23,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,17 +49,39 @@ internal val LocalSettingsQuery = compositionLocalOf { "" }
 fun matchesQuery(query: String, vararg text: String?): Boolean =
     query.isBlank() || text.any { it?.contains(query.trim(), ignoreCase = true) == true }
 
+/** The settings page open now, or null while a search shows rows from every page. */
+internal val LocalSettingsPage = compositionLocalOf<String?> { null }
+
+/** Every settings category, A to Z. Each is the title of one [SettingsBlock] and opens as its own page. */
+val SettingsPages: List<String> = listOf(
+    "App lock", "Appearance", "Automation", "Back gesture", "Backup", "Backup & sync", "Binge mode", "Blocking",
+    "Chapter blacklist", "Chapter navigation", "Cloud (Drive / Dropbox)", "Cloud (WebDAV)", "Color pages",
+    "Colour vision", "Data saver", "Device class", "Downloads & sync", "Gamepad and remote", "Hearing and voice",
+    "Library extras", "Library power tools", "Local comics", "MangaDex account", "NAS shares", "Narration",
+    "Notifications", "Privacy", "Quality of life", "Reader extras", "Reader toolbar", "Reading", "Reading type",
+    "Sleep timer", "Storage", "Strip style", "Stylus", "Tall pages", "Titles", "Tracking", "Two-page spreads",
+).sortedWith(String.CASE_INSENSITIVE_ORDER)
+
+/**
+ * The rows of one settings category. They show on the page named [title], and in search results. A
+ * search for the category's own name shows all of its rows.
+ */
+@Composable
+internal fun SettingsBlock(title: String, content: @Composable () -> Unit) {
+    val page = LocalSettingsPage.current
+    if (page != null && page != title) return
+    val query = LocalSettingsQuery.current
+    if (page == null && query.isNotBlank() && title.contains(query.trim(), ignoreCase = true)) {
+        CompositionLocalProvider(LocalSettingsQuery provides "") { content() }
+    } else {
+        content()
+    }
+}
+
 /** Shows [content] only while the search box is empty or matches one of [words]. */
 @Composable
 internal fun Searchable(vararg words: String, content: @Composable () -> Unit) {
     if (matchesQuery(LocalSettingsQuery.current, *words)) content()
-}
-
-@Composable
-internal fun SectionTitle(text: String) {
-    // While searching, the matches show as one list without headings.
-    if (LocalSettingsQuery.current.isNotBlank()) return
-    Text(text, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(top = 24.dp, bottom = 8.dp).semantics { heading() })
 }
 
 @Composable

@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,6 +86,7 @@ import com.dexter.data.nextChapterEstimate
 import com.dexter.data.tropesForSeries
 import com.dexter.data.withoutBlacklisted
 import com.dexter.ui.Cover
+import com.dexter.ui.FitText
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
@@ -334,7 +336,8 @@ fun SeriesScreen(
                         }
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
                             GenreLabel(summary.genre)
-                            Text(summary.title, style = MaterialTheme.typography.headlineLargeEmphasized, color = MaterialTheme.colorScheme.onBackground)
+                            // A long title shrinks to fit the cover area instead of pushing the details off it.
+                            FitText(summary.title, MaterialTheme.typography.headlineLargeEmphasized, maxLines = 3, color = MaterialTheme.colorScheme.onBackground, minSize = 18.sp)
                             val authorId = summary.authorId
                             Text(
                                 summary.author.orEmpty(),
@@ -364,6 +367,37 @@ fun SeriesScreen(
                                     Text(" %.2f".format(Locale.US, it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
+                        }
+                    }
+                }
+                // The read button sits right under the follows and rating.
+                item {
+                    if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
+                        Text(
+                            "This series is hosted by its publisher. Episodes open in your browser.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                    val resumeId = lastRead?.chapterId
+                    if (resumeId != null || startAt != null) {
+                        Button(
+                            onClick = { if (resumeId != null) onOpenChapter(resumeId) else open(startAt!!) },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min = ButtonDefaults.MediumContainerHeight),
+                        ) {
+                            Text(
+                                when {
+                                    resumeId != null -> buildString {
+                                        append("Continue Ep. ${lastRead?.chapterNumber}")
+                                        progress?.takeIf { it.chapterId == resumeId && it.total > 0 }?.let { append(" \u00b7 page ${it.page + 1} of ${it.total}") }
+                                        if (unreadCount > 0) append(" \u00b7 $unreadCount new")
+                                    }
+                                    page.hasMore -> "Latest Ep. ${startAt!!.number}"
+                                    else -> "Episode ${startAt!!.number}"
+                                },
+                                style = MaterialTheme.typography.titleMediumEmphasized,
+                            )
                         }
                     }
                 }
@@ -477,36 +511,6 @@ fun SeriesScreen(
                 }
             }
             val chapterContent: LazyListScope.() -> Unit = {
-                item {
-                    if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
-                        Text(
-                            "This series is hosted by its publisher. Episodes open in your browser.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
-                    val resumeId = lastRead?.chapterId
-                    if (resumeId != null || startAt != null) {
-                        Button(
-                            onClick = { if (resumeId != null) onOpenChapter(resumeId) else open(startAt!!) },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).heightIn(min = ButtonDefaults.MediumContainerHeight),
-                        ) {
-                            Text(
-                                when {
-                                    resumeId != null -> buildString {
-                                        append("Continue Ep. ${lastRead?.chapterNumber}")
-                                        progress?.takeIf { it.chapterId == resumeId && it.total > 0 }?.let { append(" \u00b7 page ${it.page + 1} of ${it.total}") }
-                                        if (unreadCount > 0) append(" \u00b7 $unreadCount new")
-                                    }
-                                    page.hasMore -> "Latest Ep. ${startAt!!.number}"
-                                    else -> "Episode ${startAt!!.number}"
-                                },
-                                style = MaterialTheme.typography.titleMediumEmphasized,
-                            )
-                        }
-                    }
-                }
                 item(key = "controls") {
                     ChapterControls(
                         unreadOnly = unreadOnly,
@@ -613,9 +617,9 @@ fun SeriesScreen(
                 val at = flatSlots.indexOfFirst { it is ChapterListItem.Entry && (it.chapter.number == wanted || it.chapter.number.toDoubleOrNull() == wanted.toDoubleOrNull()) }
                 when {
                     at >= 0 -> {
-                        // Items before the chapters: the header rows on a narrow screen, then the resume button and the controls.
+                        // Items before the chapters: the header rows on a narrow screen, then the controls.
                         val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), bookmarks.isNotEmpty(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), tropes.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
-                        listState.animateScrollToItem(before + 2 + at)
+                        listState.animateScrollToItem(before + 1 + at)
                         pendingJump = null
                     }
                     page.hasMore -> viewModel.loadAll()
@@ -645,6 +649,9 @@ fun SeriesScreen(
     }
 }
 
-/** How many list items come before the chapters on a narrow screen. It must match the header built above. */
+/**
+ * How many list items come before the chapters on a narrow screen: the cover, the read button, the
+ * buttons row, and the optional sections. It must match the header built above.
+ */
 private fun headerItemCount(offline: Boolean, note: Boolean, bookmarks: Boolean, description: Boolean, tags: Boolean, tropes: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
-    listOf(offline, true, true, note, bookmarks, description, tags, tropes, related, similar, noChapters).count { it }
+    listOf(offline, true, true, true, note, bookmarks, description, tags, tropes, related, similar, noChapters).count { it }

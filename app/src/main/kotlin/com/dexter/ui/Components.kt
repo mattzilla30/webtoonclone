@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -56,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -64,7 +67,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.dexter.R
 import com.dexter.data.SeriesSummary
@@ -147,7 +154,40 @@ fun thumbnailUrl(url: String?): String? = url?.replace(".512.jpg", ".256.jpg")
 @Composable
 fun GenreLabel(genre: String?) {
     if (genre == null) return
-    Text(genre, color = genreColor(genre) ?: MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+    Text(genre, color = genreColor(genre) ?: MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+/**
+ * Text that shrinks, down to [minSize], until it fits its space in [maxLines] lines. Only text that
+ * still does not fit at [minSize] is cut off with an ellipsis.
+ */
+@Composable
+fun FitText(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 2,
+    color: Color = Color.Unspecified,
+    minSize: TextUnit = 10.sp,
+) {
+    Text(
+        text,
+        modifier = modifier,
+        color = color,
+        style = style,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = style.fontSize, stepSize = 0.5.sp),
+    )
+}
+
+/**
+ * The width of one tile in a sideways row: as many whole tiles as fit across [widthDp], plus part of
+ * the next, so the row shows that it scrolls. Tiles grow and shrink with the screen.
+ */
+fun rowTileWidth(widthDp: Float, spacingDp: Float = 8f, paddingDp: Float = 16f): Float {
+    val whole = adaptiveColumns(widthDp)
+    return ((widthDp - 2 * paddingDp - whole * spacingDp) / (whole + 0.35f)).coerceAtLeast(96f)
 }
 
 @Composable
@@ -212,9 +252,13 @@ fun PickTile(
                     )
                 }
             }
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            // Every tile's text area is the same height, sized from the font scale, so tiles in a row line up.
+            // A title too long for three lines shrinks to fit instead of stretching the tile.
+            val type = MaterialTheme.typography
+            val textHeight = with(LocalDensity.current) { type.labelMedium.lineHeight.toDp() + type.titleSmallEmphasized.lineHeight.toDp() * 3 + type.labelSmall.lineHeight.toDp() }
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp).height(textHeight)) {
                 GenreLabel(series.genre)
-                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
+                FitText(series.title, type.titleSmallEmphasized, Modifier.weight(1f), maxLines = 3)
                 HeartCount(series.follows)
             }
         }

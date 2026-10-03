@@ -54,11 +54,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -71,6 +73,7 @@ import com.dexter.data.ReadingProgress
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Cover
+import com.dexter.ui.FitText
 import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
@@ -78,6 +81,7 @@ import com.dexter.ui.OfflineBanner
 import com.dexter.ui.PickTile
 import com.dexter.ui.SectionHeader
 import com.dexter.ui.adaptiveColumns
+import com.dexter.ui.rowTileWidth
 import com.dexter.ui.windowWidthDp
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.minutes
@@ -146,6 +150,8 @@ fun HomeScreen(
         // A pull keeps what is on screen and swaps in the new picks when they arrive.
         PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
             LoadView(state, onRetry = viewModel::retry) { home ->
+                // Sideways rows size their tiles to the screen, so the spacing stays even on any width.
+                val tileWidth = rowTileWidth(windowWidthDp()).dp
                 LazyColumn(Modifier.fillMaxSize()) {
                     offlineSavedAt?.let { savedAt ->
                         item {
@@ -196,7 +202,7 @@ fun HomeScreen(
                         item {
                             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(fromSubscriptions, key = { it.series.id }) { unread ->
-                                    UnreadTile(unread) { onOpenChapter(unread.series.id, unread.series.knownChapterId!!) }
+                                    UnreadTile(unread, tileWidth) { onOpenChapter(unread.series.id, unread.series.knownChapterId!!) }
                                 }
                             }
                         }
@@ -207,7 +213,7 @@ fun HomeScreen(
                         item {
                             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(like, key = { it.id }) { series ->
-                                    PickTile(series, { onOpenSeries(series.id) }, Modifier.width(110.dp), subscribed = series.id in subscribedIds, onLongClick = { toggleSubscribe(series) })
+                                    PickTile(series, { onOpenSeries(series.id) }, Modifier.width(tileWidth), subscribed = series.id in subscribedIds, onLongClick = { toggleSubscribe(series) })
                                 }
                             }
                         }
@@ -314,12 +320,12 @@ private fun ContinueCard(
 
 /** A subscribed series with unread chapters. Tapping opens its newest chapter. */
 @Composable
-private fun UnreadTile(unread: UnreadSeries, onClick: () -> Unit) {
+private fun UnreadTile(unread: UnreadSeries, width: Dp, onClick: () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         onClick = onClick,
-        modifier = Modifier.width(110.dp),
+        modifier = Modifier.width(width),
     ) {
         Column {
             Box {
@@ -333,8 +339,11 @@ private fun UnreadTile(unread: UnreadSeries, onClick: () -> Unit) {
                         .padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             }
-            Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-                Text(unread.series.title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // A fixed-height text area keeps every tile in the row the same size.
+            val type = MaterialTheme.typography
+            val textHeight = with(LocalDensity.current) { type.labelLarge.lineHeight.toDp() * 2 + type.labelSmall.lineHeight.toDp() }
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp).height(textHeight)) {
+                FitText(unread.series.title, type.labelLarge, Modifier.weight(1f))
                 unread.series.knownChapterNumber?.let {
                     Text("Ep. $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

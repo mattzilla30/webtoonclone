@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -47,6 +48,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -61,6 +63,7 @@ import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Cover
+import com.dexter.ui.FitText
 import com.dexter.ui.Load
 import com.dexter.ui.TextPromptDialog
 import kotlinx.coroutines.launch
@@ -214,8 +217,11 @@ internal fun LibraryTile(
                     Checkbox(checked = selected, onCheckedChange = onSelect, modifier = Modifier.align(Alignment.TopEnd))
                 }
             }
-            Column(Modifier.padding(8.dp)) {
-                Text(series.title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // A fixed-height text area keeps every tile in the grid the same size.
+            val type = MaterialTheme.typography
+            val textHeight = with(LocalDensity.current) { type.labelLarge.lineHeight.toDp() * 2 + type.labelSmall.lineHeight.toDp() }
+            Column(Modifier.padding(8.dp).height(textHeight)) {
+                FitText(series.title, type.labelLarge, Modifier.weight(1f))
                 series.chapterNumber?.let { Text("Ep. $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }

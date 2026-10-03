@@ -71,7 +71,6 @@ import com.dexter.data.Chapter
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SeriesDetail
 import com.dexter.data.TropeTag
-import com.dexter.data.languageName
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
 import com.dexter.ui.formatChapterDate
@@ -419,22 +418,9 @@ internal fun InfoDialog(detail: SeriesDetail, onOpenLink: (String) -> Unit, onOp
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
         ) {
-            Text(detail.status.uppercase(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLargeEmphasized)
-            val facts = listOfNotNull(
-                detail.year?.toString(),
-                detail.demographic,
-                languageName(detail.originalLanguage).takeIf { it.isNotEmpty() },
-            )
-            if (facts.isNotEmpty()) {
-                Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-            }
-            Text(detail.summary.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 12.dp))
-            if (!detail.summary.author.isNullOrBlank()) {
-                Text(stringResource(R.string.written_by), style = MaterialTheme.typography.labelLargeEmphasized)
-                Text(detail.summary.author, style = MaterialTheme.typography.bodyMedium)
-            }
+            // Only what the series page does not already show: status, facts, author and description live there.
             if (detail.altTitles.isNotEmpty()) {
-                Text(stringResource(R.string.also_known_as), style = MaterialTheme.typography.labelLargeEmphasized, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.also_known_as), style = MaterialTheme.typography.labelLargeEmphasized)
                 detail.altTitles.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp)) }
             }
             if (detail.ratingDistribution.isNotEmpty()) {

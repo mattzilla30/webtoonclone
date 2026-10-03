@@ -282,7 +282,12 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                 // A chapter link names only the chapter, so ask MangaDex which series it belongs to.
                 val seriesId = open.seriesId ?: open.chapterId?.let { runCatching { app.repository.seriesIdForChapter(it) }.getOrNull() }
                 // Ids from other apps' intents are unchecked; one with a slash or query names no route and would crash navigate.
-                if (seriesId != null) runCatching { openRoutes(seriesId, open.chapterId).forEach { nav.navigate(it) } }
+                if (seriesId != null) {
+                    // Single-top, so tapping a notification for the open series does not stack it twice.
+                    runCatching { openRoutes(seriesId, open.chapterId).forEach { nav.navigate(it) { launchSingleTop = true } } }
+                } else if (open.chapterId != null) {
+                    Toast.makeText(app, "Couldn't open that chapter link.", Toast.LENGTH_LONG).show()
+                }
             }
             onOpened()
         }
@@ -571,8 +576,15 @@ private fun DexterNav(settings: Settings, openCount: Int, open: PendingOpen?, on
                                     val vm = koinViewModel<SeriesViewModel>(key = "pane-$seriesId") { parametersOf(seriesId) }
                                     SeriesScreen(
                                         vm,
-                                        onOpenChapter = { nav.navigate("series/$seriesId/$it") },
-                                        onOpenBookmark = { chapter, page -> nav.navigate("series/$seriesId/$chapter?page=$page") },
+                                        // Local series read through the local reader route, like the main screen.
+                                        onOpenChapter = {
+                                            if (seriesId.startsWith("local:")) nav.navigate("local/$seriesId/$it")
+                                            else nav.navigate("series/$seriesId/$it")
+                                        },
+                                        onOpenBookmark = { chapter, page ->
+                                            if (seriesId.startsWith("local:")) nav.navigate("local/$seriesId/$chapter?page=$page")
+                                            else nav.navigate("series/$seriesId/$chapter?page=$page")
+                                        },
                                         onHome = { paneSeries = null },
                                         onOpenTag = { tag -> nav.navigate("search?genre=${Uri.encode(tag)}") },
                                         onOpenSeries = { paneSeries = it },

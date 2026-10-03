@@ -51,6 +51,16 @@ class ChapterBlacklist(private val context: Context) {
 
     /** The ids of one series that are not blacklisted. */
     suspend fun allowedIds(seriesId: String): Set<String> = blacklisted(seriesId).first()
+
+    /** Replaces the whole blacklist with the backup's: series ids mapped to chapter ids. */
+    suspend fun replaceAll(blacklist: Map<String, Set<String>>) {
+        context.blacklistDataStore.edit { prefs ->
+            prefs.asMap().keys.filter { it.name.startsWith("bl:") }.forEach { prefs.remove(it) }
+            blacklist.forEach { (seriesId, chapterIds) ->
+                if (chapterIds.isNotEmpty()) prefs[key(seriesId)] = chapterIds
+            }
+        }
+    }
 }
 
 /** [chapters] without the blacklisted ones, keeping their order. */

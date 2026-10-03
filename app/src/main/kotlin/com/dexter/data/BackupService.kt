@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.dexter.data.db.AppDatabase
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -18,6 +19,9 @@ class BackupService(
     private val progress: ProgressStore,
     private val db: AppDatabase,
     private val downloads: DownloadStore,
+    private val readingLists: ReadingListStore,
+    private val smartLists: SmartListStore,
+    private val blacklist: ChapterBlacklist,
 ) {
     suspend fun create(): Backup = Backup(
         savedAt = System.currentTimeMillis(),
@@ -27,13 +31,26 @@ class BackupService(
         history = db.stats().observe().first().map { it.toBackup() },
         downloads = downloads.saved.first().map { it.toBackup() },
         queue = db.queue().observe().first().map { it.toBackup() },
+        readingLists = readingLists.all.first(),
+        smartLists = smartLists.all.first(),
+        blacklist = blacklist.all().first(),
     )
 
     suspend fun writeTo(uri: Uri) {
         val backup = create()
         withContext(Dispatchers.IO) {
             val text = encodeBackup(backup)
-            context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+            // Stage the complete backup in a temp file first, so an encoding or disk failure
+            // can never truncate the destination into a half-written backup.
+            val tmp = File(context.cacheDir, "backup.tmp")
+            try {
+                tmp.writeAtomically { it.write(text.toByteArray()) }
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
+                    tmp.inputStream().use { it.copyTo(out) }
+                }
+            } finally {
+                tmp.delete()
+            }
         }
     }
 
@@ -44,10 +61,32 @@ class BackupService(
             val text = encodeBackup(backup)
             val resolver = context.contentResolver
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-            val existing = findChild(tree, parent, AUTO_BACKUP_FILE)
-                ?: DocumentsContract.createDocument(resolver, parent, "application/json", AUTO_BACKUP_FILE)
+            // Write the new backup to a temp document first: the previous backup stays intact
+            // until the new one is fully written, so a crash can never destroy the last good backup.
+            val tmpName = "$AUTO_BACKUP_FILE.tmp"
+            findChild(tree, parent, tmpName)?.let { resolver.delete(it, null, null) }
+            val tmp = DocumentsContract.createDocument(resolver, parent, "application/json", tmpName)
                 ?: error("Could not create the backup file")
-            resolver.openOutputStream(existing, "wt")!!.use { it.write(text.toByteArray()) }
+            try {
+                resolver.openOutputStream(tmp, "wt")!!.use { it.write(text.toByteArray()) }
+                findChild(tree, parent, AUTO_BACKUP_FILE)?.let { resolver.delete(it, null, null) }
+                val renamed = runCatching { DocumentsContract.renameDocument(resolver, tmp, AUTO_BACKUP_FILE) }.getOrNull()
+                if (renamed == null) {
+                    // This provider cannot rename documents: fall back to overwriting the old file
+                    // with the complete new bytes. The old backup is only truncated once the new
+                    // content fully exists in the temp document.
+                    val existing = findChild(tree, parent, AUTO_BACKUP_FILE)
+                        ?: DocumentsContract.createDocument(resolver, parent, "application/json", AUTO_BACKUP_FILE)
+                        ?: error("Could not create the backup file")
+                    resolver.openOutputStream(existing, "wt")!!.use { out ->
+                        resolver.openInputStream(tmp)!!.use { it.copyTo(out) }
+                    }
+                    resolver.delete(tmp, null, null)
+                }
+            } catch (e: Exception) {
+                runCatching { resolver.delete(tmp, null, null) }
+                throw e
+            }
         }
     }
 
@@ -62,8 +101,22 @@ class BackupService(
         return null
     }
 
-    /** Replaces everything on this device with [backup]. */
+    /**
+     * Replaces everything on this device with [backup]. A snapshot of the current state is taken
+     * first: if a later step throws, the snapshot is put back on a best-effort basis instead of
+     * leaving a half-restored device.
+     */
     suspend fun restore(backup: Backup) {
+        val snapshot = runCatching { create() }.getOrNull()
+        try {
+            applyBackup(backup)
+        } catch (e: Exception) {
+            if (snapshot != null) runCatching { applyBackup(snapshot) }
+            throw e
+        }
+    }
+
+    private suspend fun applyBackup(backup: Backup) {
         library.replaceAll(backup.library)
         // A backup comes from a phone that was already set up, so setup does not ask again.
         settings.update { backup.settings.copy(setupDone = true) }
@@ -78,5 +131,9 @@ class BackupService(
         // The queue, replacing what is waiting here.
         db.queue().deleteAll()
         backup.queue.forEach { db.queue().insert(it.toEntity()) }
+        // Reading lists, smart lists, and the chapter blacklist, replacing what is here.
+        readingLists.replaceAll(backup.readingLists)
+        smartLists.replaceAll(backup.smartLists)
+        blacklist.replaceAll(backup.blacklist)
     }
 }

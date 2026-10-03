@@ -63,6 +63,18 @@ import com.dexter.ui.SyncedSlider
 import kotlin.math.roundToInt
 
 /**
+ * Actions both bars know how to draw. One sitting in both bars would appear twice, so the bottom
+ * bar yields it to the top bar (or, in one-handed mode, to the top bar's essentials row).
+ */
+private val dualBarActions = setOf(
+    ToolbarAction.Bookmark,
+    ToolbarAction.ReaderOptions,
+    ToolbarAction.Thumbnails,
+    ToolbarAction.SleepTimer,
+    ToolbarAction.Binge,
+)
+
+/**
  * The bar across the top of the reader. Which buttons it holds, and in what order, comes from
  * [actions]; the default is the layout the bar shipped with. New actions ([ToolbarAction.Thumbnails],
  * [ToolbarAction.SleepTimer], [ToolbarAction.Binge]) report through [onToolbarAction].
@@ -263,8 +275,15 @@ internal fun ReaderBottomBar(
                 if (ToolbarAction.PageCounter in actions) {
                     TextButton(onClick = onPageCounter) { Text("${position + 1} / $count", style = MaterialTheme.typography.labelLarge) }
                 }
+                // One action in both bars would draw twice. The top bar wins when it is visible; in
+                // one-handed mode the top bar's essentials move into this bar, so they win here instead.
+                // (Back, Title and Share need no guard: this row never draws them.)
+                val topWins = topActions.filter {
+                    it in dualBarActions && (!oneHanded || it == ToolbarAction.Bookmark || it == ToolbarAction.ReaderOptions)
+                }.toSet()
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     actions.forEach { action ->
+                        if (action in topWins) return@forEach
                         when (action) {
                             ToolbarAction.ChapterList -> IconButton(onClick = onChapters, colors = barIcons) {
                                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.chapters))

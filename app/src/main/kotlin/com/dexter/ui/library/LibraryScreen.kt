@@ -51,6 +51,7 @@ import com.dexter.R
 import com.dexter.data.LibraryData
 import com.dexter.data.LibraryList
 import com.dexter.data.QolPrefs
+import com.dexter.data.ReadingListEntry
 import com.dexter.data.ReadingListStore
 import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
@@ -110,15 +111,19 @@ fun LibraryScreen(
     val collection = collectionFilter?.takeIf { tab == LibraryList.Lists && it in library.collections }
     // Every series in a list or collection, once each. Used for the "All" chip and its tab.
     val allListed = remember(library.lists, library.collections) { (library.lists + library.collections.values.flatten()).distinctBy { it.id } }
-    val tabItems = remember(library, allListed, tab, collection, readingList, statusFilter, offlineOnly, savedSeriesIds) {
-        val base = when {
+    // The tab's full contents before the offline-only setting narrows them. Delete and undo
+    // work from this list: snapshotting the narrowed view would scramble the saved order.
+    val unfilteredTabItems = remember(library, allListed, tab, collection, readingList, statusFilter) {
+        when {
             readingList != null -> readingList.entries.map { SavedSeries(it.seriesId, it.title, it.coverUrl) }
             collection != null -> library.collections.getValue(collection)
             tab == LibraryList.Lists && statusFilter == null -> allListed
             else -> listFor(library, tab)
         }
+    }
+    val tabItems = remember(unfilteredTabItems, offlineOnly, savedSeriesIds) {
         // Only the offline-only setting narrows the tabs to series with saved chapters.
-        if (offlineOnly) offlineSeries(base, savedSeriesIds) else base
+        if (offlineOnly) offlineSeries(unfilteredTabItems, savedSeriesIds) else unfilteredTabItems
     }
     val lastReadById = remember(library.recent) { HashMap<String, String?>().also { map -> library.recent.forEach { map.putIfAbsent(it.id, it.chapterNumber) } } }
     val recentById = remember(library.recent) { library.recent.associateBy { it.id } }
@@ -156,9 +161,36 @@ fun LibraryScreen(
 
     var undo by remember { mutableStateOf<UndoState?>(null) }
     val remove: (List<SavedSeries>) -> Unit = { removed ->
-        undo = UndoState(tab, tabItems, removed.size, collection)
         val ids = removed.mapTo(HashSet()) { it.id }
-        if (collection != null) viewModel.removeFromCollection(collection, ids) else viewModel.delete(tab, ids)
+        val target = readingList
+        if (target != null) {
+            // A reading list is its own list: removals drop its entries, never library tabs.
+            undo = UndoState(tab, unfilteredTabItems, removed.size, readingListId = target.id, readingListEntries = target.entries)
+            libraryScope.launch { readingLists.removeEntries(target.id, ids) }
+        } else if (collection != null) {
+            undo = UndoState(tab, unfilteredTabItems, removed.size, collection)
+            viewModel.removeFromCollection(collection, ids)
+        } else if (tab == LibraryList.Lists && statusFilter == null) {
+            // The "All" chip aggregates lists and collections: route each id to its origin.
+            // Collection-only series are removed from their collections instead of silently kept.
+            val listsIds = ids.filter { id -> library.lists.any { it.id == id } }.toSet()
+            val collectionParts = library.collections.mapNotNull { (name, members) ->
+                val part = members.filter { it.id in ids }
+                if (part.isNotEmpty()) name to part else null
+            }
+            undo = UndoState(
+                tab, unfilteredTabItems, removed.size,
+                listsSnapshot = library.lists,
+                collectionSnapshots = collectionParts.toMap(),
+            )
+            if (listsIds.isNotEmpty()) viewModel.delete(LibraryList.Lists, listsIds)
+            collectionParts.forEach { (name, part) ->
+                viewModel.removeFromCollection(name, part.mapTo(HashSet()) { it.id })
+            }
+        } else {
+            undo = UndoState(tab, unfilteredTabItems, removed.size, collection)
+            viewModel.delete(tab, ids)
+        }
         selected.clear()
     }
 
@@ -341,7 +373,7 @@ fun LibraryScreen(
                             }
                         }
                         TextButton(onClick = { viewModel.setGrid(!library.libraryGrid) }, modifier = touch) { Text(if (library.libraryGrid) "Rows" else "Grid") }
-                        TextButton(enabled = items.isNotEmpty(), onClick = { remove(items) }, modifier = touch) { Text("Delete all") }
+                        TextButton(enabled = items.isNotEmpty(), onClick = { remove(tabItems) }, modifier = touch) { Text("Delete all") }
                     }
                 }
             }
@@ -427,7 +459,16 @@ fun LibraryScreen(
                 action = {
                     TextButton(
                         onClick = {
-                            if (state.collection != null) viewModel.restoreCollection(state.collection, state.snapshot) else viewModel.restore(state.list, state.snapshot)
+                            when {
+                                state.collection != null -> viewModel.restoreCollection(state.collection, state.snapshot)
+                                state.readingListId != null -> libraryScope.launch { readingLists.restoreEntries(state.readingListId, state.readingListEntries) }
+                                state.listsSnapshot != null || state.collectionSnapshots.isNotEmpty() -> {
+                                    // The "All" view: each part goes back to its origin.
+                                    state.listsSnapshot?.let { viewModel.restore(state.list, it) }
+                                    state.collectionSnapshots.forEach { (name, snapshot) -> viewModel.restoreCollection(name, snapshot) }
+                                }
+                                else -> viewModel.restore(state.list, state.snapshot)
+                            }
                             undo = null
                         },
                     ) { Text("Undo") }
@@ -453,4 +494,15 @@ private fun listFor(library: LibraryData, tab: LibraryList): List<SavedSeries> =
 }
 
 /** What an undo needs: which tab, the list as it was, and how many series were removed. */
-private data class UndoState(val list: LibraryList, val snapshot: List<SavedSeries>, val count: Int, val collection: String? = null)
+private data class UndoState(
+    val list: LibraryList,
+    val snapshot: List<SavedSeries>,
+    val count: Int,
+    val collection: String? = null,
+    val readingListId: String? = null,
+    val readingListEntries: List<ReadingListEntry> = emptyList(),
+    /** The "All" aggregate view: pre-removal Lists-tab contents, restored via [LibraryStore.restore]. */
+    val listsSnapshot: List<SavedSeries>? = null,
+    /** The "All" aggregate view: collection name to its pre-removal contents. */
+    val collectionSnapshots: Map<String, List<SavedSeries>> = emptyMap(),
+)

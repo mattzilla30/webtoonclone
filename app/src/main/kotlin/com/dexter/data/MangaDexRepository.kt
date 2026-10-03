@@ -321,8 +321,11 @@ class MangaDexRepository(
             fetchJson<ChapterListDto>(url).data.forEach { byChapter[it.id] = it }
         }
         // Looked up in pages of IDS_PAGE, so libraries larger than one page still get fresh covers.
+        // Chunks are fetched concurrently with bounded parallelism; awaitAll keeps chunk order.
+        val summaryPermits = Semaphore(3)
         val summaries = subscribed.map { it.id }.chunked(IDS_PAGE)
-            .flatMap { chunk -> browse(ids = chunk, limit = chunk.size) }
+            .map { chunk -> async { summaryPermits.withPermit { browse(ids = chunk, limit = chunk.size) } } }
+            .awaitAll().flatten()
             .associateBy { it.id }
         val permits = Semaphore(3)
         subscribed.map { saved ->

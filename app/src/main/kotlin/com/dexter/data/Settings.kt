@@ -24,8 +24,8 @@ data class SeriesLook(
     val background: ReaderBackground = ReaderBackground.Dark,
     /** Screen brightness for this series, 1 to 100, or -1 to follow the global setting. */
     val brightness: Int = -1,
-    /** Trim plain white or black margins from this series' pages. */
-    val cropBorders: Boolean = false,
+    /** Trim the unused edges of this series' pages, page numbers and margin notes included. */
+    val cropBorders: Boolean = true,
 )
 
 /** Every rating MangaDex uses, mildest first. */
@@ -144,8 +144,8 @@ data class Settings(
     val pageFit: PageFit = PageFit.Screen,
     /** In paged mode with the phone sideways, two pages side by side. */
     val spreads: Boolean = false,
-    /** Trim plain white or black margins from page images. */
-    val cropBorders: Boolean = false,
+    /** Trim the unused edges of pages, page numbers and margin notes included, so the art fills more of the screen. */
+    val cropBorders: Boolean = true,
     /** Screen brightness in the reader, 1 to 100, or -1 to follow the phone. */
     val readerBrightness: Int = -1,
     val readerFilter: ReaderFilter = ReaderFilter.None,

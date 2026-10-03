@@ -46,7 +46,7 @@ fun pageRequest(context: PlatformContext, url: String, crop: Boolean = false, se
     val key = pageCacheKey(url)
     val memoryKey = when {
         segment != null -> "$key#split${segment.index}"
-        crop -> "$key#crop"
+        crop -> "$key#crop2"
         else -> key
     }
     return ImageRequest.Builder(context).data(url)

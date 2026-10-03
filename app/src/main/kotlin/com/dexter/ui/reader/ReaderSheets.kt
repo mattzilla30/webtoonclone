@@ -213,7 +213,7 @@ internal fun ReaderOptions(
                 OptionSwitch("Next episode follows on below", settings.continuousScroll) { on -> onChange { it.copy(continuousScroll = on) } }
                 OptionSwitch("Tap top or bottom to scroll", settings.tapToScroll) { on -> onChange { it.copy(tapToScroll = on) } }
             }
-            OptionSwitch("Trim white and black margins", settings.cropBorders) { on -> onChange { it.copy(cropBorders = on) } }
+            OptionSwitch("Trim unused page edges, page numbers and margin notes included", settings.cropBorders) { on -> onChange { it.copy(cropBorders = on) } }
             OptionSwitch("Hide the bars after a few seconds", settings.autoHideBars) { on -> onChange { it.copy(autoHideBars = on) } }
             OptionSwitch("Clock and battery with the page count", settings.showClock) { on -> onChange { it.copy(showClock = on) } }
             OptionSwitch("Incognito: keep no history or stats", settings.incognito) { on -> onChange { it.copy(incognito = on) } }

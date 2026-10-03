@@ -82,7 +82,7 @@ val appModule = module {
     single { SeriesCacheStore(androidContext()) }
     single { OfflineStore(androidContext()) }
     single { ImageExport(androidContext(), get(named(BASE_CLIENT))) }
-    single { BackupService(androidContext(), get(), get(), get(), get(), get()) }
+    single { BackupService(androidContext(), get(), get(), get(), get(), get(), get(), get(), get()) }
     single { AccountStore(androidContext()) }
     // Signed-in calls skip the response cache, so your account's data is never written to disk.
     single { MangaDexAccount(get(), get(named(BASE_CLIENT)), get(), get()) }

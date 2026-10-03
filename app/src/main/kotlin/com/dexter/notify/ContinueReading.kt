@@ -63,7 +63,8 @@ private fun widgetViews(context: Context, last: SavedSeries?): RemoteViews {
 }
 
 private fun launchIntent(context: Context, intent: Intent): PendingIntent =
-    PendingIntent.getActivity(context, intent.getStringExtra(EXTRA_SERIES_ID).hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    // The empty-state widget tap carries no series id: a constant request code instead of crashing on null.
+    PendingIntent.getActivity(context, intent.getStringExtra(EXTRA_SERIES_ID)?.hashCode() ?: 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
 /** Home screen widget with the series you read last. Tapping it opens the reader at that chapter. */
 class ContinueWidget : AppWidgetProvider() {

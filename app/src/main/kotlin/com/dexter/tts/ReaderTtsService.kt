@@ -20,7 +20,11 @@ import com.dexter.data.A11yPrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -56,14 +60,29 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
         const val EXTRA_AUTO_ADVANCE = "auto_advance"
 
         /**
+         * Total characters of [EXTRA_TEXTS] kept in the start intent. Binder transactions fail
+         * past ~1MB, and a whole chapter of OCR text can approach that.
+         */
+        private const val MAX_TEXT_CHARS = 400_000
+
+        /**
          * Start narrating [texts], one utterance per entry. [pages] names the page each utterance
          * belongs to, so the reader can auto-advance; pass an empty array to skip page tracking.
          */
         fun start(context: Context, title: String, texts: List<String>, pages: IntArray = IntArray(0), autoAdvance: Boolean = true) {
+            // The texts ride in the start intent: cap the payload, keeping [pages] aligned with
+            // the texts that survive the cap.
+            var remaining = MAX_TEXT_CHARS
+            val capped = ArrayList<String>(texts.size)
+            for (text in texts) {
+                if (text.length > remaining) break
+                capped += text
+                remaining -= text.length
+            }
             val intent = Intent(context, ReaderTtsService::class.java).setAction(ACTION_START)
                 .putExtra(EXTRA_TITLE, title)
-                .putStringArrayListExtra(EXTRA_TEXTS, ArrayList(texts))
-                .putExtra(EXTRA_PAGES, pages)
+                .putStringArrayListExtra(EXTRA_TEXTS, capped)
+                .putExtra(EXTRA_PAGES, if (pages.size == texts.size) pages.copyOf(capped.size) else pages)
                 .putExtra(EXTRA_AUTO_ADVANCE, autoAdvance)
             ContextCompat.startForegroundService(context, intent)
         }
@@ -75,12 +94,25 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
 
         /** Stop narration and dismiss the notification. */
         fun stop(context: Context) {
-            context.startService(Intent(context, ReaderTtsService::class.java).setAction(ACTION_STOP))
+            // startForegroundService: the reader calls this from a DisposableEffect's onDispose, which
+            // may run while the app is in the background, where startService() throws on API 26+.
+            ContextCompat.startForegroundService(context, Intent(context, ReaderTtsService::class.java).setAction(ACTION_STOP))
         }
+
+        private val _runningState = MutableStateFlow(false)
+
+        /**
+         * Emits while narration runs. The reader collects this for its narration toggle, so the icon
+         * follows the service even when narration stops on its own (the last utterance ending).
+         */
+        val runningFlow: StateFlow<Boolean> = _runningState.asStateFlow()
 
         /** True while narration is running; the reader shows its narration toggle from this. */
         @Volatile var running = false
-            private set
+            private set(value) {
+                field = value
+                _runningState.value = value
+            }
     }
 
     private var tts: TextToSpeech? = null
@@ -286,6 +318,7 @@ class ReaderTtsService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         tts?.shutdown()
         session?.release()
         super.onDestroy()

@@ -77,12 +77,14 @@ class Trackers(
     /** Finishes a sign-in when the browser sends you back. Returns a message to show, or null for another address. */
     suspend fun handleRedirect(uri: Uri): String? = when ("${uri.scheme}://${uri.host}") {
         ANILIST_REDIRECT -> {
-            val pending = store.current().aniListPendingClientId
+            // Only a sign-in started from Settings may finish. Without this check any dexter://anilist link
+            // could sign you into someone else's account, and your reading progress would go there.
+            val pending = store.current().aniListPendingClientId ?: return "No AniList sign-in was in progress. Start it again from Settings."
             val (token, expiresIn) = aniListToken(uri.fragment) ?: return "AniList did not sign you in."
             val name = aniListViewer(token)
             store.update {
                 it.copy(
-                    aniList = TrackerLogin(pending.orEmpty(), token, name, if (expiresIn > 0) System.currentTimeMillis() + expiresIn * 1000 else 0),
+                    aniList = TrackerLogin(pending, token, name, if (expiresIn > 0) System.currentTimeMillis() + expiresIn * 1000 else 0),
                     aniListPendingClientId = null,
                 )
             }

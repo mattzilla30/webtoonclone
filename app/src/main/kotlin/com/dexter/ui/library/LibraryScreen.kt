@@ -166,9 +166,29 @@ fun LibraryScreen(
             // A reading list is its own list: removals drop its entries, never library tabs.
             undo = UndoState(tab, unfilteredTabItems, removed.size, readingListId = target.id, readingListEntries = target.entries)
             libraryScope.launch { readingLists.removeEntries(target.id, ids) }
+        } else if (collection != null) {
+            undo = UndoState(tab, unfilteredTabItems, removed.size, collection)
+            viewModel.removeFromCollection(collection, ids)
+        } else if (tab == LibraryList.Lists && statusFilter == null) {
+            // The "All" chip aggregates lists and collections: route each id to its origin.
+            // Collection-only series are removed from their collections instead of silently kept.
+            val listsIds = ids.filter { id -> library.lists.any { it.id == id } }.toSet()
+            val collectionParts = library.collections.mapNotNull { (name, members) ->
+                val part = members.filter { it.id in ids }
+                if (part.isNotEmpty()) name to part else null
+            }
+            undo = UndoState(
+                tab, unfilteredTabItems, removed.size,
+                listsSnapshot = library.lists,
+                collectionSnapshots = collectionParts.toMap(),
+            )
+            if (listsIds.isNotEmpty()) viewModel.delete(LibraryList.Lists, listsIds)
+            collectionParts.forEach { (name, part) ->
+                viewModel.removeFromCollection(name, part.mapTo(HashSet()) { it.id })
+            }
         } else {
             undo = UndoState(tab, unfilteredTabItems, removed.size, collection)
-            if (collection != null) viewModel.removeFromCollection(collection, ids) else viewModel.delete(tab, ids)
+            viewModel.delete(tab, ids)
         }
         selected.clear()
     }
@@ -441,6 +461,11 @@ fun LibraryScreen(
                             when {
                                 state.collection != null -> viewModel.restoreCollection(state.collection, state.snapshot)
                                 state.readingListId != null -> libraryScope.launch { readingLists.restoreEntries(state.readingListId, state.readingListEntries) }
+                                state.listsSnapshot != null || state.collectionSnapshots.isNotEmpty() -> {
+                                    // The "All" view: each part goes back to its origin.
+                                    state.listsSnapshot?.let { viewModel.restore(state.list, it) }
+                                    state.collectionSnapshots.forEach { (name, snapshot) -> viewModel.restoreCollection(name, snapshot) }
+                                }
                                 else -> viewModel.restore(state.list, state.snapshot)
                             }
                             undo = null
@@ -475,4 +500,8 @@ private data class UndoState(
     val collection: String? = null,
     val readingListId: String? = null,
     val readingListEntries: List<ReadingListEntry> = emptyList(),
+    /** The "All" aggregate view: pre-removal Lists-tab contents, restored via [LibraryStore.restore]. */
+    val listsSnapshot: List<SavedSeries>? = null,
+    /** The "All" aggregate view: collection name to its pre-removal contents. */
+    val collectionSnapshots: Map<String, List<SavedSeries>> = emptyMap(),
 )

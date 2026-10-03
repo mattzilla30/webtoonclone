@@ -50,11 +50,11 @@ fun toolbarActionsOrDefault(csv: String, default: List<ToolbarAction>): List<Too
     return parsed.ifEmpty { default }
 }
 
-/** Parses a comma-separated list of [ToolbarAction] names, dropping anything unknown. */
+/** Parses a comma-separated list of [ToolbarAction] names, dropping anything unknown or repeated. */
 fun parseToolbarActions(csv: String): List<ToolbarAction> =
     csv.split(",").mapNotNull { name ->
         name.trim().takeIf { it.isNotEmpty() }?.let { runCatching { ToolbarAction.valueOf(it) }.getOrNull() }
-    }
+    }.distinct()
 
 /** Serializes [actions] for storage. */
 fun serializeToolbarActions(actions: List<ToolbarAction>): String = actions.joinToString(",") { it.name }

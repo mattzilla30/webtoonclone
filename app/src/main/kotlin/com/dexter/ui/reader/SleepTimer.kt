@@ -1,5 +1,6 @@
 package com.dexter.ui.reader
 
+import android.os.SystemClock
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,17 +23,43 @@ import kotlinx.coroutines.delay
 private val SLEEP_CHOICES = listOf(0, 15, 30, 45, 60)
 
 /**
- * Fires [onFire] once [minutes] elapse. Keyed on [minutes], so changing the length restarts the
- * countdown. Does nothing when [minutes] is 0.
+ * The sleep timer's deadline, kept outside composition. Opening the next episode replaces the whole
+ * reader destination, which would otherwise restart the countdown on every chapter.
+ */
+internal object SleepTimerClock {
+    /** Elapsed-realtime millis when the countdown ends, or 0 when none is running. */
+    var deadlineMs: Long = 0L
+
+    /** (Re)starts the countdown from now. 0 minutes clears it. */
+    fun start(minutes: Int) {
+        deadlineMs = if (minutes > 0) SystemClock.elapsedRealtime() + minutes * 60_000L else 0L
+    }
+}
+
+/**
+ * Fires [onFire] once [minutes] elapse. Changing the length restarts the countdown; a chapter change
+ * keeps it: the deadline is process-wide and reused while it is still in the future. Does nothing
+ * when [minutes] is 0.
  */
 @Composable
 internal fun SleepTimer(
     minutes: Int,
     onFire: () -> Unit,
 ) {
-    if (minutes <= 0) return
-    LaunchedEffect(minutes) {
-        delay(minutes * 60_000L)
+    if (minutes <= 0) {
+        SleepTimerClock.start(0)
+        return
+    }
+    val deadline = remember(minutes) {
+        val now = SystemClock.elapsedRealtime()
+        // A new chapter recreates this composition; keep the running countdown instead of restarting it.
+        if (SleepTimerClock.deadlineMs <= now) SleepTimerClock.start(minutes)
+        SleepTimerClock.deadlineMs
+    }
+    LaunchedEffect(deadline) {
+        val wait = deadline - SystemClock.elapsedRealtime()
+        if (wait > 0) delay(wait)
+        SleepTimerClock.start(0)
         onFire()
     }
 }
@@ -75,3 +103,4 @@ internal fun SleepTimerDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }
+

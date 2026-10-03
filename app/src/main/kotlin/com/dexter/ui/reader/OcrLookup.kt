@@ -86,8 +86,8 @@ fun OcrLookupSheet(imageUrl: String, onDismiss: () -> Unit) {
         when (val current = result) {
             null -> LoadingState()
             else -> when {
-                current.error != null -> MessageState(current.error, onDismiss)
-                current.blocks.isEmpty() -> MessageState("No text found on this page", onDismiss)
+                current.error != null -> MessageState(current.error)
+                current.blocks.isEmpty() -> MessageState("No text found on this page")
                 else -> PageWithHighlights(
                     imageUrl = imageUrl,
                     result = current,
@@ -179,8 +179,12 @@ private fun LoadingState() {
     }
 }
 
+/**
+ * An OCR result with nothing to show: an error, or a page with no recognized text. The sheet's top
+ * row already has a close button, so this shows no second one.
+ */
 @Composable
-private fun MessageState(message: String, onDismiss: () -> Unit) {
+private fun MessageState(message: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -188,7 +192,6 @@ private fun MessageState(message: String, onDismiss: () -> Unit) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Text(message, style = MaterialTheme.typography.bodyLarge, color = Color.White)
         }
-        TextButton(onClick = onDismiss) { Text("Close") }
     }
 }
 

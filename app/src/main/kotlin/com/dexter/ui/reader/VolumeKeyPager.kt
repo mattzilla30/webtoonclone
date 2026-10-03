@@ -1,6 +1,7 @@
 package com.dexter.ui.reader
 
 import android.view.KeyEvent
+import kotlinx.coroutines.flow.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
@@ -10,7 +11,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 object VolumeKeyPager {
     @Volatile var active = false
 
-    val events = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+    // A burst of presses keeps the latest ones: dropping the oldest matches rapid page turns,
+    // where the newest press is the one the reader still wants.
+    val events = MutableSharedFlow<Int>(extraBufferCapacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /** True when this key press was taken. Only the key-down event scrolls. */
     fun handle(event: KeyEvent): Boolean {

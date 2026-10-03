@@ -248,9 +248,22 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         viewModelScope.launch(LogFailures) {
             _message.value = runCatching {
                 app.backupService.restore(backup)
+                afterRestore()
                 "Backup restored"
             }.getOrElse { "Could not restore the backup" }
         }
+    }
+
+    /**
+     * Puts the restored settings to work now instead of at the next launch: the chapter check runs on
+     * the restored interval, the downloader drains a restored queue (Wi-Fi-only still applies), and the
+     * reading-goal reminder follows the restored goal.
+     */
+    private suspend fun afterRestore() {
+        val restored = app.settingsStore.current()
+        NewChaptersWorker.schedule(app, restored.checkIntervalMinutes)
+        DownloadWorker.start(app, restored.downloadWifiOnly)
+        GoalReminderWorker.sync(app, restored.goalReminderHour)
     }
 
     private val _pendingArchive = MutableStateFlow<Uri?>(null)
@@ -292,8 +305,7 @@ class SettingsViewModel(private val app: DexterApp) : ViewModel() {
         viewModelScope.launch(LogFailures) {
             _message.value = runCatching {
                 app.backupArchive.restoreArchive(uri, backup)
-                // The restored queue may hold chapters again; let the downloader drain it (Wi-Fi-only still applies).
-                DownloadWorker.start(app, app.settingsStore.current().downloadWifiOnly)
+                afterRestore()
                 "Backup archive restored"
             }.getOrElse { "Could not restore the backup archive" }
         }

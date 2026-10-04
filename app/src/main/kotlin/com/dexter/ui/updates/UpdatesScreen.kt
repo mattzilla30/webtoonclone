@@ -265,18 +265,17 @@ private fun UpdateRowItem(
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(entry.series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(
+                        // The episode, its title, and the group share one line.
                         buildString {
                             append("Ep. ${entry.chapterNumber}")
                             if (entry.chapterTitle.isNotBlank()) append(" · ${entry.chapterTitle}")
+                            entry.group?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    entry.group?.let {
-                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {

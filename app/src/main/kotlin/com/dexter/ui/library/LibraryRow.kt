@@ -49,8 +49,9 @@ internal fun LibraryRow(
 ) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+        // The page's own colour reads as no card at all, yet stays opaque so a swipe's action shows only beside the row.
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
             .clip(MaterialTheme.shapes.medium)
             .combinedClickable(
                 onClick = { if (selecting) onSelect(!selected) else onOpen() },

@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -192,7 +193,7 @@ internal fun LibraryTile(
 ) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
         modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(
             onClick = { if (selecting) onSelect(!selected) else onOpen() },
             onClickLabel = if (selecting) "Select" else "Open series",

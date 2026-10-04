@@ -70,7 +70,7 @@ class AutomationReceiver : BroadcastReceiver() {
         when (intent.action) {
             DexterAutomation.ACTION_LIBRARY_UPDATE -> {
                 // A forced check runs outside the schedule; the worker still honours quiet hours.
-                NewChaptersWorker.checkNow(context)
+                NewChaptersWorker.checkNow(context, manual = false)
             }
             DexterAutomation.ACTION_OPEN_CONTINUE_READING,
             DexterAutomation.ACTION_OPEN_READER,

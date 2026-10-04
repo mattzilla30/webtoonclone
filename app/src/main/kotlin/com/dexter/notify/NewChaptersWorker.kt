@@ -19,6 +19,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -51,6 +52,7 @@ private const val FULL_CHECK_MS = 6L * 60 * 60 * 1000
 
 /** A series MangaDex no longer knows (404) is not looked up again for a week. */
 private const val GONE_SERIES_BACKOFF_MS = 7L * 24 * 60 * 60 * 1000
+private const val KEY_MANUAL = "manual"
 const val EXTRA_SERIES_ID = "seriesId"
 const val EXTRA_ROUTE = "route"
 const val EXTRA_CHAPTER_ID = "chapterId"
@@ -81,7 +83,9 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
         val app = applicationContext as DexterApp
         val settings = app.settingsStore.current()
         // During quiet hours nothing is checked, so the next run after them catches up and notifies once.
-        if (settings.quietHours && isQuietHour(LocalTime.now().hour, settings.quietStartHour, settings.quietEndHour)) {
+        // A check you start yourself runs anyway: you are awake and asked for it.
+        val manual = inputData.getBoolean(KEY_MANUAL, false)
+        if (!manual && settings.quietHours && isQuietHour(LocalTime.now().hour, settings.quietStartHour, settings.quietEndHour)) {
             return Result.success()
         }
         val library = app.libraryStore.current()
@@ -346,10 +350,11 @@ class NewChaptersWorker(context: Context, params: WorkerParameters) : CoroutineW
     }
 
     companion object {
-        /** Checks once now, whatever the schedule, on any network. */
-        fun checkNow(context: Context) {
+        /** Checks once now, whatever the schedule, on any network. [manual] is a check you asked for, which runs even during quiet hours. */
+        fun checkNow(context: Context, manual: Boolean = true) {
             val request = OneTimeWorkRequestBuilder<NewChaptersWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setInputData(workDataOf(KEY_MANUAL to manual))
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(NOW_WORK_NAME, ExistingWorkPolicy.REPLACE, request)
         }

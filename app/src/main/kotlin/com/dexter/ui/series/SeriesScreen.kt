@@ -346,7 +346,13 @@ fun SeriesScreen(
                                     Modifier
                                 },
                             )
-                            Text(factsLine(page.detail), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // Follows and rating join the facts line instead of taking a row of their own.
+                            val stats = listOfNotNull(
+                                factsLine(page.detail).takeIf { it.isNotBlank() },
+                                summary.follows?.let { "♥ ${compact(it)}" },
+                                page.detail.rating?.let { "★ %.2f".format(Locale.US, it) },
+                            ).joinToString("  ·  ")
+                            Text(stats, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             nextExpected?.let { day ->
                                 Text(
                                     if (day.isAfter(LocalDate.now())) "Next chapter likely around ${day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))}" else "Next chapter expected any day",
@@ -354,20 +360,10 @@ fun SeriesScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
-                            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                summary.follows?.let {
-                                    Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
-                                    Text(" ${compact(it)}   ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                page.detail.rating?.let {
-                                    Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
-                                    Text(" %.2f".format(Locale.US, it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
                         }
                     }
                 }
-                // The read button sits right under the follows and rating.
+                // The read button sits right under the series facts.
                 item {
                     if (lastRead == null && startAt == null && page.chapters.isNotEmpty()) {
                         Text(

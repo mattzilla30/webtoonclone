@@ -39,6 +39,7 @@ import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
@@ -180,7 +181,12 @@ fun HomeScreen(
         Box(Modifier.fillMaxSize()) {
             // A pull keeps what is on screen and swaps in the new picks when they arrive.
             PullToRefreshBox(isRefreshing = refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
-                LoadView(state, onRetry = viewModel::retry) { home ->
+                LoadView(
+                    state,
+                    onRetry = viewModel::retry,
+                    // Home loads behind the Material morphing shape instead of placeholder rows.
+                    loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator(Modifier.size(64.dp)) } },
+                ) { home ->
                     // Sideways rows size their tiles to the screen, so the spacing stays even on any width.
                     val tileWidth = rowTileWidth(windowWidthDp()).dp
                     LazyColumn(Modifier.fillMaxSize()) {

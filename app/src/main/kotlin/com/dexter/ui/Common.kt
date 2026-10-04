@@ -44,9 +44,14 @@ sealed interface Load<out T> {
 }
 
 @Composable
-fun <T> LoadView(state: Load<T>, onRetry: () -> Unit, content: @Composable (T) -> Unit) {
+fun <T> LoadView(
+    state: Load<T>,
+    onRetry: () -> Unit,
+    loading: @Composable () -> Unit = { SkeletonList() },
+    content: @Composable (T) -> Unit,
+) {
     when (state) {
-        Load.Loading -> SkeletonList()
+        Load.Loading -> loading()
 
         is Load.Error -> Column(
             Modifier.fillMaxSize().padding(16.dp),

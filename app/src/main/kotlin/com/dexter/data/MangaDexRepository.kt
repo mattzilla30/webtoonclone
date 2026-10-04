@@ -197,7 +197,7 @@ class MangaDexRepository(
     }
 
     /** The newest series that already have chapters. Polled so new uploads show up. */
-    suspend fun newSeries(): List<SeriesSummary> = browse(order = Order.Newest, limit = 3)
+    suspend fun newSeries(): List<SeriesSummary> = browse(order = Order.Newest, limit = 6)
 
     /** The hero and picks are random on every call, so each app open looks different. */
     suspend fun home(): HomeContent = coroutineScope {

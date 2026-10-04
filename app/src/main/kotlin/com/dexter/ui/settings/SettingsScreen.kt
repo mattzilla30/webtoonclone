@@ -65,6 +65,7 @@ import com.dexter.ui.AppLock
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.ConfirmDialog
+import com.dexter.ui.FilterField
 import com.dexter.ui.PinSetupScreen
 import com.dexter.ui.openLink
 import com.dexter.ui.timeAgo
@@ -188,19 +189,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                 IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close settings") }
             },
         )
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            singleLine = true,
-            placeholder = { Text("Search settings") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, contentDescription = "Clear search") }
-                }
-            },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        )
+        FilterField(query, { query = it }, "Search settings")
         // Every setting on one page, A to Z by name. The search box narrows it to matching rows.
         CompositionLocalProvider(LocalSettingsQuery provides query) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {

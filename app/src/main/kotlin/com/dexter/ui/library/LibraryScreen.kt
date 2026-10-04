@@ -62,6 +62,7 @@ import com.dexter.data.newChapterEstimate
 import com.dexter.data.offlineSeries
 import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
+import com.dexter.ui.FilterField
 import com.dexter.ui.TextPromptDialog
 import com.dexter.ui.series.hasUnreadChapters
 import kotlinx.coroutines.delay
@@ -262,13 +263,7 @@ fun LibraryScreen(
                     }
                 }
             }
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text(stringResource(R.string.filter_by_title)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+            FilterField(query, { query = it }, stringResource(R.string.filter_by_title))
             // Smart lists: saved library queries. Tap one to apply it; save the current search as one.
             if (allSmartLists.isNotEmpty() || query.isNotBlank()) {
                 Row(

@@ -127,7 +127,7 @@ data class Settings(
     val seriesLooks: Map<String, SeriesLook> = emptyMap(),
     /** A reading mode chosen for one series. A series with no entry uses Auto. */
     val seriesReadingModes: Map<String, ReadingMode> = emptyMap(),
-    /** True once you closed the tip that a long press on a cover subscribes. */
+    /** Kept so saved settings from before the long-press tip was removed still read. No longer used. */
     val longPressTipSeen: Boolean = false,
     /** Delete a saved chapter once you open the chapter after it. */
     val deleteAfterRead: Boolean = false,

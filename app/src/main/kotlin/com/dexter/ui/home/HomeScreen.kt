@@ -119,7 +119,6 @@ fun HomeScreen(
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val newCounts by viewModel.newCounts.collectAsStateWithLifecycle()
     val fromSubscriptions by viewModel.fromSubscriptions.collectAsStateWithLifecycle()
-    val showTip by viewModel.showLongPressTip.collectAsStateWithLifecycle()
     val because by viewModel.becauseYouRead.collectAsStateWithLifecycle()
     val appContext = LocalContext.current
     val columns = adaptiveColumns(windowWidthDp())
@@ -243,9 +242,6 @@ fun HomeScreen(
                         }
 
                         item(contentType = "header") { SectionHeader("Random Picks", onClick = { onBrowse("Popular") }) }
-                        if (showTip) {
-                            item(contentType = "tip") { LongPressTip(onDismiss = viewModel::dismissLongPressTip) }
-                        }
                         // The random lead series opens the picks instead of taking a full-width card of its own.
                         val pickRows = (listOfNotNull(home.hero) + home.picks).distinctBy { it.id }.chunked(columns)
                         items(pickRows, key = { it.first().id }, contentType = { "picks" }) { rowSeries ->
@@ -368,22 +364,6 @@ private fun UnreadTile(unread: UnreadSeries, width: Dp, onClick: () -> Unit) {
                     Text("Ep. $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        }
-    }
-}
-
-/** A one-time tip that a long press on any cover subscribes. */
-@Composable
-private fun LongPressTip(onDismiss: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
-    ) {
-        Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Tip: press and hold any cover to subscribe.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("Got it") }
         }
     }
 }

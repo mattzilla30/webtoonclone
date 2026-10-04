@@ -131,14 +131,6 @@ class HomeViewModel(
             .map { UnreadSeries(it, newChapterEstimate(it.knownChapterNumber, lastRead[it.id])) }
     }
 
-    /** Whether to show the tip that a long press on a cover subscribes. */
-    val showLongPressTip: StateFlow<Boolean> = settingsStore.settings.map { !it.longPressTipSeen }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), !settingsStore.latest.longPressTipSeen)
-
-    fun dismissLongPressTip() {
-        viewModelScope.launch(LogFailures) { settingsStore.update { it.copy(longPressTipSeen = true) } }
-    }
-
     /** Takes a series off the Continue Reading row and out of the Recent list. */
     fun removeFromHistory(seriesId: String) {
         viewModelScope.launch(LogFailures) { libraryStore.removeRecent(setOf(seriesId)) }

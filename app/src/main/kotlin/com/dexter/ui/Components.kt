@@ -207,11 +207,11 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
     Row(
         modifier.fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(title, style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.semantics { heading() })
+        Text(title, style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.semantics { heading() })
         if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
     }
 }
@@ -252,15 +252,11 @@ fun PickTile(
                     )
                 }
             }
-            // Every tile's text area is the same height, sized from the font scale, so tiles in a row line up.
-            // A title too long for three lines shrinks to fit instead of stretching the tile.
+            // Just the title under the cover: genre and follows are on the series page. Every tile's text area is
+            // two lines tall, sized from the font scale, so tiles in a row line up; a longer title shrinks to fit.
             val type = MaterialTheme.typography
-            val textHeight = with(LocalDensity.current) { type.labelMedium.lineHeight.toDp() + type.titleSmallEmphasized.lineHeight.toDp() * 3 + type.labelSmall.lineHeight.toDp() }
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp).height(textHeight)) {
-                GenreLabel(series.genre)
-                FitText(series.title, type.titleSmallEmphasized, Modifier.weight(1f), maxLines = 3)
-                HeartCount(series.follows)
-            }
+            val textHeight = with(LocalDensity.current) { type.titleSmallEmphasized.lineHeight.toDp() * 2 }
+            FitText(series.title, type.titleSmallEmphasized, Modifier.padding(horizontal = 10.dp, vertical = 8.dp).height(textHeight), maxLines = 2)
         }
     }
 }

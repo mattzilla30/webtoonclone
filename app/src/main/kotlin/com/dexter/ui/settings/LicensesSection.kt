@@ -1,14 +1,8 @@
 package com.dexter.ui.settings
 
 import android.content.Intent
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 
 /** One open-source component Dexter ships, with its license and where to read more. */
@@ -42,22 +36,15 @@ val OpenSourceComponents: List<OpenSourceComponent> = listOf(
 internal fun LicensesSection() {
     val context = LocalContext.current
     val open = { url: String -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) } }
-    SettingsBlock("Open-source licenses") {
-        // One entry in the A-to-Z list: the libraries below are credits, not settings to sort among the rest.
-        Keyed("Open-source licenses") {
-            Column {
-                Text(
-                    "Dexter is free software: you can redistribute it and modify it under the terms of the GNU General Public " +
-                        "License, version 3. It comes with ABSOLUTELY NO WARRANTY. Dexter is built with the libraries below.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                )
-                InfoRow(title = "GNU General Public License v3", subtitle = "Dexter's license", onClick = { open("https://www.gnu.org/licenses/gpl-3.0.html") })
-                InfoRow(title = "Source code", subtitle = SOURCE_URL.removePrefix("https://"), onClick = { open(SOURCE_URL) })
-                OpenSourceComponents.forEach { component ->
-                    InfoRow(title = component.name, subtitle = component.license, onClick = { open(component.url) })
-                }
-            }
+    Setting(
+        "Open-source licenses",
+        "Dexter is free software under the GNU General Public License, version 3, with ABSOLUTELY NO WARRANTY. It is built with the libraries below.",
+        keywords = listOf("gpl", "source code", "about", "credits") + OpenSourceComponents.map { it.name },
+    ) {
+        SubLink("GNU General Public License v3", "Dexter's license") { open("https://www.gnu.org/licenses/gpl-3.0.html") }
+        SubLink("Source code", SOURCE_URL.removePrefix("https://")) { open(SOURCE_URL) }
+        OpenSourceComponents.forEach { component ->
+            SubLink(component.name, component.license) { open(component.url) }
         }
     }
 }

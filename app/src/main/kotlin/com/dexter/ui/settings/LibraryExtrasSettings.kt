@@ -11,6 +11,7 @@ fun LibraryExtrasSection(settings: Settings, update: ((Settings) -> Settings) ->
             "Recommendations",
             "Show \"Because you read\" picks on Home. Candidates are scored on this device from your library and reading history.",
             settings.recommendations,
+            keywords = listOf("because you read", "suggestions", "home"),
         ) { on -> update { it.copy(recommendations = on) } }
     }
 }

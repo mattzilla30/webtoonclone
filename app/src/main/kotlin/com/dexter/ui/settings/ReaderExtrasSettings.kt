@@ -21,6 +21,7 @@ internal fun ReaderExtrasSection(settings: Settings, update: ((Settings) -> Sett
                 TapZoneLayout.Edge to "Edge",
             ),
             settings.tapZoneLayout,
+            keywords = listOf("touch", "controls", "kindle"),
         ) { choice -> update { it.copy(tapZoneLayout = choice) } }
         SwitchRow("Mirror tap zones", "Swap the previous and next zones left to right.", settings.invertTapZones) { on ->
             update { it.copy(invertTapZones = on) }

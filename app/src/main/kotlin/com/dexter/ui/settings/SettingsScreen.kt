@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,7 +41,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dexter.R
 import com.dexter.data.A11yPrefs
@@ -62,7 +61,6 @@ import com.dexter.data.resetReaderSettings
 import com.dexter.notify.CHANNEL_ID
 import com.dexter.platform.WatchLink
 import com.dexter.ui.AppLock
-import com.dexter.ui.AppTopBar
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.ConfirmDialog
 import com.dexter.ui.FilterField
@@ -188,10 +186,24 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
             FilterField(query, { query = it }, "Search settings", Modifier.weight(1f))
             IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close settings") }
         }
-        // Every setting on one page, A to Z by name. The search box narrows it to matching rows.
+        // Every setting on its own card, A to Z by name. The search box narrows it to matching cards.
         CompositionLocalProvider(LocalSettingsQuery provides query) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-                SortedSettingsColumn(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                SortedSettingsColumn(
+                    Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+                    empty = {
+                        Text(
+                            "No settings match \"${query.trim()}\".",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        )
+                    },
+                ) {
                     AppearanceSection(settings, viewModel::update)
 
                     ReadingSection(settings, viewModel::update)
@@ -259,9 +271,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
 
                     SettingsBlock("Watch") {
                         SwitchRow(
-                            "Connect to the watch app",
+                            "Watch app",
                             "Turn pages and see your progress from Dexter on a paired Wear OS watch, over Bluetooth.",
                             settings.watchLink,
+                            keywords = listOf("wear os", "bluetooth", "connect"),
                         ) { on ->
                             if (on && !WatchLink.hasPermission(context)) {
                                 bluetoothLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
@@ -272,12 +285,36 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                     }
 
                     SettingsBlock("Privacy") {
-                        SwitchRow("Incognito", "Read without saving history, reading positions, or stats.", settings.incognito) { on ->
+                        SwitchRow("Incognito", "Read without saving history, reading positions, or stats.", settings.incognito, keywords = listOf("private")) { on ->
                             viewModel.update { it.copy(incognito = on) }
                         }
-                    }
-                    SettingsBlock("App lock") {
-                        SwitchRow("App lock", "Ask for your fingerprint, face, or PIN when Dexter opens or returns to the foreground.", settings.appLock) { on ->
+                        SwitchRow(
+                            "App lock",
+                            "Ask for your fingerprint, face, or PIN when Dexter opens or returns to the foreground.",
+                            settings.appLock,
+                            keywords = listOf("biometric", "unlock", "pin", "password", "lock again", "security"),
+                            more = if (!settings.appLock) {
+                                null
+                            } else {
+                                {
+                                    SubChoice(
+                                        "Unlock with",
+                                        listOf(LockMode.BiometricOrDeviceCredential to "Phone unlock", LockMode.AppPin to "App PIN"),
+                                        settings.lockMode,
+                                    ) { mode -> viewModel.update { it.copy(lockMode = mode) } }
+                                    if (settings.lockMode == LockMode.AppPin) {
+                                        var showPinSetup by remember { mutableStateOf(false) }
+                                        SubLink("App PIN", "Set the PIN Dexter asks for.") { showPinSetup = true }
+                                        if (showPinSetup) PinSetupScreen(onDone = { showPinSetup = false })
+                                    }
+                                    SubChoice(
+                                        "Lock again after",
+                                        listOf(15_000L to "15 seconds", 30_000L to "30 seconds", 60_000L to "1 minute", 300_000L to "5 minutes"),
+                                        settings.relockTimeoutMs,
+                                    ) { ms -> viewModel.update { it.copy(relockTimeoutMs = ms) } }
+                                }
+                            },
+                        ) { on ->
                             // Turning the lock on or off asks first, so it only changes in your hands.
                             AppLock.authenticateBiometric(context, if (on) "Turn on app lock" else "Turn off app lock") { passed ->
                                 if (passed) {
@@ -288,96 +325,71 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                                 }
                             }
                         }
-                        if (settings.appLock) {
-                            ChoiceRow(
-                                "Unlock with",
-                                listOf(
-                                    LockMode.BiometricOrDeviceCredential to "Phone unlock",
-                                    LockMode.AppPin to "App PIN",
-                                ),
-                                settings.lockMode,
-                            ) { mode -> viewModel.update { it.copy(lockMode = mode) } }
-                            if (settings.lockMode == LockMode.AppPin) {
-                                var showPinSetup by remember { mutableStateOf(false) }
-                                InfoRow("App PIN", subtitle = "Set the PIN Dexter asks for.", onClick = { showPinSetup = true })
-                                if (showPinSetup) {
-                                    PinSetupScreen(onDone = { showPinSetup = false })
-                                }
-                            }
-                            ChoiceRow(
-                                "Lock again after",
-                                listOf(15_000L to "15 seconds", 30_000L to "30 seconds", 60_000L to "1 minute", 300_000L to "5 minutes"),
-                                settings.relockTimeoutMs,
-                            ) { ms -> viewModel.update { it.copy(relockTimeoutMs = ms) } }
-                        }
                     }
 
-                    SettingsBlock("Titles") {
-                        SwitchRow("Original titles", "Show the romanized original title instead of the English one.", settings.originalTitles) { on ->
-                            viewModel.update { it.copy(originalTitles = on) }
-                        }
+                    SettingsBlock("Content") {
+                        SwitchRow(
+                            "Original titles",
+                            "Show the romanized original title instead of the English one.",
+                            settings.originalTitles,
+                            keywords = listOf("romaji", "japanese", "names"),
+                        ) { on -> viewModel.update { it.copy(originalTitles = on) } }
 
                         ChoiceRow(
                             "Language",
                             Languages.map { it.code to it.name },
                             settings.language,
+                            summary = "Chapters, titles, and descriptions use this language when MangaDex has it.",
+                            keywords = listOf("translation"),
                         ) { code -> viewModel.update { it.copy(language = code) } }
-                        Searchable("Language") {
-                            Text(
-                                "Chapters, titles, and descriptions use this language when MangaDex has it.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
 
-                        Searchable("Content ratings", "adult", "erotica", "pornographic", "suggestive", "safe", key = "Content ratings") {
-                            Column(Modifier.padding(vertical = 8.dp)) {
-                                Text(stringResource(R.string.content_ratings), style = MaterialTheme.typography.bodyMedium)
-                                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    ContentRatings.forEach { rating ->
-                                        val on = rating in settings.contentRatings
-                                        ChoiceChip(rating.replaceFirstChar { it.uppercase() }, on) {
-                                            viewModel.update { current ->
-                                                val next = if (on) current.contentRatings - rating else current.contentRatings + rating
-                                                // Keep at least one, so the lists never go blank.
-                                                if (next.isEmpty()) current else current.copy(contentRatings = next)
-                                            }
+                        Setting(
+                            stringResource(R.string.content_ratings),
+                            "Choose which MangaDex ratings appear in lists and search. At least one stays on.",
+                            keywords = listOf("adult", "nsfw", "mature") + ContentRatings,
+                        ) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ContentRatings.forEach { rating ->
+                                    val on = rating in settings.contentRatings
+                                    ChoiceChip(rating.replaceFirstChar { it.uppercase() }, on) {
+                                        viewModel.update { current ->
+                                            val next = if (on) current.contentRatings - rating else current.contentRatings + rating
+                                            // Keep at least one, so the lists never go blank.
+                                            if (next.isEmpty()) current else current.copy(contentRatings = next)
                                         }
                                     }
                                 }
-                                Text(
-                                    "Choose which MangaDex ratings appear in lists and search.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 6.dp),
-                                )
                             }
                         }
-                    }
 
-                    SettingsBlock("Blocking") {
-                        Searchable("Blocking", "blocked tags", "block a tag", "scanlation groups", "hidden series", key = "Blocked tags and groups") {
-                            Text(stringResource(R.string.blocked_tags_stay_out_of_lists_and_searc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Setting("Blocked tags", stringResource(R.string.blocked_tags_stay_out_of_lists_and_searc), keywords = listOf("block", "hide", "genre") + settings.blockedTags) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 settings.blockedTags.sorted().forEach { tag ->
                                     ChoiceChip("$tag  ×", true) { viewModel.update { it.copy(blockedTags = it.blockedTags - tag) } }
                                 }
                                 ChoiceChip("+ Block a tag", false) { pickTag = true }
                             }
-                            if (settings.blockedGroups.isNotEmpty()) {
-                                Text(stringResource(R.string.blocked_scanlation_groups_tap_to_unblock), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        }
+                        if (settings.blockedGroups.isNotEmpty()) {
+                            Setting(
+                                "Blocked scanlation groups",
+                                stringResource(R.string.blocked_scanlation_groups_tap_to_unblock),
+                                keywords = listOf("block", "scanlators") + settings.blockedGroups,
+                            ) {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     settings.blockedGroups.sorted().forEach { group ->
                                         ChoiceChip("$group  ×", true) { viewModel.update { it.copy(blockedGroups = it.blockedGroups - group) } }
                                     }
                                 }
                             }
-                            if (settings.hiddenSeries.isNotEmpty()) {
-                                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("${settings.hiddenSeries.size} hidden series", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                                    TextButton(onClick = { viewModel.update { it.copy(hiddenSeries = emptySet()) } }) { Text(stringResource(R.string.show_all_again)) }
-                                }
-                            }
+                        }
+                        if (settings.hiddenSeries.isNotEmpty()) {
+                            InfoRow(
+                                "Hidden series",
+                                "${settings.hiddenSeries.size} series stay out of lists and search.",
+                                keywords = listOf("block", "unhide"),
+                                action = { FilledTonalButton(onClick = { viewModel.update { it.copy(hiddenSeries = emptySet()) } }) { Text(stringResource(R.string.show_all_again)) } },
+                            )
                         }
                     }
 
@@ -386,20 +398,27 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                             "New chapter notifications",
                             "Check subscribed series in the background. You can also silence one series on its page.",
                             library.notificationsEnabled,
+                            keywords = listOf("alerts", "updates"),
                         ) { on -> viewModel.setNotifications(on) }
                         ChoiceRow(
-                            "Check every",
+                            "New chapter check interval",
                             listOf(15 to "15 min", 30 to "30 min", 60 to "1 hour", 360 to "6 hours", 720 to "12 hours"),
                             settings.checkIntervalMinutes,
+                            summary = "How often Dexter looks for new chapters of your subscriptions.",
+                            keywords = listOf("check every", "frequency"),
                         ) { minutes -> viewModel.setCheckInterval(minutes) }
                         InfoRow(
-                            title = "Check for new chapters now",
-                            subtitle = if (library.lastCheckAt == 0L) "No check has finished yet." else "Last check: ${timeAgo(Instant.ofEpochMilli(library.lastCheckAt))}",
-                            action = { TextButton(onClick = viewModel::checkNow) { Text("Check") } },
+                            "Check for new chapters now",
+                            if (library.lastCheckAt == 0L) "No check has finished yet." else "Last check: ${timeAgo(Instant.ofEpochMilli(library.lastCheckAt))}",
+                            keywords = listOf("refresh", "update"),
+                            action = { FilledTonalButton(onClick = viewModel::checkNow) { Text("Check") } },
                         )
-                        Searchable("Keep these quiet", "mute", "notifications", "collections", "dropped", key = "Keep these quiet") {
-                            Text("Keep these quiet", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-                            FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Setting(
+                            "Muted statuses and collections",
+                            "Series with a selected status or in a selected collection never notify.",
+                            keywords = listOf("keep these quiet", "mute", "silence") + ReadingStatus.entries.map { it.label } + library.collections.keys,
+                        ) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ReadingStatus.entries.forEach { status ->
                                     val muted = status in settings.mutedStatuses
                                     ChoiceChip(status.label, muted) {
@@ -413,18 +432,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                                     }
                                 }
                             }
-                            Text(
-                                "Series with a selected status or in a selected collection never notify.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                         }
-                        SwitchRow("Combine into one notification", "One summary for all new chapters found in a check.", settings.notificationDigest) { on ->
-                            viewModel.update { it.copy(notificationDigest = on) }
-                        }
+                        SwitchRow(
+                            "Combine notifications",
+                            "One summary for all new chapters found in a check.",
+                            settings.notificationDigest,
+                            keywords = listOf("digest", "summary", "one notification"),
+                        ) { on -> viewModel.update { it.copy(notificationDigest = on) } }
                         InfoRow(
-                            title = "Sound and alerts",
-                            subtitle = "Open Android's settings for new chapter notifications.",
+                            "Notification sound and alerts",
+                            "Open Android's settings for new chapter notifications.",
+                            keywords = listOf("ringtone", "vibrate", "channel"),
                             onClick = {
                                 val intent = Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                                     .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
@@ -432,67 +450,107 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                                 runCatching { context.startActivity(intent) }
                             },
                         )
-                        SwitchRow("Quiet hours", "Hold notifications during these hours. New chapters notify once quiet hours end.", settings.quietHours) { on ->
-                            viewModel.update { it.copy(quietHours = on) }
-                        }
-                        if (settings.quietHours) {
-                            HourStepper("From", settings.quietStartHour, sortKey = "Quiet hours") { hour -> viewModel.update { it.copy(quietStartHour = hour) } }
-                            HourStepper("Until", settings.quietEndHour, sortKey = "Quiet hours") { hour -> viewModel.update { it.copy(quietEndHour = hour) } }
-                        }
+                        SwitchRow(
+                            "Quiet hours",
+                            "Hold notifications during these hours. New chapters notify once quiet hours end.",
+                            settings.quietHours,
+                            keywords = listOf("do not disturb", "night", "sleep", "from", "until"),
+                            more = if (!settings.quietHours) {
+                                null
+                            } else {
+                                {
+                                    HourStepper("From", settings.quietStartHour) { hour -> viewModel.update { it.copy(quietStartHour = hour) } }
+                                    HourStepper("Until", settings.quietEndHour) { hour -> viewModel.update { it.copy(quietEndHour = hour) } }
+                                }
+                            },
+                        ) { on -> viewModel.update { it.copy(quietHours = on) } }
                     }
 
                     SettingsBlock("Storage") {
                         InfoRow(
-                            title = stringResource(R.string.cache),
-                            subtitle = cacheBytes?.let(::formatBytes) ?: "Measuring…",
-                            action = { TextButton(onClick = { viewModel.clearCache() }) { Text(stringResource(R.string.clear_cache)) } },
+                            stringResource(R.string.cache),
+                            cacheBytes?.let(::formatBytes) ?: "Measuring…",
+                            keywords = listOf("space", "clear", "images"),
+                            action = { FilledTonalButton(onClick = { viewModel.clearCache() }) { Text(stringResource(R.string.clear_cache)) } },
                         )
+                        SwitchRow(
+                            "Save the next chapter while reading",
+                            "Queues the next chapter in the background so it is ready offline.",
+                            settings.autoDownloadNext,
+                            keywords = listOf("download", "offline", "prefetch"),
+                        ) { on -> viewModel.update { it.copy(autoDownloadNext = on) } }
+                        SwitchRow(
+                            "Download on Wi-Fi only",
+                            "Downloads wait for an unmetered connection.",
+                            settings.downloadWifiOnly,
+                            keywords = listOf("save", "mobile data", "metered"),
+                        ) { on -> viewModel.update { it.copy(downloadWifiOnly = on) } }
+                        InfoRow(stringResource(R.string.downloaded_chapters), "See and delete saved chapters.", onClick = onOpenDownloads, keywords = listOf("offline", "saved"))
+                        InfoRow("Clear reading history", "Empties the Recent list. Subscriptions and lists stay.", onClick = { confirmClear = true }, keywords = listOf("recent", "delete"))
+                        InfoRow("Error log", "What went wrong lately, to read or share.", onClick = onOpenErrors, keywords = listOf("bug", "crash", "debug"))
+                        InfoRow(
+                            "Reset reader options",
+                            "Background, dimming, auto-scroll and more go back to their defaults.",
+                            onClick = { confirmResetReader = true },
+                            keywords = listOf("defaults", "restore"),
+                        )
+                    }
 
-                        SwitchRow("Save the next chapter while reading", "Queues the next chapter in the background so it is ready offline.", settings.autoDownloadNext) { on ->
-                            viewModel.update { it.copy(autoDownloadNext = on) }
-                        }
-                        SwitchRow("Save on Wi-Fi only", "Downloads wait for an unmetered connection.", settings.downloadWifiOnly) { on ->
-                            viewModel.update { it.copy(downloadWifiOnly = on) }
-                        }
-                        InfoRow(title = stringResource(R.string.downloaded_chapters), onClick = onOpenDownloads)
+                    SettingsBlock("Goals") {
                         ChoiceRow(
                             "Daily reading goal",
                             listOf(0 to "Off", 1 to "1", 2 to "2", 3 to "3", 5 to "5", 10 to "10"),
                             settings.dailyGoal,
+                            summary = "Chapters to read each day.",
+                            keywords = listOf("reminder", "streak", "remind me"),
+                            more = if (settings.dailyGoal <= 0) {
+                                null
+                            } else {
+                                {
+                                    SubChoice(
+                                        "Remind me when I am short of the goal",
+                                        listOf(-1 to "Off", 12 to "12:00", 18 to "18:00", 20 to "20:00", 22 to "22:00"),
+                                        settings.goalReminderHour,
+                                    ) { hour -> viewModel.setGoalReminder(hour) }
+                                }
+                            },
                         ) { goal -> viewModel.update { it.copy(dailyGoal = goal) } }
-                        if (settings.dailyGoal > 0) {
-                            ChoiceRow(
-                                "Remind me when I am short of the goal",
-                                listOf(-1 to "Off", 12 to "12:00", 18 to "18:00", 20 to "20:00", 22 to "22:00"),
-                                settings.goalReminderHour,
-                            ) { hour -> viewModel.setGoalReminder(hour) }
-                        }
-                        InfoRow(title = stringResource(R.string.reading_stats), onClick = onOpenStats)
-                        InfoRow(title = "Reset reader options", subtitle = "Background, dimming, auto-scroll and more.", onClick = { confirmResetReader = true })
-                        InfoRow(title = "Error log", subtitle = "What went wrong lately, to read or share.", onClick = onOpenErrors)
-                        InfoRow(title = "Clear reading history", subtitle = "Empties the Recent list.", onClick = { confirmClear = true })
+                        InfoRow(stringResource(R.string.reading_stats), "Time read, chapters, and streaks.", onClick = onOpenStats, keywords = listOf("statistics", "history"))
                     }
 
                     SettingsBlock("Backup") {
-                        Searchable("Backup", "restore", "save backup", "export", "import", key = "Backup file") {
-                            Text(
-                                "Save your library, lists, reading positions, and settings to a file. Restoring replaces what is on this device.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Setting(
+                            "Backup file",
+                            "Save your library, lists, reading positions, and settings to a file. Restoring replaces what is on this device.",
+                            keywords = listOf("restore", "export", "import", "json"),
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilledTonalButton(onClick = { exportLauncher.launch("dexter-backup.json") }) { Text(stringResource(R.string.save_backup)) }
                                 OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) { Text(stringResource(R.string.restore_backup)) }
                             }
                         }
+                        Setting(
+                            stringResource(R.string.daily_backup_folder),
+                            if (settings.autoBackupFolder == null) "Off. Pick a folder to write dexter-backup.json there once a day." else "On. Writes dexter-backup.json once a day.",
+                            keywords = listOf("automatic", "auto backup"),
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilledTonalButton(onClick = { folderLauncher.launch(null) }) { Text(stringResource(R.string.choose)) }
+                                if (settings.autoBackupFolder != null) {
+                                    OutlinedButton(onClick = { viewModel.setAutoBackupFolder(null) }) { Text(stringResource(R.string.turn_off)) }
+                                }
+                            }
+                        }
                         InfoRow(
-                            title = "Import from Mihon or Tachiyomi",
-                            subtitle = "Adds the MangaDex series in a .tachibk backup, with categories and last read chapters.",
+                            "Import from Mihon or Tachiyomi",
+                            "Adds the MangaDex series in a .tachibk backup, with categories and last read chapters.",
                             onClick = { mihonLauncher.launch(arrayOf("*/*")) },
+                            keywords = listOf("tachibk", "migrate"),
                         )
                         InfoRow(
-                            title = "Share my library as text",
-                            subtitle = "A list of your titles to send to a friend or keep in a note.",
+                            "Share my library as text",
+                            "A list of your titles to send to a friend or keep in a note.",
+                            keywords = listOf("export", "list"),
                             onClick = {
                                 val text = libraryText(library)
                                 if (text.isBlank()) {
@@ -506,30 +564,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
                                 }
                             },
                         )
+                    }
+
+                    SettingsBlock("About") {
                         InfoRow(
-                            title = stringResource(R.string.daily_backup_folder),
-                            subtitle = if (settings.autoBackupFolder == null) "Off" else "On. Writes dexter-backup.json once a day.",
-                            action = {
-                                TextButton(onClick = { folderLauncher.launch(null) }) { Text(stringResource(R.string.choose)) }
-                                if (settings.autoBackupFolder != null) {
-                                    TextButton(onClick = { viewModel.setAutoBackupFolder(null) }) { Text(stringResource(R.string.turn_off)) }
-                                }
-                            },
-                        )
-                        InfoRow(
-                            title = "Check for updates",
-                            subtitle = "Looks for a newer release on GitHub.",
-                            action = { TextButton(onClick = { viewModel.checkForUpdate(version ?: "0") }, enabled = !busy) { Text("Check") } },
+                            "Check for updates",
+                            "Dexter" + (version?.let { " $it" } ?: "") + ". Looks for a newer release on GitHub.",
+                            keywords = listOf("version", "upgrade", "release"),
+                            action = { FilledTonalButton(onClick = { viewModel.checkForUpdate(version ?: "0") }, enabled = !busy) { Text("Check") } },
                         )
                     }
                 }
-                Text(
-                    "Dexter" + (version?.let { " $it" } ?: ""),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                    textAlign = TextAlign.Center,
-                )
             }
         }
     }

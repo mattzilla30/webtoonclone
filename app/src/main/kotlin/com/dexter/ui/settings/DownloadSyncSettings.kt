@@ -58,58 +58,45 @@ fun DownloadSyncSection(
 ) {
     var intervalsOpen by remember { mutableStateOf(false) }
 
-    SettingsBlock("Downloads & sync") {
-        Searchable("auto-download", "download new chapters", "followed") {
-            SwitchRow(
-                "Auto-download new chapters",
-                "When a check finds new chapters of followed series, they save in the background. Follows the Wi-Fi-only setting and the storage cap.",
-                settings.autoDownloadNew,
-            ) { on -> update { it.copy(autoDownloadNew = on) } }
-        }
-        Searchable("skip read", "skip read chapters", "next chapter") {
-            SwitchRow(
-                "Skip chapters you already read",
-                "The reader's next chapter jumps past chapters at or below the last one you read.",
-                settings.skipReadChapters,
-            ) { on -> update { it.copy(skipReadChapters = on) } }
-        }
-        Searchable("offline", "offline only", "downloaded only") {
-            SwitchRow(
-                "Offline only",
-                "Library and chapter lists show only series and chapters saved on the device.",
-                settings.offlineOnly,
-            ) { on -> update { it.copy(offlineOnly = on) } }
-        }
-        Searchable("update interval", "check interval", "per series") {
-            val custom = settings.seriesUpdateIntervals.count { it.value > 0 }
-            InfoRow(
-                title = "Check for new chapters per series",
-                subtitle = if (custom == 0) {
-                    "Every followed series follows the global schedule."
-                } else {
-                    "$custom ${if (custom == 1) "series has" else "series have"} their own schedule."
-                },
-                onClick = { intervalsOpen = true },
-            )
-        }
-    }
-
-    SettingsBlock("Backup & sync") {
-        Searchable("backup", "export", "import", "sync", "transfer", "cross-device", key = "Backup archive") {
-            Text(
-                "Save everything — library, lists, reading positions, history, stats, downloads, and covers — to one file you can move to another device.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    SettingsBlock("Downloads") {
+        SwitchRow(
+            "Auto-download new chapters",
+            "When a check finds new chapters of followed series, they save in the background. Follows the Wi-Fi-only setting and the storage cap.",
+            settings.autoDownloadNew,
+            keywords = listOf("followed", "offline", "save"),
+        ) { on -> update { it.copy(autoDownloadNew = on) } }
+        SwitchRow(
+            "Skip chapters you already read",
+            "The reader's next chapter jumps past chapters at or below the last one you read.",
+            settings.skipReadChapters,
+            keywords = listOf("next chapter", "read chapters"),
+        ) { on -> update { it.copy(skipReadChapters = on) } }
+        SwitchRow(
+            "Offline only",
+            "Library and chapter lists show only series and chapters saved on the device.",
+            settings.offlineOnly,
+            keywords = listOf("downloaded only", "airplane"),
+        ) { on -> update { it.copy(offlineOnly = on) } }
+        val custom = settings.seriesUpdateIntervals.count { it.value > 0 }
+        InfoRow(
+            "New chapter check per series",
+            if (custom == 0) {
+                "Every followed series follows the global schedule."
+            } else {
+                "$custom ${if (custom == 1) "series has" else "series have"} their own schedule."
+            },
+            onClick = { intervalsOpen = true },
+            keywords = listOf("update interval", "check interval", "schedule"),
+        )
+        Setting(
+            "Full backup archive",
+            "Save everything, including history, stats, downloads, and covers, to one file you can move to another device by sharing it, a cable, or storage.",
+            keywords = listOf("export", "import", "sync", "transfer", "zip", "cross-device"),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(onClick = onExportArchive) { Text("Export backup") }
                 OutlinedButton(onClick = onImportArchive) { Text("Import backup") }
             }
-            Text(
-                "There is no automatic cloud sync; you move the file yourself, by sharing it, a cable, or storage.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         if (intervalsOpen) {

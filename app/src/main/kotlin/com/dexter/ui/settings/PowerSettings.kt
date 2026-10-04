@@ -2,11 +2,12 @@ package com.dexter.ui.settings
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,7 +24,6 @@ import com.dexter.data.DuplicateGroup
 import com.dexter.data.PowerPrefs
 import com.dexter.data.PowerState
 import com.dexter.data.suggestedKeep
-import com.dexter.ui.CardRow
 import com.dexter.ui.ConfirmDialog
 import kotlinx.coroutines.launch
 
@@ -53,6 +53,7 @@ internal fun PowerSection(
             "Gamepad page turning",
             "Turn pages in the reader with a Bluetooth clicker or gamepad: A / D-pad right goes forward, B / D-pad left goes back.",
             state.gamepadReader,
+            keywords = listOf("controller", "clicker", "bluetooth", "remote"),
         ) { on -> scope.launch { prefs.setGamepadReader(on) } }
     }
 
@@ -61,15 +62,19 @@ internal fun PowerSection(
             "Automation intents",
             "Let Tasker, MacroDroid, and friends drive Dexter with broadcast intents. Off by default.",
             state.taskerEnabled,
+            keywords = listOf("tasker", "macrodroid", "broadcast", "intents"),
+            more = if (!state.taskerEnabled) {
+                null
+            } else {
+                {
+                    Note(
+                        "Available intents: ${DexterAutomation.ACTION_LIBRARY_UPDATE} (extra ${DexterAutomation.EXTRA_FORCE}), " +
+                            "${DexterAutomation.ACTION_OPEN_CONTINUE_READING}, " +
+                            "${DexterAutomation.ACTION_OPEN_READER} (extras ${DexterAutomation.EXTRA_SERIES_ID}, ${DexterAutomation.EXTRA_CHAPTER_ID}).",
+                    )
+                }
+            },
         ) { on -> scope.launch { prefs.setTaskerEnabled(on) } }
-        if (state.taskerEnabled) {
-            InfoRow(
-                "Available intents",
-                "${DexterAutomation.ACTION_LIBRARY_UPDATE} (extra ${DexterAutomation.EXTRA_FORCE}), " +
-                    "${DexterAutomation.ACTION_OPEN_CONTINUE_READING}, " +
-                    "${DexterAutomation.ACTION_OPEN_READER} (extras ${DexterAutomation.EXTRA_SERIES_ID}, ${DexterAutomation.EXTRA_CHAPTER_ID}).",
-            )
-        }
     }
 
     SettingsBlock("Library power tools") {
@@ -77,14 +82,18 @@ internal fun PowerSection(
             "Duplicate hints",
             "Flag the same series saved twice and repeated downloads, and suggest which copy to keep.",
             state.duplicateHints,
+            keywords = listOf("duplicates", "copies") + duplicates.flatMap { group -> group.series.map { it.title } },
+            more = if (!state.duplicateHints || duplicates.isEmpty()) {
+                null
+            } else {
+                { duplicates.forEach { group -> DuplicateGroupRow(group, onRemoveDuplicateCopies) } }
+            },
         ) { on -> scope.launch { prefs.setDuplicateHints(on) } }
-        if (state.duplicateHints && duplicates.isNotEmpty()) {
-            duplicates.forEach { group -> DuplicateGroupRow(group, onRemoveDuplicateCopies) }
-        }
         InfoRow(
             "Storage analyzer",
             "Per-series breakdown, largest chapters, and cleanup suggestions.",
             onClick = onOpenStorage,
+            keywords = listOf("space", "disk", "cleanup"),
         )
     }
 
@@ -98,10 +107,11 @@ internal fun PowerSection(
             } else {
                 "$blacklistedCount ${if (blacklistedCount == 1) "chapter" else "chapters"} in ${blacklisted.size} ${if (blacklisted.size == 1) "series" else "series"} stay out of downloads, update checks, and listings."
             },
-            action = {
-                if (blacklistedCount > 0) {
-                    TextButton(onClick = { confirmClear = true }) { Text("Clear") }
-                }
+            keywords = listOf("hidden chapters", "blocked", "skip"),
+            action = if (blacklistedCount > 0) {
+                { FilledTonalButton(onClick = { confirmClear = true }) { Text("Clear") } }
+            } else {
+                null
             },
         )
         if (confirmClear) {
@@ -124,19 +134,12 @@ internal fun PowerSection(
 /** One duplicate group: the copies, the suggested keep, and a button to drop the rest. */
 @Composable
 private fun DuplicateGroupRow(group: DuplicateGroup, onRemove: (DuplicateGroup) -> Unit) {
-    if (!matchesQuery(LocalSettingsQuery.current, "duplicate", *group.series.map { it.title }.toTypedArray())) return
     val keep = suggestedKeep(group)
-    CardRow {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                Text(keep.title, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "Saved ${group.series.size} times. Keep \"${keep.title}\"; the rest can go.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            OutlinedButton(onClick = { onRemove(group) }) { Text("Remove others") }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(keep.title, style = MaterialTheme.typography.bodyMedium)
+            Note("Saved ${group.series.size} times. Keep \"${keep.title}\"; the rest can go.")
         }
+        OutlinedButton(onClick = { onRemove(group) }) { Text("Remove others") }
     }
 }

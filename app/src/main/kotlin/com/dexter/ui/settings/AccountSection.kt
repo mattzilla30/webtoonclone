@@ -1,13 +1,10 @@
 package com.dexter.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -37,47 +34,42 @@ internal fun MangaDexAccountSection(
     onSignOut: () -> Unit,
     onReadMarkers: (Boolean) -> Unit,
 ) {
-    SettingsBlock("MangaDex account") {
-        if (login != null) {
-            InfoRow(
-                title = "Signed in as ${login.username}",
-                sortKey = "MangaDex account",
-                subtitle = "Follows and subscriptions merge both ways. Nothing is removed on either side.",
-                action = {
-                    OutlinedButton(onClick = onSync, enabled = !busy) { Text("Sync") }
-                },
-            )
-            SwitchRow("Send read markers", "Mark each chapter you open as read on MangaDex.", login.readMarkers, onReadMarkers)
-            InfoRow(title = "Sign out", subtitle = "Forgets the sign-in on this phone.", sortKey = "MangaDex account", action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } })
-            return@SettingsBlock
-        }
-        Searchable("MangaDex account", "sign in", "sync", "follows", "client", key = "MangaDex account") {
-            var clientId by rememberSaveable { mutableStateOf("") }
-            var clientSecret by rememberSaveable { mutableStateOf("") }
-            var username by rememberSaveable { mutableStateOf("") }
-            var password by rememberSaveable { mutableStateOf("") }
-            Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Create a personal API client on mangadex.org under Settings, API Clients, then enter its id and secret with your account. " +
-                        "The password signs you in once and is not kept.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                CredentialField("Client id", clientId) { clientId = it }
-                CredentialField("Client secret", clientSecret, secret = true) { clientSecret = it }
-                CredentialField("Username", username) { username = it }
-                CredentialField("Password", password, secret = true) { password = it }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    FilledTonalButton(
-                        enabled = !busy && listOf(clientId, clientSecret, username, password).all { it.isNotBlank() },
-                        onClick = {
-                            onSignIn(clientId, clientSecret, username, password)
-                            password = ""
-                        },
-                    ) { Text(if (busy) "Signing in..." else "Sign in") }
-                }
+    val keywords = listOf("sign in", "sign out", "sync", "follows", "client", "read markers", "login")
+    if (login != null) {
+        Setting(
+            "MangaDex account",
+            "Signed in as ${login.username}. Follows and subscriptions merge both ways. Nothing is removed on either side.",
+            keywords,
+        ) {
+            SubSwitch("Mark chapters read on MangaDex as you open them", login.readMarkers, onReadMarkers)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = onSync, enabled = !busy) { Text("Sync") }
+                OutlinedButton(onClick = onSignOut) { Text("Sign out") }
             }
         }
+        return
+    }
+    var clientId by rememberSaveable { mutableStateOf("") }
+    var clientSecret by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    Setting(
+        "MangaDex account",
+        "Create a personal API client on mangadex.org under Settings, API Clients, then enter its id and secret with your account. " +
+            "The password signs you in once and is not kept.",
+        keywords,
+    ) {
+        CredentialField("Client id", clientId) { clientId = it }
+        CredentialField("Client secret", clientSecret, secret = true) { clientSecret = it }
+        CredentialField("Username", username) { username = it }
+        CredentialField("Password", password, secret = true) { password = it }
+        FilledTonalButton(
+            enabled = !busy && listOf(clientId, clientSecret, username, password).all { it.isNotBlank() },
+            onClick = {
+                onSignIn(clientId, clientSecret, username, password)
+                password = ""
+            },
+        ) { Text(if (busy) "Signing in..." else "Sign in") }
     }
 }
 
@@ -124,23 +116,19 @@ internal fun TrackingSection(
 
 @Composable
 private fun TrackerRow(name: String, login: TrackerLogin?, help: String, onSignIn: (String) -> Unit, onSignOut: () -> Unit) {
+    val keywords = listOf("tracker", "sign in", "progress", "sync")
     if (login != null) {
         InfoRow(
-            title = "$name: " + login.userName.ifBlank { "signed in" },
-            subtitle = "Chapters you open move the series' progress forward there.",
+            name,
+            "Signed in as ${login.userName.ifBlank { "you" }}. Chapters you open move the series' progress forward there.",
+            keywords = keywords,
             action = { OutlinedButton(onClick = onSignOut) { Text("Sign out") } },
         )
         return
     }
-    Searchable(name, "tracking", "sign in", "progress", key = name) {
-        var clientId by rememberSaveable(name) { mutableStateOf("") }
-        Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(name, style = MaterialTheme.typography.bodyLarge)
-            Text(help, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            CredentialField("Client id", clientId) { clientId = it }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                FilledTonalButton(enabled = clientId.isNotBlank(), onClick = { onSignIn(clientId) }) { Text("Sign in to $name") }
-            }
-        }
+    var clientId by rememberSaveable(name) { mutableStateOf("") }
+    Setting(name, help, keywords) {
+        CredentialField("Client id", clientId) { clientId = it }
+        FilledTonalButton(enabled = clientId.isNotBlank(), onClick = { onSignIn(clientId) }) { Text("Sign in to $name") }
     }
 }

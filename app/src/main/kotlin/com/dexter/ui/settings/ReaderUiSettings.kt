@@ -28,7 +28,6 @@ import com.dexter.data.ReaderUi
 import com.dexter.data.ReaderUiPrefs
 import com.dexter.data.ReadingMode
 import com.dexter.data.tabletReadingMode
-import com.dexter.ui.CardRow
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.reader.StripBackground
 import com.dexter.ui.reader.ToolbarAction
@@ -68,14 +67,6 @@ internal fun ReaderUiSection() {
     }
 
     SettingsBlock("Reader toolbar") {
-        Searchable("Reader toolbar", "buttons", "reorder", "customize") {
-            Text(
-                "Choose which buttons the reader's bars show, and in what order.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
         ToolbarEditor(
             top = toolbarActionsOrDefault(ui.topActionsCsv, defaultTopActions),
             bottom = toolbarActionsOrDefault(ui.bottomActionsCsv, defaultBottomActions),
@@ -89,12 +80,13 @@ internal fun ReaderUiSection() {
             "Binge mode",
             "At the end of a chapter, count down and open the next episode automatically, like the next-episode prompt on TV.",
             ui.bingeMode,
+            keywords = listOf("autoplay", "next episode", "countdown"),
+            more = if (!ui.bingeMode) {
+                null
+            } else {
+                { SubChoice("Countdown length", listOf(3 to "3 seconds", 5 to "5 seconds", 10 to "10 seconds"), ui.bingeSeconds) { seconds -> set { setBingeSeconds(seconds) } } }
+            },
         ) { on -> set { setBingeMode(on) } }
-        ChoiceRow(
-            "Countdown length",
-            listOf(3 to "3 seconds", 5 to "5 seconds", 10 to "10 seconds"),
-            ui.bingeSeconds,
-        ) { seconds -> set { setBingeSeconds(seconds) } }
     }
 
     SettingsBlock("Back gesture") {
@@ -123,28 +115,28 @@ internal fun ReaderUiSection() {
             "Per-device reading mode",
             "Phones read as a vertical strip; tablets and unfolded foldables use the tablet mode below. A series' own mode choice always wins.",
             ui.deviceClassMode,
+            keywords = listOf("tablet", "foldable", "phone"),
+            more = if (!ui.deviceClassMode) {
+                null
+            } else {
+                {
+                    SubChoice(
+                        "Tablet mode",
+                        listOf(ReadingMode.PagedLtr to "Pages, left to right", ReadingMode.PagedRtl to "Pages, right to left"),
+                        ui.tabletReadingMode(),
+                    ) { mode -> set { setTabletMode(mode) } }
+                }
+            },
         ) { on -> set { setDeviceClassMode(on) } }
-        ChoiceRow(
-            "Tablet mode",
-            listOf(ReadingMode.PagedLtr to "Pages, left to right", ReadingMode.PagedRtl to "Pages, right to left"),
-            ui.tabletReadingMode(),
-        ) { mode -> set { setTabletMode(mode) } }
     }
 
     SettingsBlock("Two-page spreads") {
         SwitchRow(
             "Spread-aware pairing",
-            "Wide pages are detected as two-page spreads and get a full-width slot instead of being paired up.",
+            "Wide pages get a full-width slot instead of being paired up. When a chapter still pairs wrong, the reader options have a page-pairing shift.",
             ui.spreadAware,
+            keywords = listOf("two-page", "double page", "shift"),
         ) { on -> set { setSpreadAware(on) } }
-        Searchable("spreads", "pairing", "shift") {
-            Text(
-                "When a chapter still pairs up wrong, the reader options sheet has a page-pairing shift that moves every pair by one page.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
     }
 
     SettingsBlock("Strip style") {
@@ -152,11 +144,13 @@ internal fun ReaderUiSection() {
             "Space between pages",
             listOf(-1 to "Follow reader setting", 0 to "None", 8 to "Small", 16 to "Medium", 32 to "Large"),
             ui.stripGapDp,
+            keywords = listOf("gap", "webtoon", "strip"),
         ) { gap -> set { setStripGapDp(gap) } }
         ChoiceRow(
             "Page corners",
             listOf(0 to "Square", 4 to "Slightly rounded", 8 to "Rounded", 16 to "Very rounded"),
             ui.stripCornerDp,
+            keywords = listOf("rounded", "webtoon", "strip"),
         ) { corners -> set { setStripCornerDp(corners) } }
         ChoiceRow(
             "Strip background",
@@ -170,6 +164,7 @@ internal fun ReaderUiSection() {
             "Exempt color pages from night filters",
             "Pages detected as color skip the greyscale and tint filters, so night reading never washes them out.",
             ui.colorPageExempt,
+            keywords = listOf("night", "greyscale", "grayscale", "tint"),
         ) { on -> set { setColorPageExempt(on) } }
     }
 
@@ -178,15 +173,9 @@ internal fun ReaderUiSection() {
             "Sleep timer",
             listOf(0 to "Off", 15 to "15 minutes", 30 to "30 minutes", 45 to "45 minutes", 60 to "1 hour"),
             ui.sleepTimerMinutes,
+            summary = "When the time is up, auto-scroll stops and the screen dims. Changing the length restarts the countdown.",
+            keywords = listOf("bedtime", "dim"),
         ) { minutes -> set { setSleepTimerMinutes(minutes) } }
-        Searchable("Sleep timer") {
-            Text(
-                "When the time is up, auto-scroll stops and the screen dims. Changing the length restarts the countdown. The toolbar can hold a sleep timer button too.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
     }
 
     SettingsBlock("Data saver") {
@@ -194,6 +183,7 @@ internal fun ReaderUiSection() {
             "Data saver on metered connections",
             "Automatically load the smaller page images on mobile data or metered Wi-Fi. Combines with the manual Data saver toggle.",
             ui.dataSaverAutoMetered,
+            keywords = listOf("mobile data", "cellular"),
         ) { on -> set { setDataSaverAutoMetered(on) } }
     }
 }
@@ -206,42 +196,45 @@ private fun ToolbarEditor(
     onTopChange: (List<ToolbarAction>) -> Unit,
     onBottomChange: (List<ToolbarAction>) -> Unit,
 ) {
-    if (!matchesQuery(LocalSettingsQuery.current, "Reader toolbar", "buttons", "reorder", "customize")) return
-    Text("Top bar", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
-    ActionList(top, onTopChange)
-    Text("Bottom bar", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
-    ActionList(bottom, onBottomChange)
+    Setting(
+        "Reader toolbar",
+        "Choose which buttons the reader's top and bottom bars show, and in what order.",
+        keywords = listOf("buttons", "reorder", "customize", "top bar", "bottom bar") + ToolbarAction.entries.map { it.label },
+    ) {
+        Text("Top bar", style = MaterialTheme.typography.labelLarge)
+        ActionList(top, onTopChange)
+        Text("Bottom bar", style = MaterialTheme.typography.labelLarge)
+        ActionList(bottom, onBottomChange)
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActionList(actions: List<ToolbarAction>, onChange: (List<ToolbarAction>) -> Unit) {
-    CardRow {
-        Column(Modifier.padding(vertical = 4.dp)) {
-            actions.forEachIndexed { index, action ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(action.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                    IconButton(onClick = { onChange(actions.swap(index, index - 1)) }, enabled = index > 0) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
-                    }
-                    IconButton(onClick = { onChange(actions.swap(index, index + 1)) }, enabled = index < actions.lastIndex) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
-                    }
-                    IconButton(onClick = { onChange(actions - action) }) {
-                        Icon(Icons.Default.Close, contentDescription = "Remove")
-                    }
+    Column {
+        actions.forEachIndexed { index, action ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(action.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = { onChange(actions.swap(index, index - 1)) }, enabled = index > 0) {
+                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
+                }
+                IconButton(onClick = { onChange(actions.swap(index, index + 1)) }, enabled = index < actions.lastIndex) {
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
+                }
+                IconButton(onClick = { onChange(actions - action) }) {
+                    Icon(Icons.Default.Close, contentDescription = "Remove")
                 }
             }
-            val remaining = ToolbarAction.entries - actions.toSet()
-            if (remaining.isNotEmpty()) {
-                FlowRow(
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    remaining.forEach { action ->
-                        ChoiceChip(action.label, false) { onChange(actions + action) }
-                    }
+        }
+        val remaining = ToolbarAction.entries - actions.toSet()
+        if (remaining.isNotEmpty()) {
+            FlowRow(
+                Modifier.padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                remaining.forEach { action ->
+                    ChoiceChip("+ " + action.label, false) { onChange(actions + action) }
                 }
             }
         }

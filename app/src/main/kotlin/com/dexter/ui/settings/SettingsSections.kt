@@ -19,14 +19,20 @@ internal fun AppearanceSection(settings: Settings, update: ((Settings) -> Settin
                 ThemeMode.System to "System",
             ),
             settings.theme,
+            keywords = listOf("dark mode", "light mode", "night", "amoled"),
         ) { choice -> update { it.copy(theme = choice) } }
-        SwitchRow("Material You colors", "Use your wallpaper colors, accents included.", settings.dynamicColor) { on ->
-            update { it.copy(dynamicColor = on) }
-        }
-        if (!settings.dynamicColor) {
-            ChoiceRow("Accent color", Accent.entries.map { it to it.name }, settings.accent) { choice -> update { it.copy(accent = choice) } }
-        }
-        SwitchRow("Haptics", "A light vibration on taps, switches, and long presses.", settings.haptics) { on ->
+        SwitchRow(
+            "Material You colors",
+            "Use your wallpaper colors. Turn it off to pick an accent color.",
+            settings.dynamicColor,
+            keywords = listOf("accent", "dynamic", "wallpaper") + Accent.entries.map { it.name },
+            more = if (settings.dynamicColor) {
+                null
+            } else {
+                { SubChoice("Accent color", Accent.entries.map { it to it.name }, settings.accent) { choice -> update { it.copy(accent = choice) } } }
+            },
+        ) { on -> update { it.copy(dynamicColor = on) } }
+        SwitchRow("Haptics", "A light vibration on taps, switches, and long presses.", settings.haptics, keywords = listOf("vibration")) { on ->
             update { it.copy(haptics = on) }
         }
     }

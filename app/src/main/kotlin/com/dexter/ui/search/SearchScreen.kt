@@ -18,8 +18,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -161,7 +164,7 @@ fun SearchScreen(
     }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
@@ -198,11 +201,11 @@ fun SearchScreen(
                     keyboardActions = KeyboardActions(onSearch = { viewModel.search(text) }),
                     modifier = Modifier.weight(1f).focusRequester(focus),
                 )
-                TextButton(onClick = { showFilters = true }) {
-                    Text(if (filters.isEmpty) "Filters" else "Filters (${filters.activeCount})", color = MaterialTheme.colorScheme.primary)
-                }
-                if (results != null) {
-                    TextButton(onClick = { text = ""; viewModel.onTyping(""); viewModel.clear() }) { Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                // An icon with a count badge; the clear button inside the box already resets the search.
+                IconButton(onClick = { showFilters = true }) {
+                    BadgedBox(badge = { if (!filters.isEmpty) Badge { Text("${filters.activeCount}") } }) {
+                        Icon(Icons.Default.FilterList, contentDescription = if (filters.isEmpty) "Filters" else "Filters, ${filters.activeCount} on")
+                    }
                 }
             }
 

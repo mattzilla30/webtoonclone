@@ -75,16 +75,21 @@ internal fun LibraryRow(
                 Cover(series.coverUrl, null, Modifier.width(44.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                if (showNew) {
-                    Text(newCount?.let { "$it new" } ?: stringResource(R.string.new_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                }
                 Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
-                if (tab == LibraryList.Lists) {
-                    series.status?.let { Text(it.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
-                }
-                series.chapterNumber?.let {
-                    val readAt = if (tab == LibraryList.Recent && series.at > 0) " · " + timeAgo(Instant.ofEpochMilli(series.at)) else ""
-                    Text("Ep. $it$readAt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // New chapters, list status, and where you are share one line under the title.
+                val newText = if (showNew) newCount?.let { "$it new" } ?: stringResource(R.string.new_label) else null
+                val details = listOfNotNull(
+                    newText,
+                    series.status?.label?.takeIf { tab == LibraryList.Lists },
+                    series.chapterNumber?.let { "Ep. $it" },
+                    timeAgo(Instant.ofEpochMilli(series.at)).takeIf { tab == LibraryList.Recent && series.at > 0 && series.chapterNumber != null },
+                ).joinToString(" · ")
+                if (details.isNotEmpty()) {
+                    Text(
+                        details,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (newText != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             if (selecting) {

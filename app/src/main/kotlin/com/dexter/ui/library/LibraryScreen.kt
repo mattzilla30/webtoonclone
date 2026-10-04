@@ -239,7 +239,12 @@ fun LibraryScreen(
                 ) {
                     ChoiceChip("All ${allListed.size}", statusFilter == null && collection == null && readingList == null) { statusFilter = null; collectionFilter = null; readingListFilter = null }
                     ReadingStatus.entries.forEach { status ->
-                        ChoiceChip("${status.label} ${library.lists.count { it.status == status }}", collection == null && readingList == null && statusFilter == status.name) { statusFilter = status.name; collectionFilter = null; readingListFilter = null }
+                        val count = library.lists.count { it.status == status }
+                        val on = collection == null && readingList == null && statusFilter == status.name
+                        // An empty status only opens an empty list, so its chip shows only while it is the filter.
+                        if (count > 0 || on) {
+                            ChoiceChip("${status.label} $count", on) { statusFilter = status.name; collectionFilter = null; readingListFilter = null }
+                        }
                     }
                     library.collections.keys.sorted().forEach { name ->
                         ChoiceChip("$name ${library.collections[name].orEmpty().size}", collection == name) { collectionFilter = name; statusFilter = null; readingListFilter = null }

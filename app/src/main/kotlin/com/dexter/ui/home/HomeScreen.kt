@@ -82,6 +82,7 @@ import com.dexter.data.ReadingProgress
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Cover
+import com.dexter.ui.CoverTile
 import com.dexter.ui.FitText
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
@@ -321,35 +322,20 @@ private fun ContinueCard(
 /** A subscribed series with unread chapters. Tapping opens its newest chapter. */
 @Composable
 private fun UnreadTile(unread: UnreadSeries, width: Dp, onClick: () -> Unit) {
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = Color.Transparent,
-        onClick = onClick,
-        modifier = Modifier.width(width),
-    ) {
-        Column {
-            Box {
-                Cover(unread.series.coverUrl, unread.series.title, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Crop, thumb = true)
-                Text(
-                    newLabel(unread.newCount),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
-                        .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                )
-            }
-            // A fixed-height text area keeps every tile in the row the same size.
-            val type = MaterialTheme.typography
-            val textHeight = with(LocalDensity.current) { type.labelLarge.lineHeight.toDp() * 2 + type.labelSmall.lineHeight.toDp() }
-            Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp).height(textHeight)) {
-                FitText(unread.series.title, type.labelLarge, Modifier.weight(1f))
-                unread.series.knownChapterNumber?.let {
-                    Text("Ep. $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
+    CoverTile(
+        unread.series.coverUrl,
+        unread.series.title,
+        Modifier.width(width).clip(MaterialTheme.shapes.large).clickable(onClick = onClick),
+        subtitle = unread.series.knownChapterNumber?.let { "Ep. $it" },
+        topStart = {
+            Text(
+                newLabel(unread.newCount),
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small).padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        },
+    )
 }
 
 /** The search box at the top of Home. Tapping it opens the search page with the keyboard up. */

@@ -3,6 +3,7 @@ package com.dexter.ui.library
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -64,6 +65,7 @@ import com.dexter.data.ReadingStatus
 import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Cover
+import com.dexter.ui.CoverTile
 import com.dexter.ui.FitText
 import com.dexter.ui.Load
 import com.dexter.ui.TextPromptDialog
@@ -191,42 +193,34 @@ internal fun LibraryTile(
     onSelect: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-        modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(
-            onClick = { if (selecting) onSelect(!selected) else onOpen() },
-            onClickLabel = if (selecting) "Select" else "Open series",
-            onLongClick = { onSelect(!selected) },
-            onLongClickLabel = "Select",
-        ),
-    ) {
-        Column {
-            Box {
-                Cover(series.coverUrl, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
-                newLabel?.let {
-                    Text(
-                        it,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
-                            .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-                if (selecting) {
-                    Checkbox(checked = selected, onCheckedChange = onSelect, modifier = Modifier.align(Alignment.TopEnd))
-                }
+    CoverTile(
+        series.coverUrl,
+        series.title,
+        modifier
+            .then(if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large) else Modifier)
+            .clip(MaterialTheme.shapes.large)
+            .combinedClickable(
+                onClick = { if (selecting) onSelect(!selected) else onOpen() },
+                onClickLabel = if (selecting) "Select" else "Open series",
+                onLongClick = { onSelect(!selected) },
+                onLongClickLabel = "Select",
+            ),
+        subtitle = series.chapterNumber?.let { "Ep. $it" },
+        sharedKey = series.id,
+        topStart = {
+            newLabel?.let {
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
             }
-            // A fixed-height text area keeps every tile in the grid the same size.
-            val type = MaterialTheme.typography
-            val textHeight = with(LocalDensity.current) { type.labelLarge.lineHeight.toDp() * 2 + type.labelSmall.lineHeight.toDp() }
-            Column(Modifier.padding(8.dp).height(textHeight)) {
-                FitText(series.title, type.labelLarge, Modifier.weight(1f))
-                series.chapterNumber?.let { Text("Ep. $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-        }
-    }
+        },
+        topEnd = {
+            if (selecting) Checkbox(checked = selected, onCheckedChange = onSelect)
+        },
+    )
 }
 
 /**

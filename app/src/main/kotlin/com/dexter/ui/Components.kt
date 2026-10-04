@@ -8,11 +8,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -59,6 +61,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -172,8 +175,34 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
     }
 }
 
-/** A cover with its title underneath. Long-press subscribes when [onLongClick] is given. */
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * A cover with its title, and an optional [subtitle], laid over a dark fade at its foot, as Continue
+ * Reading draws its cards. [topStart] and [topEnd] hold small badges. Every tile is the same 2:3 shape.
+ */
+@Composable
+fun CoverTile(
+    coverUrl: String?,
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    sharedKey: String? = null,
+    topStart: @Composable BoxScope.() -> Unit = {},
+    topEnd: @Composable BoxScope.() -> Unit = {},
+) {
+    Box(modifier.aspectRatio(2f / 3f).clip(MaterialTheme.shapes.large)) {
+        Cover(coverUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, sharedKey = sharedKey)
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xCC000000))))
+        Box(Modifier.align(Alignment.TopStart).padding(6.dp)) { topStart() }
+        Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) { topEnd() }
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(10.dp)) {
+            Text(title, color = Color.White, style = MaterialTheme.typography.labelLargeEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            subtitle?.let { Text(it, color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall, maxLines = 1) }
+        }
+    }
+}
+
+/** A series cover tile with its title inside. Long-press subscribes when [onLongClick] is given. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PickTile(
     series: SeriesSummary,
@@ -182,40 +211,26 @@ fun PickTile(
     subscribed: Boolean = false,
     onLongClick: (() -> Unit)? = null,
 ) {
-    // No card fill: the cover and its title stand on the page background.
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = Color.Transparent,
-        modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(
+    CoverTile(
+        series.coverUrl,
+        series.title,
+        modifier.clip(MaterialTheme.shapes.large).combinedClickable(
             onClick = onClick,
             onLongClick = onLongClick,
             onLongClickLabel = if (subscribed) "Unsubscribe" else "Subscribe",
         ),
-    ) {
-        Column {
-            Box {
-                Cover(series.coverUrl, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Fit, sharedKey = series.id)
-                if (subscribed) {
-                    Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = stringResource(R.string.subscribed),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .size(28.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                            .padding(5.dp),
-                    )
-                }
+        sharedKey = series.id,
+        topEnd = {
+            if (subscribed) {
+                Icon(
+                    Icons.Default.Notifications,
+                    contentDescription = stringResource(R.string.subscribed),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(26.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape).padding(5.dp),
+                )
             }
-            // Just the title under the cover: genre and follows are on the series page. Every tile's text area is
-            // two lines tall, sized from the font scale, so tiles in a row line up; a longer title shrinks to fit.
-            val type = MaterialTheme.typography
-            val textHeight = with(LocalDensity.current) { type.titleSmallEmphasized.lineHeight.toDp() * 2 }
-            FitText(series.title, type.titleSmallEmphasized, Modifier.padding(horizontal = 2.dp, vertical = 6.dp).height(textHeight), maxLines = 2)
-        }
-    }
+        },
+    )
 }
 
 /** A choice chip. The selected one is filled. */

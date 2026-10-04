@@ -53,7 +53,6 @@ android {
     }
 
     // The OCR language files are stored uncompressed, so they copy out of the APK as plain files.
-    androidResources { noCompress += "traineddata" }
 
     lint {
         // The app ships arm64-v8a only, by design, so the missing x86_64 support is expected.

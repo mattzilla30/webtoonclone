@@ -146,21 +146,25 @@ object OcrEngine {
 
     /**
      * Copies the language files from the app's assets into files/tesseract/tessdata, where Tesseract
-     * reads them, and returns files/tesseract. A file already there at the right size stays.
+     * reads them, and returns files/tesseract. The copies are redone once per app install or update,
+     * which a stamp file records, so the APK can keep the files compressed.
      */
     private fun installLanguages(context: Context): File {
         val root = File(context.filesDir, "tesseract")
         val tessdata = File(root, "tessdata").apply { mkdirs() }
+        val installed = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime }.getOrDefault(0L).toString()
+        val stamp = File(tessdata, "installed")
+        val fresh = runCatching { stamp.readText() }.getOrNull() == installed
         LANGUAGE_FILES.forEach { language ->
             val name = "$language.traineddata"
             val target = File(tessdata, name)
-            val size = context.assets.openFd("tessdata/$name").use { it.length }
-            if (target.length() != size) {
+            if (!fresh || target.length() == 0L) {
                 val partial = File(tessdata, "$name.part")
                 context.assets.open("tessdata/$name").use { input -> partial.outputStream().use { input.copyTo(it) } }
                 partial.renameTo(target)
             }
         }
+        if (!fresh) stamp.writeText(installed)
         return root
     }
 

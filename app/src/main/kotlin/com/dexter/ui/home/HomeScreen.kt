@@ -188,12 +188,6 @@ fun HomeScreen(
                                 OfflineBanner(savedAt, "home", onRetry = { viewModel.retry() })
                             }
                         }
-                        home.hero?.let { hero ->
-                            item {
-                                Hero(hero) { onOpenSeries(hero.id) }
-                            }
-                        }
-
                         if (recent.isNotEmpty()) {
                             item(contentType = "header") { SectionHeader("Continue Reading") }
                             item {
@@ -252,7 +246,8 @@ fun HomeScreen(
                         if (showTip) {
                             item(contentType = "tip") { LongPressTip(onDismiss = viewModel::dismissLongPressTip) }
                         }
-                        val pickRows = home.picks.chunked(columns)
+                        // The random lead series opens the picks instead of taking a full-width card of its own.
+                        val pickRows = (listOfNotNull(home.hero) + home.picks).distinctBy { it.id }.chunked(columns)
                         items(pickRows, key = { it.first().id }, contentType = { "picks" }) { rowSeries ->
                             Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 rowSeries.forEach { series ->
@@ -406,35 +401,6 @@ private fun HomeSearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp))
-        }
-    }
-}
-
-@Composable
-private fun Hero(
-    series: SeriesSummary,
-    onClick: () -> Unit,
-) {
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        // A minimum height, so a long title in a large font grows the card instead of being cut off.
-        modifier = Modifier.fillMaxWidth().padding(16.dp).heightIn(min = 380.dp).clip(MaterialTheme.shapes.extraLarge).clickable(onClick = onClick),
-    ) {
-        Box(Modifier.heightIn(min = 380.dp)) {
-            Cover(series.coverUrl, series.title, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD9000000)))))
-            Column(Modifier.align(Alignment.BottomStart).padding(20.dp).padding(top = 200.dp)) {
-                Text(series.title, color = Color.White, style = MaterialTheme.typography.headlineLargeEmphasized)
-                Text(
-                    series.description,
-                    color = Color.White.copy(alpha = 0.9f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
         }
     }
 }

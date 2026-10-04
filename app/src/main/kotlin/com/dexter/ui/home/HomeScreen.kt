@@ -96,6 +96,9 @@ import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
+/** How many cards each Home row shows. "See all" on a heading opens the full list where there is one. */
+private const val ROW_CARDS = 6
+
 /** "3 new", or "New" when the number of new chapters cannot be counted. */
 fun newLabel(count: Int?): String = if (count != null) "$count new" else "New"
 
@@ -189,7 +192,7 @@ fun HomeScreen(
                         if (recent.isNotEmpty()) {
                             item(contentType = "header") { SectionHeader("Continue Reading") }
                             item {
-                                val carousel = rememberCarouselState { recent.size }
+                                val carousel = rememberCarouselState { minOf(recent.size, ROW_CARDS) }
                                 HorizontalUncontainedCarousel(
                                     state = carousel,
                                     itemWidth = 140.dp,
@@ -217,7 +220,7 @@ fun HomeScreen(
                             item(contentType = "header") { SectionHeader("From your subscriptions") }
                             item {
                                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(fromSubscriptions, key = { it.series.id }) { unread ->
+                                    items(fromSubscriptions.take(ROW_CARDS), key = { it.series.id }) { unread ->
                                         UnreadTile(unread, tileWidth) { onOpenChapter(unread.series.id, unread.series.knownChapterId!!) }
                                     }
                                 }
@@ -228,7 +231,7 @@ fun HomeScreen(
                             item(contentType = "header") { SectionHeader("Because you read $title") }
                             item {
                                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(like, key = { it.id }) { series ->
+                                    items(like.take(ROW_CARDS), key = { it.id }) { series ->
                                         PickTile(series, { onOpenSeries(series.id) }, Modifier.width(tileWidth), subscribed = series.id in subscribedIds, onLongClick = { toggleSubscribe(series) })
                                     }
                                 }
@@ -365,7 +368,7 @@ private fun PickRow(
     onToggleSubscribe: (SeriesSummary) -> Unit,
 ) {
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(series, key = { it.id }) { item ->
+        items(series.take(ROW_CARDS), key = { it.id }) { item ->
             PickTile(item, { onOpenSeries(item.id) }, Modifier.width(tileWidth), subscribed = item.id in subscribedIds, onLongClick = { onToggleSubscribe(item) })
         }
     }

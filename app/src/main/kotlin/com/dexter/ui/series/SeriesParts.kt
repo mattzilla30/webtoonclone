@@ -282,34 +282,6 @@ internal fun TagChips(tags: List<String>, onOpenTag: (String) -> Unit, onBlockTa
     }
 }
 
-/** The series' trope tags, mapped from its MangaDex tags. Tapping one searches its source tag. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun TropeChips(tropes: List<TropeTag>, onOpenTag: (String) -> Unit) {
-    if (tropes.isEmpty()) return
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text(
-            "Tropes",
-            style = MaterialTheme.typography.labelLargeEmphasized,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            tropes.forEach { trope ->
-                val searchTag = (trope.matchTags + trope.matchGenres).firstOrNull()
-                AssistChip(
-                    onClick = { searchTag?.let(onOpenTag) },
-                    enabled = searchTag != null,
-                    label = { Text(trope.label) },
-                )
-            }
-        }
-    }
-}
-
 /** Your note on the series. Tapping it edits it. */
 @Composable
 internal fun NoteCard(note: String, onEdit: () -> Unit) {

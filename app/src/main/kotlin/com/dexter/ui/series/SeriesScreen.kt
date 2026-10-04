@@ -87,7 +87,6 @@ import com.dexter.data.factsLine
 import com.dexter.data.groupByVolume
 import com.dexter.data.languageName
 import com.dexter.data.nextChapterEstimate
-import com.dexter.data.tropesForSeries
 import com.dexter.data.withoutBlacklisted
 import com.dexter.ui.Cover
 import com.dexter.ui.FitText
@@ -183,7 +182,6 @@ fun SeriesScreen(
             // Collapsible volume groups, and the flat list of what the LazyColumn shows for jump indexing.
             val collapse = rememberCollapsedVolumes()
             // Trope tags mapped from the MangaDex tags, for discovery by trope.
-            val tropes = remember(page.detail.tags) { tropesForSeries(page.detail.tags, emptyList()) }
             val groups = remember(shown) { toVolumeGroups(groupByVolume(shown)) }
             val flatSlots = remember(groups, collapse.collapsed) {
                 buildList {
@@ -485,10 +483,6 @@ fun SeriesScreen(
                 if (page.detail.tags.isNotEmpty()) {
                     item { TagChips(page.detail.tags, onOpenTag, onBlockTag = viewModel::blockTag) }
                 }
-                // Trope tags mapped from the MangaDex tags, for discovery by trope.
-                if (tropes.isNotEmpty()) {
-                    item { TropeChips(tropes, onOpenTag) }
-                }
                 if (related.isNotEmpty()) {
                     item {
                         Text(stringResource(R.string.related), style = MaterialTheme.typography.titleMediumEmphasized, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 8.dp))
@@ -635,7 +629,7 @@ fun SeriesScreen(
                 when {
                     at >= 0 -> {
                         // Items before the chapters: the header rows on a narrow screen, then the controls.
-                        val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), bookmarks.isNotEmpty(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), tropes.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
+                        val before = if (wide) 0 else headerItemCount(offlineSavedAt != null, note.isNotBlank(), bookmarks.isNotEmpty(), summary.description.isNotBlank(), page.detail.tags.isNotEmpty(), related.isNotEmpty(), similar.isNotEmpty(), page.chapters.isEmpty() && !page.hasMore)
                         listState.animateScrollToItem(before + 1 + at)
                         pendingJump = null
                     }
@@ -670,5 +664,5 @@ fun SeriesScreen(
  * How many list items come before the chapters on a narrow screen: the cover, the read button, the
  * buttons row, and the optional sections. It must match the header built above.
  */
-private fun headerItemCount(offline: Boolean, note: Boolean, bookmarks: Boolean, description: Boolean, tags: Boolean, tropes: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
-    listOf(offline, true, true, true, note, bookmarks, description, tags, tropes, related, similar, noChapters).count { it }
+private fun headerItemCount(offline: Boolean, note: Boolean, bookmarks: Boolean, description: Boolean, tags: Boolean, related: Boolean, similar: Boolean, noChapters: Boolean): Int =
+    listOf(offline, true, true, true, note, bookmarks, description, tags, related, similar, noChapters).count { it }

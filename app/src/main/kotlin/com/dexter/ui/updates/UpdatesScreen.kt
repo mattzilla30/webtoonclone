@@ -19,11 +19,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
@@ -107,21 +111,28 @@ fun UpdatesScreen(viewModel: UpdatesViewModel, onClose: () -> Unit, onOpenSeries
             AppTopBar(
                 stringResource(R.string.updates),
                 actions = {
+                    // The two views sit in the bar as toggles instead of a row of chips under it.
+                    if (subscribedIds.isNotEmpty()) {
+                        IconToggleButton(
+                            checked = subscribedOnly && !showSchedule,
+                            onCheckedChange = {
+                                viewModel.setSubscribedOnly(!subscribedOnly)
+                                showSchedule = false
+                            },
+                        ) {
+                            Icon(if (subscribedOnly && !showSchedule) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Subscribed only")
+                        }
+                        IconToggleButton(
+                            checked = showSchedule,
+                            onCheckedChange = {
+                                showSchedule = !showSchedule
+                                if (showSchedule) viewModel.loadSchedule()
+                            },
+                        ) { Icon(Icons.Default.DateRange, contentDescription = "Schedule") }
+                    }
                     IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close updates") }
                 },
             )
-            if (subscribedIds.isNotEmpty()) {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChoiceChip("Subscribed only", subscribedOnly && !showSchedule) {
-                        viewModel.setSubscribedOnly(!subscribedOnly)
-                        showSchedule = false
-                    }
-                    ChoiceChip("Schedule", showSchedule) {
-                        showSchedule = !showSchedule
-                        if (showSchedule) viewModel.loadSchedule()
-                    }
-                }
-            }
             PullToRefreshBox(isRefreshing = state is Load.Loading, onRefresh = {
                 haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
                 viewModel.refresh()

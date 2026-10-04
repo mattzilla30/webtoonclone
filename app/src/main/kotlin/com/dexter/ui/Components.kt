@@ -226,9 +226,10 @@ fun PickTile(
     subscribed: Boolean = false,
     onLongClick: (() -> Unit)? = null,
 ) {
+    // No card fill: the cover and its title stand on the page background.
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = Color.Transparent,
         modifier = modifier.clip(MaterialTheme.shapes.medium).combinedClickable(
             onClick = onClick,
             onLongClick = onLongClick,
@@ -237,7 +238,7 @@ fun PickTile(
     ) {
         Column {
             Box {
-                Cover(series.coverUrl, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f), contentScale = ContentScale.Fit, sharedKey = series.id)
+                Cover(series.coverUrl, null, Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Fit, sharedKey = series.id)
                 if (subscribed) {
                     Icon(
                         Icons.Default.Notifications,
@@ -256,7 +257,7 @@ fun PickTile(
             // two lines tall, sized from the font scale, so tiles in a row line up; a longer title shrinks to fit.
             val type = MaterialTheme.typography
             val textHeight = with(LocalDensity.current) { type.titleSmallEmphasized.lineHeight.toDp() * 2 }
-            FitText(series.title, type.titleSmallEmphasized, Modifier.padding(horizontal = 10.dp, vertical = 8.dp).height(textHeight), maxLines = 2)
+            FitText(series.title, type.titleSmallEmphasized, Modifier.padding(horizontal = 2.dp, vertical = 6.dp).height(textHeight), maxLines = 2)
         }
     }
 }

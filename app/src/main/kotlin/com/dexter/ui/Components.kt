@@ -157,17 +157,6 @@ fun rowTileWidth(widthDp: Float, spacingDp: Float = 8f, paddingDp: Float = 16f):
     return ((widthDp - 2 * paddingDp - whole * spacingDp) / (whole + 0.35f)).coerceAtLeast(96f)
 }
 
-@Composable
-fun HeartCount(count: Int?) {
-    if (count == null) return
-    // Read aloud as one phrase, such as "12K follows", instead of a bare number.
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clearAndSetSemantics { contentDescription = "${compact(count)} follows" }) {
-        Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
-        Spacer(Modifier.width(3.dp))
-        Text(compact(count), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-    }
-}
-
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {

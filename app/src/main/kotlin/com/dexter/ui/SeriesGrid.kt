@@ -95,7 +95,7 @@ fun SeriesGrid(
     }
 }
 
-/** One result as a row: small cover, genre, title, author, year, and followers. */
+/** One result as a row: small cover, title, then author, year, and followers on one line. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SeriesListRow(series: SeriesSummary, subscribed: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)?) {
@@ -110,11 +110,10 @@ fun SeriesListRow(series: SeriesSummary, subscribed: Boolean, onClick: () -> Uni
             Cover(series.coverUrl, null, Modifier.width(56.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                val details = listOfNotNull(series.author, series.year?.toString()).joinToString(" · ")
+                val details = listOfNotNull(series.author, series.year?.toString(), series.follows?.let { "♥ ${compact(it)}" }).joinToString(" · ")
                 if (details.isNotEmpty()) {
                     Text(details, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                HeartCount(series.follows)
             }
             if (subscribed) {
                 Icon(Icons.Default.Notifications, contentDescription = stringResource(R.string.subscribed), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))

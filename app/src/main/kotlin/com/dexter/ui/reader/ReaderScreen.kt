@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,6 +43,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -84,6 +86,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -321,7 +324,12 @@ fun ReaderScreen(
             // Loading and error text keeps clear of the system bars. The pages themselves go edge to edge.
             .then(if (state is Load.Ready) Modifier else Modifier.systemBarsPadding()),
     ) {
-        LoadView(state, onRetry = viewModel::retry) { page ->
+        LoadView(
+            state,
+            onRetry = viewModel::retry,
+            // A chapter opens behind the Material morphing shape instead of placeholder rows.
+            loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator(Modifier.size(64.dp)) } },
+        ) { page ->
             ReaderContent(
                 viewModel = viewModel,
                 page = page,
@@ -1515,6 +1523,7 @@ private fun PageImage(
                 },
             )
         }
+        if (!loaded && !failed) LoadingIndicator(Modifier.size(48.dp))
         if (failed) {
             Text(
                 if (autoRetries < AUTO_RETRIES) "Retrying page ${index + 1}..." else "Page ${index + 1} failed to load. Tap to retry.",
@@ -1567,7 +1576,7 @@ private fun EndOfChapter(
                 Text("Couldn't load the next episode.", color = textColor, modifier = Modifier.padding(top = 16.dp))
                 TextButton(onClick = onRetryAppend, modifier = Modifier.padding(top = 4.dp)) { Text("Retry") }
             }
-            continuing -> Text("Loading the next episode...", color = textColor, modifier = Modifier.padding(top = 16.dp))
+            continuing -> LoadingIndicator(Modifier.padding(top = 16.dp).size(48.dp).semantics { contentDescription = "Loading the next episode" })
             segment.nextId != null -> Button(
                 onClick = { onOpenChapter(segment.nextId) },
                 modifier = Modifier.padding(top = 16.dp).heightIn(min = ButtonDefaults.MediumContainerHeight),

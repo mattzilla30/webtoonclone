@@ -120,7 +120,6 @@ fun HomeScreen(
     val fromSubscriptions by viewModel.fromSubscriptions.collectAsStateWithLifecycle()
     val because by viewModel.becauseYouRead.collectAsStateWithLifecycle()
     val appContext = LocalContext.current
-    val columns = adaptiveColumns(windowWidthDp())
     LaunchedEffect(Unit) { viewModel.refreshBecause() }
     val offlineSavedAt by viewModel.offlineSavedAt.collectAsStateWithLifecycle()
     val subscribedIds by viewModel.subscribedIds.collectAsStateWithLifecycle()
@@ -236,26 +235,12 @@ fun HomeScreen(
                         }
 
                         item(contentType = "header") { SectionHeader("New Series", onClick = { onBrowse("Recently added") }) }
-                        items(home.newSeries, key = { it.id }, contentType = { "new-series" }) { series ->
-                            NewSeriesRow(series, onClick = { onOpenSeries(series.id) }, onLongClick = { toggleSubscribe(series) })
-                        }
+                        item(contentType = "row") { PickRow(home.newSeries, tileWidth, subscribedIds, onOpenSeries, toggleSubscribe) }
 
                         item(contentType = "header") { SectionHeader("Random Picks", onClick = { onBrowse("Popular") }) }
                         // The random lead series opens the picks instead of taking a full-width card of its own.
-                        val pickRows = (listOfNotNull(home.hero) + home.picks).distinctBy { it.id }.chunked(columns)
-                        items(pickRows, key = { it.first().id }, contentType = { "picks" }) { rowSeries ->
-                            Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                rowSeries.forEach { series ->
-                                    PickTile(
-                                        series,
-                                        { onOpenSeries(series.id) },
-                                        Modifier.weight(1f),
-                                        subscribed = series.id in subscribedIds,
-                                        onLongClick = { toggleSubscribe(series) },
-                                    )
-                                }
-                                repeat(columns - rowSeries.size) { Box(Modifier.weight(1f)) }
-                            }
+                        item(contentType = "row") {
+                            PickRow((listOfNotNull(home.hero) + home.picks).distinctBy { it.id }, tileWidth, subscribedIds, onOpenSeries, toggleSubscribe)
                         }
 
                         item { Box(Modifier.height(24.dp)) }
@@ -384,27 +369,18 @@ private fun HomeSearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/** A sideways row of cover tiles, as New Series and Random Picks show them. Long-press subscribes. */
 @Composable
-private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick: () -> Unit) {
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = Color.Transparent,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(MaterialTheme.shapes.medium)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Subscribe or unsubscribe"),
-    ) {
-        Row(Modifier.padding(12.dp).heightIn(min = 92.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
-                Text(
-                    series.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Cover(series.coverUrl, series.title, Modifier.width(62.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop)
+private fun PickRow(
+    series: List<SeriesSummary>,
+    tileWidth: androidx.compose.ui.unit.Dp,
+    subscribedIds: Set<String>,
+    onOpenSeries: (String) -> Unit,
+    onToggleSubscribe: (SeriesSummary) -> Unit,
+) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(series, key = { it.id }) { item ->
+            PickTile(item, { onOpenSeries(item.id) }, Modifier.width(tileWidth), subscribed = item.id in subscribedIds, onLongClick = { onToggleSubscribe(item) })
         }
     }
 }

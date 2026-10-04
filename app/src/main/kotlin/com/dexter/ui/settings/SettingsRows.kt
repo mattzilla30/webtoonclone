@@ -147,7 +147,7 @@ internal fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChan
     if (!matchesQuery(LocalSettingsQuery.current, title, subtitle)) return
     val haptics = LocalHapticFeedback.current
     Keyed(title) {
-        CardRow(flat = true) {
+        CardRow {
             Row(
                 Modifier.toggleable(
                     value = checked,
@@ -182,7 +182,7 @@ internal fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChan
 internal fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
     if (!matchesQuery(LocalSettingsQuery.current, title, *options.map { it.second }.toTypedArray())) return
     Keyed(title) {
-        CardRow(flat = true) {
+        CardRow {
             Column(Modifier.padding(16.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -198,7 +198,7 @@ internal fun <T> ChoiceRow(title: String, options: List<Pair<T, String>>, select
 internal fun HourStepper(label: String, hour: Int, sortKey: String = label, onChange: (Int) -> Unit) {
     if (!matchesQuery(LocalSettingsQuery.current, label, "quiet hours")) return
     Keyed(sortKey) {
-        CardRow(flat = true) {
+        CardRow {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 FilledTonalIconButton(onClick = { onChange((hour + 23) % 24) }) { Text("\u2212", style = MaterialTheme.typography.titleMediumEmphasized) }
@@ -251,5 +251,5 @@ internal fun InfoRow(
             if (onClick != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
         }
     }
-    Keyed(sortKey) { CardRow(onClick, flat = true) { content() } }
+    Keyed(sortKey) { CardRow(onClick) { content() } }
 }

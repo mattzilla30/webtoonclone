@@ -216,7 +216,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onClick: (() -> 
     }
 }
 
-/** A cover card with genre, title, and follower count underneath. */
+/** A cover with its title underneath. Long-press subscribes when [onLongClick] is given. */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PickTile(
@@ -360,16 +360,15 @@ fun ConfirmDialog(title: String, text: String, confirmLabel: String, onConfirm: 
     )
 }
 
-/** A rounded card row, as used in lists of settings and shortcuts. It is tappable when [onClick] is given. */
+/** A flat row, as used in lists of settings and suggestions. It is tappable when [onClick] is given. */
 @Composable
-fun CardRow(onClick: (() -> Unit)? = null, flat: Boolean = false, content: @Composable () -> Unit) {
-    val modifier = Modifier.fillMaxWidth().padding(vertical = if (flat) 0.dp else 3.dp)
-    // Flat rows drop the card fill, for long lists such as Settings where every row being a card is noise.
-    val color = if (flat) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surfaceContainerLow
+fun CardRow(onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    // A flat row: no card fill and no gap, so lists read as lists instead of stacks of boxes.
+    val modifier = Modifier.fillMaxWidth()
     if (onClick != null) {
-        Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = color, modifier = modifier, content = content)
+        Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = Color.Transparent, modifier = modifier, content = content)
     } else {
-        Surface(shape = MaterialTheme.shapes.medium, color = color, modifier = modifier, content = content)
+        Surface(shape = MaterialTheme.shapes.medium, color = Color.Transparent, modifier = modifier, content = content)
     }
 }
 

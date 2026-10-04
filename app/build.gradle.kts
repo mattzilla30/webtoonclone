@@ -30,8 +30,11 @@ android {
     packaging {
         resources {
             // Licence texts and tool markers that the app never reads at run time.
-            excludes += listOf("META-INF/androidx/**/LICENSE.txt", "META-INF/*.version", "DebugProbesKt.bin")
+            // Kotlin's builtins metadata serves kotlin-reflect, which the app does not use.
+            excludes += listOf("META-INF/androidx/**/LICENSE.txt", "META-INF/*.version", "DebugProbesKt.bin", "kotlin/**.kotlin_builtins")
         }
+        // Native libraries ship compressed: a smaller APK to download, unpacked once at install.
+        jniLibs { useLegacyPackaging = true }
     }
 
     buildTypes {
@@ -51,8 +54,6 @@ android {
         includeInApk = false
         includeInBundle = false
     }
-
-    // The OCR language files are stored uncompressed, so they copy out of the APK as plain files.
 
     lint {
         // The app ships arm64-v8a only, by design, so the missing x86_64 support is expected.

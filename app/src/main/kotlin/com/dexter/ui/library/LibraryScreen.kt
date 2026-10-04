@@ -16,12 +16,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconToggleButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -354,26 +356,37 @@ fun LibraryScreen(
             } else {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("${items.size} series", style = MaterialTheme.typography.labelLargeEmphasized, color = MaterialTheme.colorScheme.primary)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 48dp touch targets, as in the selection bar.
-                        val touch = Modifier.minimumInteractiveComponentSize()
-                        Box {
-                            TextButton(onClick = { sortMenu = true }, modifier = touch) { Text("Sort: ${sortMode.label}") }
-                            DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                                LibrarySort.entries.forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(if (mode == sortMode) "✓ ${mode.label}" else mode.label) },
-                                        onClick = {
-                                            sortMenu = false
-                                            haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                            viewModel.setSort(mode)
-                                        },
-                                    )
-                                }
+                    // Sort, view, and Delete all share one menu, so the list starts right under the count.
+                    Box {
+                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Sort and view") }
+                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                            LibrarySort.entries.forEach { mode ->
+                                DropdownMenuItem(
+                                    text = { Text(if (mode == sortMode) "✓ ${mode.label}" else mode.label) },
+                                    onClick = {
+                                        sortMenu = false
+                                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                        viewModel.setSort(mode)
+                                    },
+                                )
                             }
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text(if (library.libraryGrid) "Show as rows" else "Show as grid") },
+                                onClick = {
+                                    sortMenu = false
+                                    viewModel.setGrid(!library.libraryGrid)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete all") },
+                                enabled = items.isNotEmpty(),
+                                onClick = {
+                                    sortMenu = false
+                                    remove(items)
+                                },
+                            )
                         }
-                        TextButton(onClick = { viewModel.setGrid(!library.libraryGrid) }, modifier = touch) { Text(if (library.libraryGrid) "Rows" else "Grid") }
-                        TextButton(enabled = items.isNotEmpty(), onClick = { remove(items) }, modifier = touch) { Text("Delete all") }
                     }
                 }
             }

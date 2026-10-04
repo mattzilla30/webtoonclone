@@ -23,15 +23,15 @@ enum class ToolbarAction(val label: String) {
     Narration("Read aloud"),
 }
 
-/** The top bar as it shipped: back, title, bookmark, options, share, cast, picture in picture. */
+/**
+ * The top bar by default: back, title, bookmark, and options. Share, cast, and picture in picture
+ * stay one tap away in Settings > Reader toolbar, which adds any of them back.
+ */
 val defaultTopActions: List<ToolbarAction> = listOf(
     ToolbarAction.Back,
     ToolbarAction.Title,
     ToolbarAction.Bookmark,
     ToolbarAction.ReaderOptions,
-    ToolbarAction.Share,
-    ToolbarAction.Cast,
-    ToolbarAction.Pip,
 )
 
 /** The bottom bar as it shipped: slider, page counter, chapter list, previous, next. */

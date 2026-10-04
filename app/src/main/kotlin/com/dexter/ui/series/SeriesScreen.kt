@@ -332,7 +332,6 @@ fun SeriesScreen(
                             }
                         }
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
-                            GenreLabel(summary.genre)
                             // A long title shrinks to fit the cover area instead of pushing the details off it.
                             FitText(summary.title, MaterialTheme.typography.headlineLargeEmphasized, maxLines = 3, color = MaterialTheme.colorScheme.onBackground, minSize = 18.sp)
                             val authorId = summary.authorId
@@ -346,12 +345,13 @@ fun SeriesScreen(
                                     Modifier
                                 },
                             )
-                            // Follows and rating join the facts line instead of taking a row of their own.
+                            // Genre, follows, and rating join the facts line instead of taking rows of their own.
                             val stats = listOfNotNull(
+                                summary.genre?.takeIf { it.isNotBlank() },
                                 factsLine(page.detail).takeIf { it.isNotBlank() },
                                 summary.follows?.let { "♥ ${compact(it)}" },
                                 page.detail.rating?.let { "★ %.2f".format(Locale.US, it) },
-                            ).joinToString("  ·  ")
+                            ).joinToString(" · ")
                             Text(stats, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             nextExpected?.let { day ->
                                 Text(

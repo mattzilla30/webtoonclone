@@ -559,7 +559,6 @@ fun SeriesScreen(
                         val previous = previousOf[chapter.id]
                         EpisodeRow(
                             chapter,
-                            summary.coverUrl,
                             read = isChapterRead(chapter.number, lastRead?.chapterNumber),
                             preferredGroup = preferredGroup,
                             saved = chapter.id in downloaded,

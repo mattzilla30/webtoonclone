@@ -113,7 +113,6 @@ internal fun Description(text: String) {
 @Composable
 internal fun EpisodeRow(
     chapter: Chapter,
-    coverUrl: String?,
     read: Boolean,
     onClick: () -> Unit,
     onMarkRead: (() -> Unit)?,
@@ -142,11 +141,8 @@ internal fun EpisodeRow(
     Box {
         Surface(
             shape = MaterialTheme.shapes.medium,
-            color = when {
-                picked -> MaterialTheme.colorScheme.secondaryContainer
-                read -> MaterialTheme.colorScheme.surfaceContainerLowest
-                else -> MaterialTheme.colorScheme.surfaceContainerLow
-            },
+            // Flat rows; read episodes are dimmed below, and a picked one keeps its highlight.
+            color = if (picked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 3.dp)
@@ -176,8 +172,8 @@ internal fun EpisodeRow(
                 Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Cover(coverUrl, null, Modifier.width(40.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.extraSmall), contentScale = ContentScale.Crop, thumb = true)
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                // No cover per row: every episode would repeat the same series cover.
+                Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
                     Text(
                         buildString {
                             append("Ep. ${chapter.number}")

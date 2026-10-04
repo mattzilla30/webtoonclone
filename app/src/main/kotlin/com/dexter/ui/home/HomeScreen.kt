@@ -83,7 +83,6 @@ import com.dexter.data.SavedSeries
 import com.dexter.data.SeriesSummary
 import com.dexter.ui.Cover
 import com.dexter.ui.FitText
-import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.OfflineBanner
@@ -396,7 +395,6 @@ private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick
     ) {
         Row(Modifier.padding(12.dp).heightIn(min = 92.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                GenreLabel(series.genre)
                 Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
                 Text(
                     series.description,

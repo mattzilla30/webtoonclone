@@ -57,7 +57,6 @@ import com.dexter.data.SuggestiveTags
 import com.dexter.data.Themes
 import com.dexter.ui.CardRow
 import com.dexter.ui.Cover
-import com.dexter.ui.GenreLabel
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -98,7 +97,6 @@ internal fun Idle(
                 Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Cover(series.coverUrl, series.title, Modifier.width(40.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.extraSmall), contentScale = ContentScale.Crop, thumb = true)
                     Column(Modifier.padding(start = 12.dp)) {
-                        GenreLabel(series.genre)
                         Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized)
                     }
                 }

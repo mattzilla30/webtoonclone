@@ -60,7 +60,6 @@ import com.dexter.ui.AppTopBar
 import com.dexter.ui.BackToTopButton
 import com.dexter.ui.ChoiceChip
 import com.dexter.ui.Cover
-import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.OfflineBanner
@@ -264,7 +263,6 @@ private fun UpdateRowItem(
                     thumb = true,
                 )
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    GenreLabel(entry.series.genre)
                     Text(entry.series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(
                         buildString {

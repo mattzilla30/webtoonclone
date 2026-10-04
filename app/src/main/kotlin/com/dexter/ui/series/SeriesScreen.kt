@@ -90,7 +90,6 @@ import com.dexter.data.nextChapterEstimate
 import com.dexter.data.withoutBlacklisted
 import com.dexter.ui.Cover
 import com.dexter.ui.FitText
-import com.dexter.ui.GenreLabel
 import com.dexter.ui.Load
 import com.dexter.ui.LoadView
 import com.dexter.ui.OfflineBanner

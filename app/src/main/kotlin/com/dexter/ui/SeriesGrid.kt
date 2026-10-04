@@ -109,7 +109,6 @@ fun SeriesListRow(series: SeriesSummary, subscribed: Boolean, onClick: () -> Uni
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Cover(series.coverUrl, null, Modifier.width(56.dp).aspectRatio(2f / 3f).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop, thumb = true, sharedKey = series.id)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                GenreLabel(series.genre)
                 Text(series.title, style = MaterialTheme.typography.titleSmallEmphasized, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val details = listOfNotNull(series.author, series.year?.toString()).joinToString(" · ")
                 if (details.isNotEmpty()) {

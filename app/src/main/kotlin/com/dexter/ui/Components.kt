@@ -88,37 +88,6 @@ fun compact(n: Int): String = when {
     else -> n.toString()
 }
 
-private val genreColors = mapOf(
-    "action" to Color(0xFFFF7043),
-    "adventure" to Color(0xFF26A69A),
-    "boys' love" to Color(0xFF42A5F5),
-    "comedy" to Color(0xFFF5A623),
-    "crime" to Color(0xFF8D6E63),
-    "drama" to Color(0xFF5C6BC0),
-    "fantasy" to Color(0xFF8E44EC),
-    "girls' love" to Color(0xFFEC407A),
-    "historical" to Color(0xFFA1887F),
-    "horror" to Color(0xFF7B1FA2),
-    "isekai" to Color(0xFF00ACC1),
-    "magical girls" to Color(0xFFF06292),
-    "mecha" to Color(0xFF546E7A),
-    "medical" to Color(0xFF26C6DA),
-    "mystery" to Color(0xFF3F51B5),
-    "philosophical" to Color(0xFF78909C),
-    "psychological" to Color(0xFF6A1B9A),
-    "romance" to Color(0xFFFF4F81),
-    "sci-fi" to Color(0xFF1E88E5),
-    "slice of life" to Color(0xFF66BB6A),
-    "sports" to Color(0xFFEF6C00),
-    "superhero" to Color(0xFFD32F2F),
-    "thriller" to Color(0xFFE53935),
-    "tragedy" to Color(0xFF616161),
-    "wuxia" to Color(0xFFC0A060),
-)
-
-/** The colour for a genre label, or null for a genre with no colour of its own. */
-fun genreColor(genre: String?): Color? = genreColors[genre?.lowercase()]
-
 /** The shared transition scope around the navigation, or null outside it. */
 val LocalSharedScope = staticCompositionLocalOf<SharedTransitionScope?> { null }
 
@@ -154,12 +123,6 @@ fun Cover(
 
 /** The 256 px version of a MangaDex cover address, for small tiles. Other addresses pass through. */
 fun thumbnailUrl(url: String?): String? = url?.replace(".512.jpg", ".256.jpg")
-
-@Composable
-fun GenreLabel(genre: String?) {
-    if (genre == null) return
-    Text(genre, color = genreColor(genre) ?: MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-}
 
 /**
  * Text that shrinks, down to [minSize], until it fits its space in [maxLines] lines. Only text that

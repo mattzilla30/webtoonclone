@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -67,7 +68,7 @@ fun ErrorLogScreen(onBack: () -> Unit) {
                 Surface(
                     onClick = { open = !open },
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    color = Color.Transparent,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp),
                 ) {
                     Column(Modifier.padding(12.dp)) {

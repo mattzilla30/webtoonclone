@@ -29,6 +29,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -100,7 +101,7 @@ fun SeriesGrid(
 fun SeriesListRow(series: SeriesSummary, subscribed: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)?) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = Color.Transparent,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
             .clip(MaterialTheme.shapes.medium)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = if (subscribed) "Unsubscribe" else "Subscribe"),

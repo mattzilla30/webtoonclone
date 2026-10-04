@@ -339,7 +339,7 @@ private fun ContinueCard(
 private fun UnreadTile(unread: UnreadSeries, width: Dp, onClick: () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = Color.Transparent,
         onClick = onClick,
         modifier = Modifier.width(width),
     ) {
@@ -390,7 +390,7 @@ private fun HomeSearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
 private fun NewSeriesRow(series: SeriesSummary, onClick: () -> Unit, onLongClick: () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = Color.Transparent,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(MaterialTheme.shapes.medium)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Subscribe or unsubscribe"),
     ) {

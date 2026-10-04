@@ -183,13 +183,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onClose: () -> Unit, onOpenDown
     }
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
-        AppTopBar(
-            stringResource(R.string.settings),
-            actions = {
-                IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close settings") }
-            },
-        )
-        FilterField(query, { query = it }, "Search settings")
+        // No title bar: the bubble opens from the Settings button, so the search box and Close lead it.
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilterField(query, { query = it }, "Search settings", Modifier.weight(1f))
+            IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close settings") }
+        }
         // Every setting on one page, A to Z by name. The search box narrows it to matching rows.
         CompositionLocalProvider(LocalSettingsQuery provides query) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {

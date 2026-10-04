@@ -35,6 +35,8 @@ android {
         }
         // Native libraries ship compressed: a smaller APK to download, unpacked once at install.
         jniLibs { useLegacyPackaging = true }
+        // The same for the app's code: compressed in the APK, unpacked by Android at install.
+        dex { useLegacyPackaging = true }
     }
 
     buildTypes {

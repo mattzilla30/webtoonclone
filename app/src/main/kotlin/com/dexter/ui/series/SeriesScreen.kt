@@ -320,7 +320,7 @@ fun SeriesScreen(
                                 ),
                             ),
                         )
-                        // Top bar: home, info, share.
+                        // Top bar: home and info. Share lives in the More menu below.
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -331,17 +331,6 @@ fun SeriesScreen(
                             Spacer(Modifier.weight(1f))
                             FilledTonalIconButton(onClick = { showInfo = true }) {
                                 Icon(Icons.Default.Info, contentDescription = stringResource(R.string.info))
-                            }
-                            FilledTonalIconButton(
-                                onClick = {
-                                    val send = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, "${summary.title}\nhttps://mangadex.org/title/${summary.id}")
-                                    }
-                                    context.startActivity(Intent.createChooser(send, null))
-                                },
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
                             }
                         }
                         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 16.dp)) {
@@ -458,6 +447,17 @@ fun SeriesScreen(
                                     DropdownMenuItem(text = { Text(rating?.let { "Rated $it" } ?: "Rate") }, onClick = { moreMenu = false; rate = true })
                                 }
                                 DropdownMenuItem(text = { Text("Save chapters") }, onClick = { moreMenu = false; downloadMenu = true })
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.share)) },
+                                    onClick = {
+                                        moreMenu = false
+                                        val send = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, "${summary.title}\nhttps://mangadex.org/title/${summary.id}")
+                                        }
+                                        context.startActivity(Intent.createChooser(send, null))
+                                    },
+                                )
                             }
                             ListMenu(
                                 expanded = statusMenu,

@@ -30,18 +30,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
@@ -421,20 +425,6 @@ fun SeriesScreen(
                                 viewModel.toggleSubscribed(page.detail)
                             },
                         ) { Text(if (subscribed) "Subscribed" else "Subscribe") }
-                        // The "Want to read" pile: a curated list for series to try later.
-                        val wantToRead = allReadingLists.firstOrNull { it.id == WANT_TO_READ_LIST_ID }
-                        val inWantToRead = wantToRead?.entries?.any { it.seriesId == summary.id } == true
-                        ToggleButton(
-                            checked = inWantToRead,
-                            onCheckedChange = {
-                                haptics.performHapticFeedback(if (inWantToRead) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
-                                scope.launch {
-                                    val pile = readingLists.ensureWantToRead()
-                                    if (inWantToRead) readingLists.removeSeries(pile.id, summary.id)
-                                    else readingLists.addSeries(pile.id, summary.id, summary.title, summary.coverUrl)
-                                }
-                            },
-                        ) { Text(if (inWantToRead) "Want to read ✓" else "Want to read") }
                         if (subscribed) {
                             FilledTonalIconToggleButton(checked = notifyEnabled, onCheckedChange = { viewModel.setNotify(it) }) {
                                 Icon(
@@ -443,8 +433,32 @@ fun SeriesScreen(
                                 )
                             }
                         }
+                        // Everything else sits behind one More button, so the page leads with reading and subscribing.
+                        val wantToRead = allReadingLists.firstOrNull { it.id == WANT_TO_READ_LIST_ID }
+                        val inWantToRead = wantToRead?.entries?.any { it.seriesId == summary.id } == true
+                        var moreMenu by remember { mutableStateOf(false) }
                         Box {
-                            OutlinedButton(onClick = { statusMenu = true }) { Text(status?.label ?: "Add to list") }
+                            OutlinedIconButton(onClick = { moreMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
+                            DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(if (inWantToRead) "Remove from Want to read" else "Want to read") },
+                                    onClick = {
+                                        moreMenu = false
+                                        haptics.performHapticFeedback(if (inWantToRead) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                                        scope.launch {
+                                            val pile = readingLists.ensureWantToRead()
+                                            if (inWantToRead) readingLists.removeSeries(pile.id, summary.id)
+                                            else readingLists.addSeries(pile.id, summary.id, summary.title, summary.coverUrl)
+                                        }
+                                    },
+                                )
+                                DropdownMenuItem(text = { Text(status?.let { "List: ${it.label}" } ?: "Add to list") }, onClick = { moreMenu = false; statusMenu = true })
+                                DropdownMenuItem(text = { Text(if (note.isBlank()) "Add note" else "Edit note") }, onClick = { moreMenu = false; editNote = true })
+                                if (signedIn) {
+                                    DropdownMenuItem(text = { Text(rating?.let { "Rated $it" } ?: "Rate") }, onClick = { moreMenu = false; rate = true })
+                                }
+                                DropdownMenuItem(text = { Text("Save chapters") }, onClick = { moreMenu = false; downloadMenu = true })
+                            }
                             ListMenu(
                                 expanded = statusMenu,
                                 status = status,
@@ -455,13 +469,6 @@ fun SeriesScreen(
                                 onNewCollection = { newCollection = "" },
                                 onHide = viewModel::hideSeries,
                             )
-                        }
-                        OutlinedButton(onClick = { editNote = true }) { Text(if (note.isBlank()) "Add note" else "Edit note") }
-                        if (signedIn) {
-                            OutlinedButton(onClick = { rate = true }) { Text(rating?.let { "Rated $it" } ?: "Rate") }
-                        }
-                        Box {
-                            OutlinedButton(onClick = { downloadMenu = true }) { Text("Save") }
                             DownloadMenu(expanded = downloadMenu, onDismiss = { downloadMenu = false }) { count -> viewModel.downloadUnread(page.detail, count) }
                         }
                     }

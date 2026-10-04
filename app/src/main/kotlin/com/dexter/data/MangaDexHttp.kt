@@ -62,7 +62,11 @@ class MangaDexHttp(private val client: OkHttpClient) {
 
     private fun checked(url: HttpUrl, response: Response): Response {
         if (response.code == 429 || response.code >= 500) {
-            val wait = response.header("Retry-After")?.toLongOrNull()?.times(1_000)
+            // MangaDex names the moment its rate limit lifts in X-RateLimit-Retry-After, as Unix seconds;
+            // other servers send the standard Retry-After, as a number of seconds.
+            val wait = response.header("X-RateLimit-Retry-After")?.toLongOrNull()
+                ?.let { (it * 1_000 - System.currentTimeMillis()).coerceAtLeast(1_000) }
+                ?: response.header("Retry-After")?.toLongOrNull()?.times(1_000)
             throw RetryableException(response.code, wait?.coerceAtMost(MAX_RETRY_WAIT_MS))
         }
         if (!response.isSuccessful) throw HttpStatusException(response.code, "MangaDex ${url.encodedPath} failed: ${response.code}")
